@@ -329,6 +329,50 @@ export default function SubjectsView({
           </div>
         )}
       </AnimatePresence>
+
+      {/* Custom Delete Confirmation Modal */}
+      <AnimatePresence>
+        {confirmDelete && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              className="bg-[#0e111a] border border-[#ffffff10] rounded-2xl w-full max-w-sm shadow-2xl p-6 relative overflow-hidden"
+            >
+              <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-rose-500 to-red-600"></div>
+              
+              <h2 className="text-xl font-serif italic text-white mb-2 flex items-center gap-2.5">
+                <Trash2 className="w-5 h-5 text-rose-400" />
+                Tirtir Maaddada
+              </h2>
+              
+              <p className="text-xs text-[#94a3b8] leading-relaxed mb-6">
+                Ma hubtaa inaad tirtirto maaddada <strong className="text-white">"{confirmDelete.name}"</strong>? Tani dib looma soo celin karo.
+              </p>
+
+              <div className="flex items-center justify-end gap-3 text-[10px] font-bold uppercase tracking-widest">
+                <button 
+                  type="button"
+                  onClick={() => setConfirmDelete(null)}
+                  className="px-4 py-2.5 rounded-xl border border-[#ffffff10] hover:bg-[#ffffff05] text-[#737373] hover:text-[#e5e5e5] transition-all"
+                >
+                  Huri (No)
+                </button>
+                <button 
+                  type="button"
+                  onClick={executeDelete}
+                  disabled={loading}
+                  className="px-5 py-2.5 rounded-xl bg-rose-500 hover:bg-rose-600 text-white shadow-lg shadow-rose-950/20 transition-all disabled:opacity-50"
+                >
+                  {loading ? 'Tirtiraya...' : 'Tirtir (Yes)'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 }
