@@ -90,11 +90,18 @@ try {
   console.error("Failed to initialize Supabase client:", err);
 }
 
-// ✅ EMAILJS CONFIG
-const EMAILJS_SERVICE_ID = process.env.EMAILJS_SERVICE_ID || "service_q38k4ec";
-const EMAILJS_TEMPLATE_ID = process.env.EMAILJS_TEMPLATE_ID || "template_b9npzpb";
-const EMAILJS_PUBLIC_KEY = process.env.EMAILJS_PUBLIC_KEY || "RD0WsyEDNvR-wAcY4";
-const EMAILJS_PRIVATE_KEY = process.env.EMAILJS_PRIVATE_KEY || "QNbWw8oB-wr8TjYRpnqLc";
+// ✅ NODEMAILER - Gmail Port 465
+import nodemailer from "nodemailer";
+
+const transporter = nodemailer.createTransport({
+  host: "smtp.gmail.com",
+  port: 465,
+  secure: true,
+  auth: {
+    user: process.env.SMTP_USER || "samataromer4@gmail.com",
+    pass: process.env.SMTP_PASS || "gqhfdqimvdhmgkmm",
+  },
+});
 
 // Local database fallback
 const LOCAL_DB_PATH = path.join(process.cwd(), "database.json");
@@ -302,34 +309,31 @@ function simpleHash(password: string): string {
   return hash.toString(16);
 }
 
-// ✅ EMAILJS EMAIL FUNCTION
+// ✅ NODEMAILER EMAIL FUNCTION - Port 465
 async function sendVerificationEmail(toEmail: string, code: string) {
   try {
-    const response = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        service_id: EMAILJS_SERVICE_ID,
-        template_id: EMAILJS_TEMPLATE_ID,
-        user_id: EMAILJS_PUBLIC_KEY,
-        accessToken: EMAILJS_PRIVATE_KEY,
-        template_params: {
-          to_email: toEmail,
-          email: toEmail,
-          passcode: code,
-          time: new Date().toLocaleString()
-        }
-      })
+    await transporter.sendMail({
+      from: `"Dugsiga Pro" <${process.env.SMTP_USER || "samataromer4@gmail.com"}>`,
+      to: toEmail,
+      subject: "Dugsiga Pro 2026 - Verification Code",
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+          <h2 style="color: #4f46e5; text-align: center;">Dugsiga Pro 2026</h2>
+          <p>Assalamu Alaikum / Welcome to Dugsiga Pro School Management System.</p>
+          <p>Saxeexkaaga ama Signup-kaaga si loo xaqiijiyo, fadlan isticmaal lambarkan xaqiijinta:</p>
+          <div style="text-align: center; margin: 30px 0;">
+            <span style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #1e1b4b; background-color: #f3f4f6; padding: 10px 20px; border-radius: 6px; border: 1px dashed #4f46e5;">
+              ${code}
+            </span>
+          </div>
+          <p>Koodhkan wuxuu dhacayaa dhowaan. Fadlan ha la wadaagin cid kale.</p>
+          <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 30px 0;" />
+          <p style="font-size: 12px; color: #64748b; text-align: center;">Dugsiga Pro 2026 - Online School Management Portal</p>
+        </div>
+      `,
     });
-
-    if (response.ok) {
-      console.log(`Verification email successfully sent to ${toEmail}`);
-      return true;
-    } else {
-      const errText = await response.text();
-      console.error("EmailJS error:", errText);
-      return false;
-    }
+    console.log(`Verification email successfully sent to ${toEmail}`);
+    return true;
   } catch (error) {
     console.error("Email send failed:", error);
     return false;
