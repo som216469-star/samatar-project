@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { FileText, Printer, Search, Download, Calendar, DollarSign, Award, Users, ChevronRight, CheckCircle2, UserCheck } from 'lucide-react';
 import { motion } from 'motion/react';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { Student, SchoolClass, SchoolSubject, ExamScore, AttendanceRecord, FeeRecord } from '../types';
 
 interface ReportsViewProps {
@@ -89,8 +91,349 @@ export default function ReportsView({
     return { text: "Heerka waa mid hooseeya, fadlan la xiriir iskuulka (Underachieving, Contact School)", color: "text-rose-400" };
   };
 
+  const exportClassReportToPDF = () => {
+    try {
+      const doc = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
+
+      // Top border accent bar
+      doc.setFillColor(124, 58, 237);
+      doc.rect(0, 0, 210, 6, 'F');
+
+      // School info
+      doc.setTextColor(17, 24, 39);
+      doc.setFont('Helvetica', 'bold');
+      doc.setFontSize(20);
+      doc.text('Dugsiga Portal', 15, 20);
+
+      doc.setTextColor(107, 114, 128);
+      doc.setFont('Helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.text('Xafiiska Maamulka & Diiwaangelinta', 15, 25);
+
+      // Title
+      doc.setTextColor(124, 58, 237);
+      doc.setFont('Helvetica', 'bold');
+      doc.setFontSize(12);
+      doc.text('WARBIXINTA GUUD EE FASALKA', 195, 20, { align: 'right' });
+      doc.text(`(CLASS REPORT - ${selectedClass.toUpperCase()})`, 195, 24, { align: 'right' });
+
+      doc.setTextColor(107, 114, 128);
+      doc.setFont('Helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.text(`Taariikhda: ${new Date().toLocaleDateString()}`, 195, 30, { align: 'right' });
+      doc.text(`Tirada Ardayda: ${classStudents.length}`, 195, 34, { align: 'right' });
+
+      // Divider
+      doc.setDrawColor(229, 231, 235);
+      doc.setLineWidth(0.5);
+      doc.line(15, 38, 195, 38);
+
+      // Metrics grid box (X = 15, Y = 43)
+      doc.setFillColor(249, 250, 251);
+      doc.rect(15, 43, 180, 22, 'F');
+      doc.setDrawColor(243, 244, 246);
+      doc.rect(15, 43, 180, 22, 'S');
+
+      doc.setFontSize(8);
+      doc.setTextColor(107, 114, 128);
+      doc.setFont('Helvetica', 'normal');
+      doc.text('Attendance Rate', 20, 49);
+      doc.text('Tuition Fee Rate', 75, 49);
+      doc.text('Exam Score Avg', 135, 49);
+
+      doc.setFontSize(11);
+      doc.setTextColor(17, 24, 39);
+      doc.setFont('Helvetica', 'bold');
+      doc.text(`${classAttendanceRate}%`, 20, 55);
+      doc.text(`${classFinanceRate}%`, 75, 55);
+      doc.text(`${classExamAvg}%`, 135, 55);
+
+      // Detailed Info
+      doc.setFontSize(8.5);
+      doc.setTextColor(107, 114, 128);
+      doc.setFont('Helvetica', 'normal');
+      const teacherName = classes.find(c => c.className === selectedClass)?.teacherName || 'Lama qoondeyn';
+      const roomNum = classes.find(c => c.className === selectedClass)?.roomNumber || 'N/A';
+      doc.text(`Macallinka: ${teacherName}   |   Room: ${roomNum}   |   Wiilal: ${classMaleCount}   |   Gabdho: ${classFemaleCount}`, 15, 71);
+
+      // Table
+      const tableBody = classStudents.map((s, idx) => [
+        (idx + 1).toString(),
+        s.id,
+        s.fullName.toUpperCase(),
+        s.gender.toUpperCase(),
+        s.guardianPhone || 'N/A',
+        s.status.toUpperCase()
+      ]);
+
+      autoTable(doc, {
+        startY: 76,
+        head: [['#', 'Arday ID', 'Magaca Ardayga (Student Name)', 'Gender', 'Phone', 'Status']],
+        body: tableBody.length > 0 ? tableBody : [['-', '-', 'Fasalkan hadda arday kuma diiwaangashana.', '-', '-', '-']],
+        headStyles: { fillColor: [124, 58, 237], textColor: [255, 255, 255], fontStyle: 'bold' },
+        styles: { fontSize: 8.5, cellPadding: 2.5, font: 'Helvetica' },
+        columnStyles: {
+          0: { halign: 'center' },
+          1: { halign: 'center' },
+          2: { halign: 'left', fontStyle: 'bold' },
+          3: { halign: 'center' },
+          4: { halign: 'center' },
+          5: { halign: 'center' }
+        }
+      });
+
+      // Footer
+      doc.setFontSize(8);
+      doc.setTextColor(156, 163, 175);
+      doc.text(`Dugsiga Portal - System Generated Official Class Report`, 105, 282, { align: 'center' });
+
+      doc.save(`Warbixinta_Fasalka_${selectedClass.replace(/\s+/g, '_')}.pdf`);
+    } catch (err) {
+      console.error("Failed to export class report PDF:", err);
+    }
+  };
+
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleDownloadPDF = () => {
+    if (!activeStudent) return;
+
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4'
+    });
+
+    // 1. PDF Page Background & Margins
+    // Accent color: Deep Royal Purple [124, 58, 237]
+    // Dark text color: Charcoal [17, 24, 39]
+    // Muted text color: Cool Gray [107, 114, 128]
+
+    // Top border accent bar
+    doc.setFillColor(124, 58, 237);
+    doc.rect(0, 0, 210, 6, 'F');
+
+    // 2. School Header
+    doc.setTextColor(17, 24, 39);
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(22);
+    doc.text('Dugsiga Portal', 15, 20);
+
+    doc.setTextColor(107, 114, 128);
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.text('Xafiiska Imtixaanaadka & Maamulka', 15, 25);
+
+    // Document Title on Right
+    doc.setTextColor(124, 58, 237);
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(12);
+    doc.text('WARQADDA NATIIJADA', 195, 20, { align: 'right' });
+    doc.text('(STUDENT REPORT CARD)', 195, 24, { align: 'right' });
+
+    doc.setTextColor(107, 114, 128);
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.text(`Taariikhda: ${new Date().toISOString().split('T')[0]}`, 195, 29, { align: 'right' });
+    doc.text(`Ardayda ID: ${activeStudent.id}`, 195, 33, { align: 'right' });
+
+    // Header Divider Line
+    doc.setDrawColor(229, 231, 235);
+    doc.setLineWidth(0.5);
+    doc.line(15, 38, 195, 38);
+
+    // 3. Student Photo Box (X = 15, Y = 43, Size = 26x26)
+    const photoSize = 26;
+    if (activeStudent.photo) {
+      try {
+        doc.addImage(activeStudent.photo, 'JPEG', 15, 43, photoSize, photoSize);
+      } catch (e) {
+        // Fallback placeholder box on error
+        doc.setFillColor(243, 244, 246);
+        doc.rect(15, 43, photoSize, photoSize, 'F');
+        doc.setDrawColor(229, 231, 235);
+        doc.rect(15, 43, photoSize, photoSize, 'S');
+        doc.setTextColor(156, 163, 175);
+        doc.setFontSize(8);
+        doc.text('Sawir', 28, 56, { align: 'center' });
+      }
+    } else {
+      // Elegant standard empty avatar box
+      doc.setFillColor(243, 244, 246);
+      doc.rect(15, 43, photoSize, photoSize, 'F');
+      doc.setDrawColor(229, 231, 235);
+      doc.rect(15, 43, photoSize, photoSize, 'S');
+      doc.setTextColor(156, 163, 175);
+      doc.setFontSize(8);
+      doc.text('No Photo', 28, 56, { align: 'center' });
+    }
+
+    // 4. Student Demographics Info Grid (beside photo, starting at X = 48)
+    const gridX = 48;
+    const gridY = 43;
+
+    doc.setFillColor(249, 250, 251);
+    doc.rect(gridX, gridY, 147, photoSize, 'F');
+    doc.setDrawColor(243, 244, 246);
+    doc.rect(gridX, gridY, 147, photoSize, 'S');
+
+    // Demographics Labels and Values
+    doc.setFontSize(8);
+    doc.setTextColor(107, 114, 128);
+    doc.setFont('Helvetica', 'normal');
+    doc.text('Magaca (Student Name)', gridX + 5, gridY + 6);
+    doc.text('Fasalka (Class)', gridX + 80, gridY + 6);
+    doc.text('Lab/Dhedig (Gender)', gridX + 5, gridY + 18);
+    doc.text('Taleefanka Waalidka', gridX + 80, gridY + 18);
+
+    doc.setFontSize(9.5);
+    doc.setTextColor(17, 24, 39);
+    doc.setFont('Helvetica', 'bold');
+    doc.text(activeStudent.fullName.toUpperCase(), gridX + 5, gridY + 11);
+    doc.text(activeStudent.class.toUpperCase(), gridX + 80, gridY + 11);
+    doc.text(activeStudent.gender.toUpperCase(), gridX + 5, gridY + 23);
+    doc.text(activeStudent.guardianPhone || 'N/A', gridX + 80, gridY + 23);
+
+    // 5. Attendance & Finance Performance Section (Y = 75 to 102)
+    const sectionY = 75;
+
+    // Left Box: Attendance Summary (X = 15 to 102)
+    doc.setFillColor(249, 250, 251);
+    doc.rect(15, sectionY, 87, 26, 'F');
+    doc.setDrawColor(243, 244, 246);
+    doc.rect(15, sectionY, 87, 26, 'S');
+
+    doc.setFontSize(9);
+    doc.setTextColor(124, 58, 237);
+    doc.setFont('Helvetica', 'bold');
+    doc.text('Xaadirinta (Attendance)', 20, sectionY + 5);
+
+    doc.setFontSize(8);
+    doc.setTextColor(107, 114, 128);
+    doc.setFont('Helvetica', 'normal');
+    doc.text(`Xaadir (Present): ${stdPresentCount}`, 20, sectionY + 11);
+    doc.text(`Maqan (Absent): ${stdAbsentCount}`, 20, sectionY + 16);
+    doc.text(`Celcelis Rate: ${stdAttendanceRate}%`, 20, sectionY + 21);
+
+    // Right Box: Finance Summary (X = 108 to 195)
+    doc.setFillColor(249, 250, 251);
+    doc.rect(108, sectionY, 87, 26, 'F');
+    doc.setDrawColor(243, 244, 246);
+    doc.rect(108, sectionY, 87, 26, 'S');
+
+    doc.setFontSize(9);
+    doc.setTextColor(16, 185, 129);
+    doc.setFont('Helvetica', 'bold');
+    doc.text('Maaliyadda (Fee Status)', 113, sectionY + 5);
+
+    doc.setFontSize(8);
+    doc.setTextColor(107, 114, 128);
+    doc.setFont('Helvetica', 'normal');
+    doc.text(`Lagu Leeyahay: $${stdTotalInvoiced}`, 113, sectionY + 11);
+    doc.text(`La Bixiyey: $${stdTotalPaid}`, 113, sectionY + 16);
+    doc.text(`Hoor (Balance): $${stdBalance}`, 113, sectionY + 21);
+
+    // 6. Academics Table (using autoTable)
+    doc.setTextColor(17, 24, 39);
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.text('Natiijada Imtixaanada (Academic Exam Scores)', 15, 111);
+
+    const tableBody = activeStudentExams.map(score => {
+      const percentage = Math.round((score.marksObtained / score.maxMarks) * 100);
+      return [
+        score.subjectName,
+        score.examName,
+        score.term,
+        score.marksObtained.toString(),
+        score.maxMarks.toString(),
+        `${percentage}%`,
+        score.grade
+      ];
+    });
+
+    (doc as any).autoTable({
+      startY: 115,
+      head: [['Maaddada (Subject)', 'Imtixaan', 'Term', 'La Helay', 'Sare', 'Boqolley (%)', 'Grade']],
+      body: tableBody.length > 0 ? tableBody : [['Weli wax natiijo ah lama helin', '-', '-', '-', '-', '-', '-']],
+      headStyles: { fillColor: [124, 58, 237], textColor: [255, 255, 255], fontStyle: 'bold' },
+      styles: { fontSize: 8.5, cellPadding: 2.5, font: 'Helvetica' },
+      columnStyles: {
+        0: { halign: 'left', fontStyle: 'bold' },
+        1: { halign: 'center' },
+        2: { halign: 'center' },
+        3: { halign: 'center' },
+        4: { halign: 'center' },
+        5: { halign: 'center' },
+        6: { halign: 'right', fontStyle: 'bold' }
+      }
+    });
+
+    // 7. Overall Average and Feedback
+    const finalY = (doc as any).lastAutoTable.finalY || 160;
+
+    if (activeStudentExams.length > 0) {
+      doc.setFillColor(243, 244, 246);
+      doc.rect(15, finalY + 6, 180, 18, 'F');
+      doc.setDrawColor(229, 231, 235);
+      doc.rect(15, finalY + 6, 180, 18, 'S');
+
+      doc.setFontSize(8);
+      doc.setTextColor(107, 114, 128);
+      doc.setFont('Helvetica', 'normal');
+      doc.text('CELCELISKA GUUD (OVERALL AVERAGE)', 20, finalY + 12);
+      
+      doc.setFontSize(13);
+      doc.setTextColor(124, 58, 237);
+      doc.setFont('Helvetica', 'bold');
+      doc.text(`${stdAvgPercentage}%`, 20, finalY + 20);
+
+      const feedback = getAcademicFeedback(stdAvgPercentage);
+      doc.setFontSize(8.5);
+      doc.setTextColor(17, 24, 39);
+      doc.setFont('Helvetica', 'bold');
+      doc.text(feedback.text, 80, finalY + 16);
+    }
+
+    // 8. Signature Area (Y = 250 approx)
+    const sigY = 250;
+    doc.setDrawColor(229, 231, 235);
+    doc.setLineWidth(0.4);
+
+    // Left signature line
+    doc.line(15, sigY, 90, sigY);
+    doc.setFontSize(8.5);
+    doc.setTextColor(17, 24, 39);
+    doc.setFont('Helvetica', 'bold');
+    doc.text('Saxiixa Macallinka (Class Teacher)', 52, sigY + 5, { align: 'center' });
+    doc.setFontSize(7.5);
+    doc.setTextColor(107, 114, 128);
+    doc.setFont('Helvetica', 'normal');
+    doc.text('Dugsiga Portal Office', 52, sigY + 9, { align: 'center' });
+
+    // Right signature line
+    doc.line(120, sigY, 195, sigY);
+    doc.setFontSize(8.5);
+    doc.setTextColor(17, 24, 39);
+    doc.setFont('Helvetica', 'bold');
+    doc.text('Saxiixa Maamulaha (Headmaster)', 157, sigY + 5, { align: 'center' });
+    doc.setFontSize(7.5);
+    doc.setTextColor(107, 114, 128);
+    doc.setFont('Helvetica', 'normal');
+    doc.text('Shaabadda Iskuulka', 157, sigY + 9, { align: 'center' });
+
+    // Footer copyright or watermark
+    doc.setFontSize(7);
+    doc.setTextColor(156, 163, 175);
+    doc.text('Dugsiga Portal - System Generated Official Academic Record', 105, 282, { align: 'center' });
+
+    doc.save(`Warbixinta_Ardayga_${activeStudent.fullName.replace(/\s+/g, '_')}.pdf`);
   };
 
   // Filter students for search dropdown
@@ -172,15 +515,24 @@ export default function ReportsView({
               <h2 className="text-lg font-serif italic text-white">Dooro Fasalka aad rabto warbixintiisa</h2>
               <p className="text-[10px] uppercase tracking-wider text-[#737373]">Xogta hoose waxay si toos ah u xisaabinaysaa celcelisyada fasalkan</p>
             </div>
-            <select 
-              value={selectedClass}
-              onChange={(e) => setSelectedClass(e.target.value)}
-              className="px-4 py-3.5 rounded-xl border border-[#ffffff10] bg-[#0a0a0a] text-xs font-bold uppercase tracking-wider text-[#e5e5e5] focus:outline-none focus:border-[#7c3aed] min-w-[200px]"
-            >
-              {classes.map(c => (
-                <option key={c.id} value={c.className}>{c.className}</option>
-              ))}
-            </select>
+            <div className="flex items-center gap-3 w-full md:w-auto flex-wrap sm:flex-nowrap">
+              <select 
+                value={selectedClass}
+                onChange={(e) => setSelectedClass(e.target.value)}
+                className="px-4 py-3.5 rounded-xl border border-[#ffffff10] bg-[#0a0a0a] text-xs font-bold uppercase tracking-wider text-[#e5e5e5] focus:outline-none focus:border-[#7c3aed] min-w-[200px]"
+              >
+                {classes.map(c => (
+                  <option key={c.id} value={c.className}>{c.className}</option>
+                ))}
+              </select>
+              <button
+                onClick={exportClassReportToPDF}
+                className="flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] hover:from-[#8b5cf6] hover:to-[#7c3aed] text-white text-xs uppercase tracking-widest font-bold shadow-lg transition-all cursor-pointer shrink-0"
+              >
+                <Download className="w-4 h-4" />
+                <span>Export PDF</span>
+              </button>
+            </div>
           </div>
 
           {/* Quick Metrics */}
@@ -353,7 +705,7 @@ export default function ReportsView({
 
             {/* Selection Status */}
             {selectedStudentId ? (
-              <div className="flex items-center justify-between p-3.5 rounded-xl bg-[#7c3aed0a] border border-[#7c3aed20]">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-3.5 rounded-xl bg-[#7c3aed0a] border border-[#7c3aed20]">
                 <div className="flex items-center gap-3">
                   <div className="p-2.5 rounded-lg bg-[#7c3aed15] text-[#c4b5fd]">
                     <CheckCircle2 className="w-5 h-5" />
@@ -368,13 +720,22 @@ export default function ReportsView({
                   </div>
                 </div>
 
-                <button 
-                  onClick={handlePrint}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] hover:from-[#8b5cf6] hover:to-[#7c3aed] text-white text-[10px] uppercase tracking-widest font-bold shadow-lg transition-all"
-                >
-                  <Printer className="w-3.5 h-3.5" />
-                  <span>Daabac (Print Card)</span>
-                </button>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button 
+                    onClick={handleDownloadPDF}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] uppercase tracking-widest font-bold shadow-lg transition-all"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>La soo deg (Download PDF)</span>
+                  </button>
+                  <button 
+                    onClick={handlePrint}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] hover:from-[#8b5cf6] hover:to-[#7c3aed] text-white text-[10px] uppercase tracking-widest font-bold shadow-lg transition-all"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    <span>Daabac (Print Card)</span>
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="p-4 rounded-xl border border-[#ffffff05] bg-[#ffffff02] text-[#737373] text-xs text-center font-serif italic">
@@ -409,22 +770,37 @@ export default function ReportsView({
               </div>
 
               {/* Student Demographics Info Grid */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-[#ffffff02] border border-[#ffffff05] p-5 rounded-2xl">
-                <div>
-                  <p className="text-[9px] uppercase tracking-wider text-[#525252] font-semibold">Magaca (Student Name)</p>
-                  <p className="text-xs font-bold text-white uppercase mt-1 tracking-wider">{activeStudent.fullName}</p>
+              <div className="flex flex-col md:flex-row gap-6 bg-[#ffffff02] border border-[#ffffff05] p-5 rounded-2xl items-center">
+                {/* Photo Section */}
+                <div className="w-20 h-20 rounded-xl overflow-hidden bg-[#ffffff05] border border-[#ffffff10] flex items-center justify-center shrink-0">
+                  {activeStudent.photo ? (
+                    <img src={activeStudent.photo} alt={activeStudent.fullName} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full bg-[#7c3aed]/10 text-[#c4b5fd] flex flex-col items-center justify-center text-center p-1">
+                      <Users className="w-5 h-5 mb-0.5 text-[#c4b5fd]/80" />
+                      <span className="text-[8px] uppercase tracking-wider font-bold">No Photo</span>
+                    </div>
+                  )}
                 </div>
-                <div>
-                  <p className="text-[9px] uppercase tracking-wider text-[#525252] font-semibold">Fasalka (Class)</p>
-                  <p className="text-xs font-bold text-white uppercase mt-1 font-mono">{activeStudent.class}</p>
-                </div>
-                <div>
-                  <p className="text-[9px] uppercase tracking-wider text-[#525252] font-semibold">Lab/Dhedig (Gender)</p>
-                  <p className="text-xs font-bold text-white uppercase mt-1">{activeStudent.gender}</p>
-                </div>
-                <div>
-                  <p className="text-[9px] uppercase tracking-wider text-[#525252] font-semibold">Taleefanka Waalidka</p>
-                  <p className="text-xs font-bold text-white font-mono mt-1">{activeStudent.guardianPhone || 'N/A'}</p>
+
+                {/* Info Fields */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 flex-1 w-full text-left">
+                  <div>
+                    <p className="text-[9px] uppercase tracking-wider text-[#525252] font-semibold">Magaca (Student Name)</p>
+                    <p className="text-xs font-bold text-white uppercase mt-1 tracking-wider">{activeStudent.fullName}</p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] uppercase tracking-wider text-[#525252] font-semibold">Fasalka (Class)</p>
+                    <p className="text-xs font-bold text-white uppercase mt-1 font-mono">{activeStudent.class}</p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] uppercase tracking-wider text-[#525252] font-semibold">Lab/Dhedig (Gender)</p>
+                    <p className="text-xs font-bold text-white uppercase mt-1">{activeStudent.gender}</p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] uppercase tracking-wider text-[#525252] font-semibold">Taleefanka Waalidka</p>
+                    <p className="text-xs font-bold text-white font-mono mt-1">{activeStudent.guardianPhone || 'N/A'}</p>
+                  </div>
                 </div>
               </div>
 

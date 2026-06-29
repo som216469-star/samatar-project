@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
-import { Plus, Edit2, Trash2, Award, X, Sparkles, Search, User, Filter, Percent } from 'lucide-react';
+import { Plus, Edit2, Trash2, Award, X, Sparkles, Search, User, Filter, Percent, Download, Upload } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ExamScore, Student, SchoolSubject, SchoolClass } from '../types';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 
 interface ExamsViewProps {
   examScores: ExamScore[];
@@ -187,6 +190,222 @@ export default function ExamsView({
     ? subjects.filter(s => s.className.toLowerCase() === form.className.toLowerCase()) 
     : [];
 
+  const downloadExcelTemplate = () => {
+    const rows: any[] = [];
+    students.filter(s => s.status === 'active').forEach(s => {
+      const sSubjects = subjects.filter(sub => sub.className.toLowerCase() === s.class.toLowerCase());
+      if (sSubjects.length > 0) {
+        sSubjects.forEach(sub => {
+          rows.push({
+            "Arday ID (Student ID)": s.id,
+            "Magaca Ardayga (Name)": s.fullName,
+            "Fasalka (Class)": s.class,
+            "Maaddada (Subject)": sub.subjectName,
+            "Imtixaanka (Exam Name)": 'Imtixaanka Dhexe (Midterm)',
+            "Term-ka (Term)": 'Term 1',
+            "Dhibcaha Ugu Badan (Max Marks)": 100,
+            "Dhibcaha la Helay (Marks Obtained)": '',
+            "Taariikhda (Date - YYYY-MM-DD)": new Date().toISOString().split('T')[0]
+          });
+        });
+      } else {
+        rows.push({
+          "Arday ID (Student ID)": s.id,
+          "Magaca Ardayga (Name)": s.fullName,
+          "Fasalka (Class)": s.class,
+          "Maaddada (Subject)": 'General',
+          "Imtixaanka (Exam Name)": 'Imtixaanka Dhexe (Midterm)',
+          "Term-ka (Term)": 'Term 1',
+          "Dhibcaha Ugu Badan (Max Marks)": 100,
+          "Dhibcaha la Helay (Marks Obtained)": '',
+          "Taariikhda (Date - YYYY-MM-DD)": new Date().toISOString().split('T')[0]
+        });
+      }
+    });
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Exam_Template");
+    XLSX.writeFile(wb, "Natiijooyinka_Template.xlsx");
+  };
+
+  const handleExcelImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    const file = files[0];
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const data = XLSX.utils.sheet_to_json(ws);
+        
+        let importedCount = 0;
+        let errorCount = 0;
+
+        for (const row of data as any[]) {
+          const studentId = row["Arday ID (Student ID)"] || row["studentId"];
+          const subjectName = row["Maaddada (Subject)"] || row["subjectName"];
+          const examName = row["Imtixaanka (Exam Name)"] || row["examName"] || 'Imtixaanka Dhexe (Midterm)';
+          const term = row["Term-ka (Term)"] || row["term"] || 'Term 1';
+          const maxMarks = Number(row["Dhibcaha Ugu Badan (Max Marks)"] || row["maxMarks"] || 100);
+          const marksObtainedStr = row["Dhibcaha la Helay (Marks Obtained)"] !== undefined 
+            ? row["Dhibcaha la Helay (Marks Obtained)"] 
+            : row["marksObtained"];
+          
+          if (!studentId || !subjectName || marksObtainedStr === '' || marksObtainedStr === undefined) {
+            errorCount++;
+            continue;
+          }
+
+          const marksObtained = Number(marksObtainedStr);
+          const examDate = row["Taariikhda (Date - YYYY-MM-DD)"] || row["examDate"] || new Date().toISOString().split('T')[0];
+          
+          const student = students.find(s => s.id === studentId);
+          if (!student) {
+            errorCount++;
+            continue;
+          }
+
+          const payload = {
+            studentId,
+            studentName: student.fullName,
+            className: student.class,
+            subjectName,
+            examName,
+            term,
+            maxMarks,
+            marksObtained,
+            grade: calculateGrade(marksObtained, maxMarks),
+            examDate: typeof examDate === 'string' ? examDate : new Date().toISOString().split('T')[0]
+          };
+
+          await onAddExamScore(payload);
+          importedCount++;
+        }
+
+        alert(`Soo gelinta waa dhammaatay!\nNatiijooyinka si guul leh loo soo galiyey: ${importedCount}\nFidiyada ka haray ama dhibcaha aan la buuxin: ${errorCount}`);
+      } catch (err) {
+        console.error("Failing to parse excel:", err);
+        alert("Faylka Excel lama akhrin karo. Fadlan hubi in template-ka saxda ah aad soo gelisay.");
+      }
+    };
+    reader.readAsBinaryString(file);
+  };
+
+  const exportExamsToPDF = () => {
+    try {
+      if (filteredExams.length === 0) {
+        alert("Ma jiraan natiijooyin imtixaan oo la dhoofiyo.");
+        return;
+      }
+
+      const doc = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
+
+      // Top border accent bar (Deep Purple)
+      doc.setFillColor(124, 58, 237);
+      doc.rect(0, 0, 210, 6, 'F');
+
+      // School info
+      doc.setTextColor(17, 24, 39);
+      doc.setFont('Helvetica', 'bold');
+      doc.setFontSize(20);
+      doc.text('Dugsiga Portal', 15, 20);
+
+      doc.setTextColor(107, 114, 128);
+      doc.setFont('Helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.text('Xafiiska Imtixaanaadka & Maamulka', 15, 25);
+
+      // Title
+      doc.setTextColor(124, 58, 237);
+      doc.setFont('Helvetica', 'bold');
+      doc.setFontSize(12);
+      doc.text('NATIIJOOYINKA IMTIXAANADA', 195, 20, { align: 'right' });
+      doc.text('(EXAMINATION MARKS RECORD)', 195, 24, { align: 'right' });
+
+      doc.setTextColor(107, 114, 128);
+      doc.setFont('Helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.text(`Taariikhda: ${new Date().toLocaleDateString()}`, 195, 30, { align: 'right' });
+      doc.text(`Diiwaanada: ${filteredExams.length} Natiijooyin`, 195, 34, { align: 'right' });
+
+      // Divider
+      doc.setDrawColor(229, 231, 235);
+      doc.setLineWidth(0.5);
+      doc.line(15, 38, 195, 38);
+
+      // Metrics grid box (X = 15, Y = 43)
+      doc.setFillColor(249, 250, 251);
+      doc.rect(15, 43, 180, 22, 'F');
+      doc.setDrawColor(243, 244, 246);
+      doc.rect(15, 43, 180, 22, 'S');
+
+      doc.setFontSize(8);
+      doc.setTextColor(107, 114, 128);
+      doc.setFont('Helvetica', 'normal');
+      doc.text('Average Percentage', 20, 49);
+      doc.text('Pass Rate (>=60%)', 75, 49);
+      doc.text('Total Exam Entries', 135, 49);
+
+      doc.setFontSize(11);
+      doc.setTextColor(17, 24, 39);
+      doc.setFont('Helvetica', 'bold');
+      doc.text(`${averagePercentage}%`, 20, 55);
+      doc.text(`${passRate}%`, 75, 55);
+      doc.text(`${totalEntries}`, 135, 55);
+
+      // Table
+      const tableBody = filteredExams.map((e, idx) => {
+        const student = students.find(s => s.id === e.studentId);
+        const percentage = Math.round((e.marksObtained / e.maxMarks) * 100);
+        return [
+          (idx + 1).toString(),
+          student ? student.fullName.toUpperCase() : e.studentName.toUpperCase(),
+          e.className.toUpperCase(),
+          e.subjectName.toUpperCase(),
+          e.examName.toUpperCase(),
+          `${e.marksObtained} / ${e.maxMarks}`,
+          `${percentage}%`,
+          e.grade.toUpperCase()
+        ];
+      });
+
+      autoTable(doc, {
+        startY: 72,
+        head: [['#', 'Ardayga (Student)', 'Fasalka (Class)', 'Maaddada (Subject)', 'Imtixaan (Exam)', 'Marks', 'Percentage', 'Grade']],
+        body: tableBody,
+        headStyles: { fillColor: [124, 58, 237], textColor: [255, 255, 255], fontStyle: 'bold' },
+        styles: { fontSize: 8.5, cellPadding: 2.5, font: 'Helvetica' },
+        columnStyles: {
+          0: { halign: 'center' },
+          1: { halign: 'left', fontStyle: 'bold' },
+          2: { halign: 'center' },
+          3: { halign: 'left' },
+          4: { halign: 'left' },
+          5: { halign: 'center' },
+          6: { halign: 'center', fontStyle: 'bold' },
+          7: { halign: 'center', fontStyle: 'bold' }
+        }
+      });
+
+      // Footer
+      doc.setFontSize(8);
+      doc.setTextColor(156, 163, 175);
+      doc.text(`Dugsiga Portal - System Generated Official Examination Statement`, 105, 282, { align: 'center' });
+
+      doc.save(`Liiska_Natiijooyinka_Imtixaanada.pdf`);
+    } catch (err) {
+      console.error("Failed to export exams to PDF:", err);
+    }
+  };
+
   return (
     <div id="exams-view-root" className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -197,14 +416,43 @@ export default function ExamsView({
           <p className="text-[11px] uppercase tracking-widest text-[#737373] mt-1">Geli natiijooyinka imtixaanka adoo isticmaalaya nidaamka darajooyinka casriga ah</p>
         </div>
 
-        <button 
-          onClick={openAddModal}
-          disabled={students.length === 0 || subjects.length === 0}
-          className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] hover:from-[#8b5cf6] hover:to-[#7c3aed] text-white text-xs uppercase tracking-widest font-bold shadow-lg hover:shadow-[#7c3aed20] transition-all duration-300 transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Natiijo Cusub (Add Marks)</span>
-        </button>
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+          <button 
+            onClick={downloadExcelTemplate}
+            className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-emerald-600/10 border border-emerald-500/20 hover:bg-emerald-600/20 text-emerald-400 text-xs uppercase tracking-widest font-bold shadow-lg transition-all duration-300 cursor-pointer"
+            title="Download prepopulated student exam Excel template"
+          >
+            <Download className="w-4 h-4" />
+            <span>Template Excel</span>
+          </button>
+
+          <label className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-amber-600/10 border border-amber-500/20 hover:bg-amber-600/20 text-amber-400 text-xs uppercase tracking-widest font-bold shadow-lg transition-all duration-300 cursor-pointer">
+            <Upload className="w-4 h-4" />
+            <span>Soo Geli (Import)</span>
+            <input 
+              type="file"
+              accept=".xlsx, .xls"
+              onChange={handleExcelImport}
+              className="hidden"
+            />
+          </label>
+
+          <button 
+            onClick={exportExamsToPDF}
+            className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-[#7c3aed]/10 border border-[#7c3aed]/20 hover:bg-[#7c3aed]/20 text-[#c4b5fd] text-xs uppercase tracking-widest font-bold shadow-lg transition-all duration-300 cursor-pointer"
+          >
+            <Download className="w-4 h-4" />
+            <span>Dhoofi PDF (Export PDF)</span>
+          </button>
+          <button 
+            onClick={openAddModal}
+            disabled={students.length === 0 || subjects.length === 0}
+            className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] hover:from-[#8b5cf6] hover:to-[#7c3aed] text-white text-xs uppercase tracking-widest font-bold shadow-lg hover:shadow-[#7c3aed20] transition-all duration-300 transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Natiijo Cusub (Add Marks)</span>
+          </button>
+        </div>
       </div>
 
       {(students.length === 0 || subjects.length === 0) && (

@@ -6,6 +6,7 @@ export interface Student {
   guardianPhone: string;
   status: 'active' | 'inactive';
   createdAt: string;
+  photo?: string;
 }
 
 export interface AttendanceRecord {
@@ -72,6 +73,15 @@ export interface SystemSettings {
   currency: string;
   feeAmount: number;
   systemTheme: 'light' | 'dark';
+  academicYear?: string;
+  schoolEmail?: string;
+  schoolPhone?: string;
+  schoolAddress?: string;
+  passThreshold?: number;
+  gradeAThreshold?: number;
+  gradeBThreshold?: number;
+  gradeCThreshold?: number;
+  gradeDThreshold?: number;
 }
 
 export interface DbStatus {
