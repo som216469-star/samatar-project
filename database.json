@@ -1,0 +1,61 @@
+{
+  "users": [
+    {
+      "email": "som216469@gmail.com",
+      "password_hash": "-370d3a1b",
+      "verified": true
+    }
+  ],
+  "students": [
+    {
+      "id": "std-1001",
+      "fullName": "Axmed Cabdi Cali",
+      "class": "Fasalka 1aad (Grade 1)",
+      "gender": "male",
+      "guardianPhone": "+252615000000",
+      "status": "active",
+      "createdAt": "2026-09-16",
+      "schoolId": "som216469@gmail.com"
+    }
+  ],
+  "attendance": [
+    {
+      "schoolId": "som216469@gmail.com",
+      "date": "2026-09-16",
+      "studentId": "std-1001",
+      "status": "present",
+      "timestamp": "2026-09-16T10:00:00.000Z",
+      "sessionType": "before_break"
+    }
+  ],
+  "fees": [
+    {
+      "studentId": "std-1001",
+      "month": "September",
+      "year": 2026,
+      "amount": 50,
+      "paidAmount": 50,
+      "status": "paid",
+      "schoolId": "som216469@gmail.com"
+    }
+  ],
+  "classes": [
+    {
+      "id": "cls-xdubub8qv",
+      "schoolId": "som216469@gmail.com",
+      "className": "Fasalka 1aad (Grade 1)",
+      "teacherName": "Macallin Cali",
+      "roomNumber": "101",
+      "description": "Fasalka koowaad",
+      "createdAt": "2026-09-16"
+    }
+  ],
+  "subjects": [],
+  "examScores": [],
+  "settings": {
+    "schoolName": "Dugsiga Pro 2026",
+    "currency": "USD",
+    "feeAmount": 50,
+    "systemTheme": "light"
+  }
+}

@@ -358,7 +358,7 @@ export default function ReportsView({
       ];
     });
 
-    (doc as any).autoTable({
+    autoTable(doc, {
       startY: 115,
       head: [['Maaddada (Subject)', 'Imtixaan', 'Term', 'La Helay', 'Sare', 'Boqolley (%)', 'Grade']],
       body: tableBody.length > 0 ? tableBody : [['Weli wax natiijo ah lama helin', '-', '-', '-', '-', '-', '-']],

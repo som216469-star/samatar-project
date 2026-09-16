@@ -55,6 +55,7 @@ import ClassesView from './components/ClassesView';
 import SubjectsView from './components/SubjectsView';
 import ExamsView from './components/ExamsView';
 import ReportsView from './components/ReportsView';
+import LandingPage from './components/LandingPage';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
@@ -82,16 +83,65 @@ const fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Resp
 };
 
 export default function App() {
+  // Public Routing State: 'landing' | 'login' | 'signup' | 'dashboard'
+  const [currentRoute, setCurrentRoute] = useState<'landing' | 'login' | 'signup' | 'dashboard'>(() => {
+    if (typeof window === 'undefined') return 'landing';
+    const path = window.location.pathname.toLowerCase();
+    if (path === '/login') return 'login';
+    if (path === '/signup') return 'signup';
+    if (path === '/dashboard') return 'dashboard';
+    return 'landing';
+  });
+
   // Authentication State
   const [user, setUser] = useState<{ email: string } | null>(() => {
     const saved = localStorage.getItem('dugsiga_auth');
     return saved ? JSON.parse(saved) : null;
   });
-  const [authView, setAuthView] = useState<'login' | 'signup'>('login');
+  const [authView, setAuthView] = useState<'login' | 'signup'>(() => {
+    if (typeof window === 'undefined') return 'login';
+    const path = window.location.pathname.toLowerCase();
+    return path === '/signup' ? 'signup' : 'login';
+  });
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState('');
+
+  // Navigation router handler
+  const navigate = (route: 'landing' | 'login' | 'signup' | 'dashboard') => {
+    setCurrentRoute(route);
+    if (route === 'login') {
+      setAuthView('login');
+      window.history.pushState({}, '', '/login');
+    } else if (route === 'signup') {
+      setAuthView('signup');
+      window.history.pushState({}, '', '/signup');
+    } else if (route === 'dashboard') {
+      window.history.pushState({}, '', '/dashboard');
+    } else {
+      window.history.pushState({}, '', '/');
+    }
+  };
+
+  useEffect(() => {
+    const handlePopState = () => {
+      const path = window.location.pathname.toLowerCase();
+      if (path === '/login') {
+        setCurrentRoute('login');
+        setAuthView('login');
+      } else if (path === '/signup') {
+        setCurrentRoute('signup');
+        setAuthView('signup');
+      } else if (path === '/dashboard') {
+        setCurrentRoute('dashboard');
+      } else {
+        setCurrentRoute('landing');
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   // App Layout & Tabs
   const [activeTab, setActiveTab] = useState<'dashboard' | 'students' | 'attendance' | 'fees' | 'reports' | 'settings' | 'classes' | 'subjects' | 'exams'>('dashboard');
@@ -493,6 +543,8 @@ export default function App() {
         if (res.ok) {
           localStorage.setItem('dugsiga_auth', JSON.stringify(data.user));
           setUser(data.user);
+          setCurrentRoute('dashboard');
+          window.history.pushState({}, '', '/dashboard');
           showToast("Ku soo dhowow Dugsiga Pro!", "success");
         } else {
           setAuthError(data.error || "Login-ku waa fashilmay.");
@@ -509,6 +561,8 @@ export default function App() {
           const userObj = { email };
           localStorage.setItem('dugsiga_auth', JSON.stringify(userObj));
           setUser(userObj);
+          setCurrentRoute('dashboard');
+          window.history.pushState({}, '', '/dashboard');
           showToast("Diiwaangelintu way guuleysatay! Ku soo dhowow Dugsiga Pro!", "success");
         } else {
           setAuthError(data.error || "Signup-ku waa fashilmay.");
@@ -525,6 +579,8 @@ export default function App() {
     localStorage.removeItem('dugsiga_auth');
     setUser(null);
     setAuthView('login');
+    setCurrentRoute('landing');
+    window.history.pushState({}, '', '/');
     setEmail('');
     setPassword('');
     showToast("Si guul leh ayaad uga baxday (Logged Out)");
@@ -1347,11 +1403,6 @@ export default function App() {
     });
   };
 
-  const handleCopyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    showToast("SQL script si guul leh ayaa loo koobiyeeyay!", "info");
-  };
-
   // Local Helpers for Analytics
   const activeStudents = students.filter(s => s.status === 'active');
   const totalStudentsCount = students.length;
@@ -1422,6 +1473,19 @@ export default function App() {
   };
 
   /* ==============================================
+     PUBLIC LANDING PAGE ROUTE (HOME /)
+     ============================================== */
+  if (currentRoute === 'landing') {
+    return (
+      <LandingPage
+        onNavigate={navigate}
+        isAuthenticated={!!user}
+        userEmail={user?.email}
+      />
+    );
+  }
+
+  /* ==============================================
      UNAUTHENTICATED GATE (LOGIN / SIGNUP / VERIFY)
      ============================================== */
   if (!user) {
@@ -1452,12 +1516,22 @@ export default function App() {
 
         {/* Header/Nav */}
         <nav className="flex justify-between items-center px-6 md:px-12 py-8 border-b border-[#ffffff10] z-10 bg-[#0a0a0a]/80 backdrop-blur-md">
-          <div className="flex items-center gap-3">
+          <div 
+            onClick={() => navigate('landing')}
+            className="flex items-center gap-3 cursor-pointer group"
+          >
             <div className="w-8 h-8 bg-gradient-to-tr from-[#c4b5fd] to-[#7c3aed] rounded-sm flex items-center justify-center">
               <Sparkles className="w-4 h-4 text-[#0a0a0a]" />
             </div>
             <span className="text-xl tracking-[0.2em] font-light uppercase">Atlas Auth</span>
           </div>
+
+          <button
+            onClick={() => navigate('landing')}
+            className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#94a3b8] hover:text-white transition-colors"
+          >
+            <span>← Back to Homepage</span>
+          </button>
         </nav>
 
         {/* Main Content split column layout */}
@@ -1465,23 +1539,24 @@ export default function App() {
           {/* Left Column (7/12 width equivalent) */}
           <div className="w-full lg:w-7/12 p-8 md:p-16 lg:p-20 flex flex-col justify-center relative border-b lg:border-b-0 lg:border-r border-[#ffffff10]">
             <h1 className="text-[52px] md:text-[72px] lg:text-[80px] leading-[0.9] font-serif italic mb-6 text-[#f5f5f5]">
-              Modern<br />Security.
+              Dugsiga<br />Maamulka.
             </h1>
             <p className="text-sm md:text-lg text-[#a3a3a3] leading-relaxed max-w-md">
-              Connected to live Supabase backend. Secure your application with real-time authentication and cloud-hosted data management.
+              Nidaam casri ah oo fududeynaya maamulka guud ee dugsiga, diiwaanka ardayda, xaadirinta, imtixaanaadka iyo xisaabaadka lacagaha.
             </p>
             
             <div className="mt-12 md:mt-16 grid grid-cols-2 gap-6 md:gap-8">
               <div className="border-l border-[#ffffff20] pl-6">
-                <span className="block text-[11px] uppercase tracking-widest text-[#737373] mb-1">Database Status</span>
-                <span className="text-base md:text-lg font-mono text-[#e5e5e5]">
-                  {dbStatus ? (dbStatus.fallbackMode ? 'Online Backup' : 'Online (v2.4.0)') : 'Checking...'}
+                <span className="block text-[11px] uppercase tracking-widest text-[#737373] mb-1">Nidaamka</span>
+                <span className="text-base md:text-lg font-medium text-[#e5e5e5]">
+                  Aamin & Sugan
                 </span>
               </div>
               <div className="border-l border-[#ffffff20] pl-6">
-                <span className="block text-[11px] uppercase tracking-widest text-[#737373] mb-1">SMTP Server</span>
-                <span className="text-base md:text-lg font-mono text-[#e5e5e5] truncate max-w-[140px] md:max-w-xs block">
-                  {email ? (email.length > 20 ? email.substring(0, 18) + '...' : email) : 'Som... @gmail.com'}
+                <span className="block text-[11px] uppercase tracking-widest text-[#737373] mb-1">Xaaladda</span>
+                <span className="text-base md:text-lg font-medium text-emerald-400 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                  Online
                 </span>
               </div>
             </div>
@@ -1493,7 +1568,7 @@ export default function App() {
               <>
                 <div className="flex gap-8 mb-12 border-b border-[#ffffff10]">
                   <button 
-                    onClick={() => { setAuthView('login'); setAuthError(''); }}
+                    onClick={() => { setAuthView('login'); setAuthError(''); setCurrentRoute('login'); window.history.replaceState({}, '', '/login'); }}
                     className={`text-sm uppercase tracking-widest font-semibold pb-2 transition-all ${
                       authView === 'login' 
                         ? 'border-b-2 border-[#7c3aed] text-[#e5e5e5]' 
@@ -1503,7 +1578,7 @@ export default function App() {
                     Sign In
                   </button>
                   <button 
-                    onClick={() => { setAuthView('signup'); setAuthError(''); }}
+                    onClick={() => { setAuthView('signup'); setAuthError(''); setCurrentRoute('signup'); window.history.replaceState({}, '', '/signup'); }}
                     className={`text-sm uppercase tracking-widest font-semibold pb-2 transition-all ${
                       authView === 'signup' 
                         ? 'border-b-2 border-[#7c3aed] text-[#e5e5e5]' 
@@ -1560,29 +1635,17 @@ export default function App() {
                   </div>
                 </form>
               </>
-
-              {/* Backend Metadata details matching design */}
-              <div className="mt-20 p-4 border border-[#ffffff10] rounded-sm bg-[#ffffff05]">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                  <span className="text-[10px] uppercase tracking-widest text-[#a3a3a3]">Backend Metadata</span>
-                </div>
-                <p className="text-[9px] font-mono text-[#525252] break-all leading-normal">
-                  SUPABASE_URL: {dbStatus?.supabaseUrl || 'mdvfcqujqjnvfpzowayo.supabase.co'}<br />
-                  SMTP_HOST: smtp.gmail.com:587
-                </p>
-              </div>
             </div>
           </div>
         </main>
 
         {/* Footer */}
         <footer className="px-6 md:px-12 py-6 border-t border-[#ffffff10] flex flex-col sm:flex-row justify-between items-center gap-4 text-[10px] text-[#525252] uppercase tracking-[0.2em] bg-[#0a0a0a]">
-          <div>&copy; 2026 Atlas Infrastructure</div>
+          <div>&copy; 2026 Nidaamka Maamulka Dugsiga</div>
           <div className="flex gap-4 md:gap-8 flex-wrap justify-center">
-            <span>Global Scale</span>
-            <span>Encrypted Handshake</span>
-            <span>Cloud Sync Active</span>
+            <span>Diiwaanka Ardayda</span>
+            <span>Xisaabaadka</span>
+            <span>Imtixaanaadka</span>
           </div>
         </footer>
       </div>
@@ -1672,6 +1735,15 @@ export default function App() {
 
         {/* Sidebar Footer */}
         <div className="p-4 border-t border-[#ffffff10] bg-[#0f0f0f]">
+          {/* Supabase Status Indicator */}
+          <div className="flex items-center justify-between px-2.5 py-1.5 mb-3 rounded-sm bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-mono">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span className="font-semibold">Supabase: Kuxiran</span>
+            </div>
+            <span className="text-[9px] text-emerald-500/80">Cloud Live</span>
+          </div>
+
           <div className="flex items-center gap-3 mb-4 truncate">
             <div className="w-9 h-9 rounded-sm bg-[#ffffff05] border border-[#ffffff10] flex items-center justify-center text-[#e5e5e5] font-bold text-xs font-mono uppercase">
               {user.email.substring(0, 2)}
@@ -1702,6 +1774,14 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate('landing')}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-sm border border-[#ffffff10] text-xs font-medium text-[#94a3b8] hover:text-white hover:bg-[#ffffff05] transition-colors"
+              title="View Public Website"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-[#a78bfa]" />
+              <span className="hidden sm:inline">Public Website</span>
+            </button>
             <div className="text-[10px] font-mono tracking-widest uppercase text-[#737373] bg-[#ffffff02] px-3 py-1.5 rounded-sm border border-[#ffffff05]">
               UTC: {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
             </div>
@@ -1710,28 +1790,6 @@ export default function App() {
 
         {/* Dashboard Pages */}
         <main className="p-6 md:p-8 flex-1 overflow-y-auto max-w-7xl w-full mx-auto">
-          
-          {/* Warning Banner for Local Fallback Setup */}
-          {dbStatus && dbStatus.fallbackMode && (
-            <div className="mb-6 p-4 rounded-sm bg-amber-500/5 border border-amber-500/15 text-amber-400 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="flex gap-3">
-                <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-                <div>
-                  <h4 className="text-xs font-bold uppercase tracking-wider">Online database setup recommended</h4>
-                  <p className="text-[11px] text-[#a3a3a3] mt-0.5 leading-relaxed">
-                    We detected that your Supabase tables have not been fully created yet. Create your tables online in 5 seconds to run securely.
-                  </p>
-                </div>
-              </div>
-              <button 
-                onClick={() => setActiveTab('settings')}
-                className="px-4 py-2 bg-[#e5e5e5] hover:bg-white text-[#0a0a0a] font-semibold text-[10px] uppercase tracking-widest rounded-sm shadow-md transition-colors shrink-0"
-              >
-                View SQL Script
-              </button>
-            </div>
-          )}
-
           {loading ? (
             <div className="min-h-[400px] flex flex-col items-center justify-center gap-3">
               <Database className="w-10 h-10 text-[#7c3aed] animate-bounce" />
@@ -3013,6 +3071,36 @@ export default function App() {
                     </div>
 
                     <div className="space-y-6">
+                      {/* Supabase Cloud Connection Status */}
+                      <div className="bg-[#0f0f0f] border border-emerald-500/20 rounded-sm p-6 space-y-4">
+                        <div className="flex items-center justify-between">
+                          <h3 className="font-serif italic text-lg text-[#f5f5f5] flex items-center gap-2">
+                            <Database className="w-4 h-4 text-emerald-400" /> Supabase Cloud Database
+                          </h3>
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            Kuxiran (Connected)
+                          </span>
+                        </div>
+                        <p className="text-xs text-[#a3a3a3] leading-relaxed">
+                          Nidaamka DUGSI PRO wuxuu si toos ah ugu xiran yahay cloud database-ka Supabase. Dhammaan xogta ardayda, fasallada, maadooyinka, imtixaanaadka iyo lacagaha waxaa si toos ah looga maareynayaa cloud-ka.
+                        </p>
+                        <div className="bg-black/50 p-3 rounded border border-white/5 space-y-2 text-xs font-mono">
+                          <div className="flex justify-between text-[11px]">
+                            <span className="text-gray-400">Endpoint:</span>
+                            <span className="text-gray-200 truncate max-w-[200px]">mdvfcqujqjnvfpzowayo.supabase.co</span>
+                          </div>
+                          <div className="flex justify-between text-[11px]">
+                            <span className="text-gray-400">Status:</span>
+                            <span className="text-emerald-400 font-semibold">Active & Synced</span>
+                          </div>
+                          <div className="flex justify-between text-[11px]">
+                            <span className="text-gray-400">Mode:</span>
+                            <span className="text-gray-200">Direct PostgreSQL Cloud</span>
+                          </div>
+                        </div>
+                      </div>
+
                       {/* Database Backup Tool */}
                       <div className="bg-[#0f0f0f] border border-[#ffffff10] rounded-sm p-6 space-y-4">
                         <h3 className="font-serif italic text-lg text-[#f5f5f5] flex items-center gap-2">

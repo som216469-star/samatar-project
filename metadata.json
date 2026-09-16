@@ -1,6 +1,6 @@
 {
-  "name": "Dugsiga Pro 2026",
-  "description": "A comprehensive online management system for schools, featuring secure email/password auth, student tracking, attendance sheets, and financial invoice recording, powered by Supabase.",
+  "name": "DUGSI PRO 2026",
+  "description": "Run your school smarter with DUGSI PRO 2026. Manage students, attendance, fees, exams, results, staff, and everyday school operations in one modern platform.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
