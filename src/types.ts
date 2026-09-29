@@ -6,12 +6,19 @@ export interface Student {
   guardianPhone: string;
   status: 'active' | 'inactive' | 'archived';
   createdAt: string;
+  updatedAt?: string;
   photo?: string;
   dateOfBirth?: string;
   address?: string;
   guardianName?: string;
+  guardianRelationship?: string;
+  guardianPhoneAlt?: string;
   section?: string;
   rollNumber?: string;
+  nationalId?: string;
+  previousSchool?: string;
+  bloodGroup?: string;
+  medicalNotes?: string;
 }
 
 export interface AttendanceRecord {

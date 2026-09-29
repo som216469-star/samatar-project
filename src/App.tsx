@@ -39,7 +39,9 @@ import {
   UserPlus,
   Package,
   Bell,
-  ClipboardList
+  ClipboardList,
+  Archive,
+  ChevronDown
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -89,7 +91,7 @@ import LibraryView from './components/LibraryView';
 import InventoryView from './components/InventoryView';
 import AnnouncementsView from './components/AnnouncementsView';
 import StudentProfileModal from './components/StudentProfileModal';
-import StudentsView from './components/StudentsView';
+import StudentsView, { StudentSubSection } from './components/StudentsView';
 import { FinanceView } from './components/FinanceView';
 import { TeacherActivationView } from './components/TeacherActivationView';
 import { TeacherDashboardView } from './components/TeacherDashboardView';
@@ -136,7 +138,7 @@ export default function App() {
     if (path.startsWith('/activate-teacher') || search.includes('token=')) return 'activate-teacher';
     if (path === '/login') return 'login';
     if (path === '/signup') return 'signup';
-    if (path === '/dashboard') return 'dashboard';
+    if (path === '/dashboard' || path.startsWith('/students')) return 'dashboard';
     return 'landing';
   });
 
@@ -163,6 +165,42 @@ export default function App() {
   const [password, setPassword] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState('');
+
+  // App Layout & Tabs
+  const [activeTab, setActiveTab] = useState<
+    'dashboard' | 'students' | 'attendance' | 'fees' | 'reports' | 'settings' | 'classes' | 'subjects' | 'exams' |
+    'people' | 'staff_attendance' | 'timetable' | 'admissions' | 'library' | 'inventory' | 'announcements'
+  >(() => {
+    if (typeof window !== 'undefined' && window.location.pathname.toLowerCase().startsWith('/students')) {
+      return 'students';
+    }
+    return 'dashboard';
+  });
+
+  // Student Sub-Navigation State (/students, /students/add, /students/active, etc.)
+  const [studentSubSection, setStudentSubSection] = useState<StudentSubSection>(() => {
+    if (typeof window === 'undefined') return 'all';
+    const path = window.location.pathname.toLowerCase();
+    if (path === '/students/add') return 'add';
+    if (path === '/students/active') return 'active';
+    if (path === '/students/inactive') return 'inactive';
+    if (path === '/students/archived') return 'archived';
+    if (path === '/students/import') return 'import';
+    if (path === '/students/export') return 'export';
+    return 'all';
+  });
+  const [studentsMenuOpen, setStudentsMenuOpen] = useState<boolean>(true);
+
+  const handleNavigateStudentSubSection = (sub: StudentSubSection) => {
+    setActiveTab('students');
+    setStudentSubSection(sub);
+    setStudentsMenuOpen(true);
+    setSidebarOpen(false);
+    if (typeof window !== 'undefined') {
+      const targetUrl = sub === 'all' ? '/students' : `/students/${sub}`;
+      window.history.pushState({}, '', targetUrl);
+    }
+  };
 
   // Navigation router handler
   const navigate = (route: 'landing' | 'login' | 'signup' | 'dashboard' | 'activate-teacher') => {
@@ -194,6 +232,16 @@ export default function App() {
       } else if (path === '/signup') {
         setCurrentRoute('signup');
         setAuthView('signup');
+      } else if (path.startsWith('/students')) {
+        setCurrentRoute('dashboard');
+        setActiveTab('students');
+        if (path === '/students/add') setStudentSubSection('add');
+        else if (path === '/students/active') setStudentSubSection('active');
+        else if (path === '/students/inactive') setStudentSubSection('inactive');
+        else if (path === '/students/archived') setStudentSubSection('archived');
+        else if (path === '/students/import') setStudentSubSection('import');
+        else if (path === '/students/export') setStudentSubSection('export');
+        else setStudentSubSection('all');
       } else if (path === '/dashboard') {
         setCurrentRoute('dashboard');
       } else {
@@ -204,11 +252,6 @@ export default function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  // App Layout & Tabs
-  const [activeTab, setActiveTab] = useState<
-    'dashboard' | 'students' | 'attendance' | 'fees' | 'reports' | 'settings' | 'classes' | 'subjects' | 'exams' |
-    'people' | 'staff_attendance' | 'timetable' | 'admissions' | 'library' | 'inventory' | 'announcements'
-  >('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     const savedTheme = localStorage.getItem('dugsiga_theme');
@@ -2448,15 +2491,92 @@ export default function App() {
               { id: 'settings', label: 'Qaabaynta / Settings', icon: SettingsIcon },
             ];
 
+            const studentSubItems: Array<{ id: StudentSubSection; label: string; icon: any; count?: number }> = [
+              { id: 'all', label: 'All Students', icon: Users, count: students.length },
+              { id: 'add', label: 'Add Student', icon: UserPlus },
+              { id: 'active', label: 'Active Students', icon: UserCheck, count: students.filter(s => (s.status || 'active') === 'active').length },
+              { id: 'inactive', label: 'Inactive Students', icon: AlertCircle, count: students.filter(s => s.status === 'inactive').length },
+              { id: 'archived', label: 'Archived Students', icon: Archive, count: students.filter(s => s.status === 'archived').length },
+              { id: 'import', label: 'Import Students', icon: Upload },
+              { id: 'export', label: 'Export Students', icon: Download },
+            ];
+
             return navItems.map(tab => {
               const IconComponent = tab.icon;
               const isSelected = activeTab === tab.id;
+
+              if (tab.id === 'students') {
+                return (
+                  <div key={tab.id} className="space-y-0.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (activeTab !== 'students') {
+                          handleNavigateStudentSubSection('all');
+                        } else {
+                          setStudentsMenuOpen(prev => !prev);
+                        }
+                      }}
+                      className={`w-full flex items-center justify-between px-4 py-3 rounded-sm text-xs uppercase tracking-wider font-semibold transition-all duration-150 ${
+                        isSelected
+                          ? 'bg-[#ffffff05] border-l-2 border-[#7c3aed] text-[#e5e5e5]'
+                          : 'text-[#737373] hover:text-[#e5e5e5] hover:bg-[#ffffff02]'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <IconComponent className={`w-4 h-4 shrink-0 ${isSelected ? 'text-[#c4b5fd]' : 'text-[#737373]'}`} />
+                        <span>{tab.label}</span>
+                      </div>
+                      {studentsMenuOpen ? (
+                        <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isSelected ? 'text-[#c4b5fd]' : 'text-[#737373]'}`} />
+                      ) : (
+                        <ChevronRight className={`w-3.5 h-3.5 transition-transform ${isSelected ? 'text-[#c4b5fd]' : 'text-[#737373]'}`} />
+                      )}
+                    </button>
+
+                    {studentsMenuOpen && (
+                      <div className="pl-6 pr-2 py-1 space-y-0.5 border-l border-[#ffffff10] ml-5">
+                        {studentSubItems.map(sub => {
+                          const SubIcon = sub.icon;
+                          const isSubActive = isSelected && studentSubSection === sub.id;
+                          return (
+                            <button
+                              key={sub.id}
+                              type="button"
+                              onClick={() => handleNavigateStudentSubSection(sub.id)}
+                              className={`w-full flex items-center justify-between px-3 py-2 rounded-sm text-[11px] font-medium transition-colors ${
+                                isSubActive
+                                  ? 'bg-[#7c3aed]/15 text-[#c4b5fd] font-bold border-l-2 border-[#7c3aed]'
+                                  : 'text-[#888888] hover:text-[#e5e5e5] hover:bg-[#ffffff04]'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2.5 truncate">
+                                <SubIcon className={`w-3.5 h-3.5 shrink-0 ${isSubActive ? 'text-[#c4b5fd]' : 'text-[#666666]'}`} />
+                                <span className="truncate">{sub.label}</span>
+                              </div>
+                              {typeof sub.count === 'number' && (
+                                <span className={`text-[10px] font-mono ${isSubActive ? 'text-[#c4b5fd]' : 'text-[#555555]'}`}>
+                                  {sub.count}
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+
               return (
                 <button
                   key={tab.id}
                   onClick={() => {
                     setActiveTab(tab.id as any);
                     setSidebarOpen(false);
+                    if (typeof window !== 'undefined') {
+                      window.history.pushState({}, '', '/dashboard');
+                    }
                   }}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-sm text-xs uppercase tracking-wider font-semibold transition-all duration-150 ${
                     isSelected 
@@ -2812,6 +2932,8 @@ export default function App() {
                   onRefreshData={fetchAllData}
                   showToast={showToast}
                   theme={theme}
+                  subSection={studentSubSection}
+                  onNavigateSubSection={handleNavigateStudentSubSection}
                 />
               )}
 

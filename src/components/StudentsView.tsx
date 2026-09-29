@@ -127,11 +127,14 @@ export default function StudentsView({
   onBulkUpdate,
   onRefreshData,
   showToast,
-  theme = 'dark'
+  theme = 'dark',
+  subSection = 'all',
+  onNavigateSubSection
 }: StudentsViewProps) {
   // --- View & Layout States ---
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
   const [showFiltersDrawer, setShowFiltersDrawer] = useState(false);
+  const [showDashboardDetails, setShowDashboardDetails] = useState(false);
 
   // --- Search, Filter & Sort States ---
   const [searchQuery, setSearchQuery] = useState('');
@@ -139,23 +142,37 @@ export default function StudentsView({
   const [selectedGenderFilter, setSelectedGenderFilter] = useState<string>('all');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('all');
   const [selectedFeeFilter, setSelectedFeeFilter] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<'name_asc' | 'name_desc' | 'date_desc' | 'date_asc' | 'class'>('name_asc');
+  const [selectedRegDateFilter, setSelectedRegDateFilter] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<'name_asc' | 'name_desc' | 'date_desc' | 'date_asc' | 'class' | 'id_asc' | 'updated_desc'>('name_asc');
 
   // --- Pagination ---
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState<number>(25);
 
-  // --- Column Visibility ---
-  const [visibleColumns, setVisibleColumns] = useState({
-    id: true,
-    class: true,
-    gender: true,
-    guardian: true,
-    status: true,
-    fees: true,
-    actions: true
+  // --- Column Visibility (with localStorage persistence) ---
+  const [visibleColumns, setVisibleColumns] = useState(() => {
+    try {
+      const saved = localStorage.getItem('dugsi_student_cols');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return {
+      id: true,
+      class: true,
+      gender: true,
+      guardian: true,
+      status: true,
+      fees: true,
+      updated: true,
+      actions: true
+    };
   });
   const [showColumnConfig, setShowColumnConfig] = useState(false);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('dugsi_student_cols', JSON.stringify(visibleColumns));
+    } catch {}
+  }, [visibleColumns]);
 
   // --- Selection & Bulk Actions ---
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
@@ -240,6 +257,40 @@ export default function StudentsView({
       return !f || f.status === 'unpaid' || f.status === 'partial';
     }).length;
 
+    // Newly registered this month
+    const monthPrefix = `${currentYear}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+    const newlyRegistered = students.filter(s => (s.createdAt || '').startsWith(monthPrefix)).length;
+
+    // Students requiring attention (missing guardian phone or unpaid fees)
+    const needsAttention = students.filter(s => {
+      if (s.status === 'archived') return false;
+      const missingPhone = !s.guardianPhone || s.guardianPhone.trim().length < 6;
+      const f = fees.find(fee => fee.studentId === s.id && fee.month === currentMonth && fee.year === currentYear);
+      const hasUnpaid = !f || f.status === 'unpaid';
+      return missingPhone || hasUnpaid;
+    }).length;
+
+    // Class distribution
+    const classCounts: Record<string, number> = {};
+    students.forEach(s => {
+      if (s.status !== 'archived') {
+        const cls = s.class || 'Unassigned';
+        classCounts[cls] = (classCounts[cls] || 0) + 1;
+      }
+    });
+    const byClass = Object.entries(classCounts)
+      .map(([className, count]) => ({ className, count }))
+      .sort((a, b) => b.count - a.count);
+
+    // Recently Added & Updated
+    const recentlyAdded = [...students]
+      .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
+      .slice(0, 5);
+
+    const recentlyUpdated = [...students]
+      .sort((a, b) => (b.updatedAt || b.createdAt || '').localeCompare(a.updatedAt || a.createdAt || ''))
+      .slice(0, 5);
+
     return {
       total,
       active,
@@ -249,7 +300,12 @@ export default function StudentsView({
       female,
       malePercent: total > 0 ? Math.round((male / total) * 100) : 0,
       femalePercent: total > 0 ? Math.round((female / total) * 100) : 0,
-      unpaidFeesCount
+      unpaidFeesCount,
+      newlyRegistered,
+      needsAttention,
+      byClass,
+      recentlyAdded,
+      recentlyUpdated
     };
   }, [students, fees, currentMonth, currentYear]);
 
@@ -293,8 +349,20 @@ export default function StudentsView({
     return () => clearTimeout(timer);
   }, [formData.fullName, formData.class, formData.guardianPhone, formData.id, showFormModal, editingStudent, students]);
 
+  // --- Effective Status based on SubSection ---
+  const effectiveStatusFilter = useMemo(() => {
+    if (subSection === 'active') return 'active';
+    if (subSection === 'inactive') return 'inactive';
+    if (subSection === 'archived') return 'archived';
+    return selectedStatusFilter;
+  }, [subSection, selectedStatusFilter]);
+
   // --- Filtered and Sorted Students ---
   const filteredStudents = useMemo(() => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const monthPrefix = todayStr.substring(0, 7);
+    const yearPrefix = todayStr.substring(0, 4);
+
     let result = students.filter(student => {
       // 1. Text Search
       if (searchQuery.trim()) {
@@ -321,10 +389,10 @@ export default function StudentsView({
         return false;
       }
 
-      // 4. Status Filter
-      if (selectedStatusFilter !== 'all') {
-        const studentStatus = student.status || 'active';
-        if (studentStatus !== selectedStatusFilter) {
+      // 4. Status Filter (or Subsection Locked Status)
+      const studentStatus = student.status || 'active';
+      if (effectiveStatusFilter !== 'all') {
+        if (studentStatus !== effectiveStatusFilter) {
           return false;
         }
       }
@@ -335,6 +403,18 @@ export default function StudentsView({
         if (selectedFeeFilter === 'paid' && feeInfo.status !== 'paid') return false;
         if (selectedFeeFilter === 'unpaid' && feeInfo.status !== 'unpaid') return false;
         if (selectedFeeFilter === 'partial' && feeInfo.status !== 'partial') return false;
+        if (selectedFeeFilter === 'attention') {
+          const missingPhone = !student.guardianPhone || student.guardianPhone.trim().length < 6;
+          if (!missingPhone && feeInfo.status === 'paid') return false;
+        }
+      }
+
+      // 6. Registration Date Filter
+      if (selectedRegDateFilter !== 'all') {
+        const reg = student.createdAt || '';
+        if (selectedRegDateFilter === 'today' && reg !== todayStr) return false;
+        if (selectedRegDateFilter === 'this_month' && !reg.startsWith(monthPrefix)) return false;
+        if (selectedRegDateFilter === 'this_year' && !reg.startsWith(yearPrefix)) return false;
       }
 
       return true;
@@ -346,10 +426,14 @@ export default function StudentsView({
         return a.fullName.localeCompare(b.fullName);
       } else if (sortBy === 'name_desc') {
         return b.fullName.localeCompare(a.fullName);
+      } else if (sortBy === 'id_asc') {
+        return a.id.localeCompare(b.id);
       } else if (sortBy === 'date_desc') {
         return (b.createdAt || '').localeCompare(a.createdAt || '');
       } else if (sortBy === 'date_asc') {
         return (a.createdAt || '').localeCompare(b.createdAt || '');
+      } else if (sortBy === 'updated_desc') {
+        return (b.updatedAt || b.createdAt || '').localeCompare(a.updatedAt || a.createdAt || '');
       } else if (sortBy === 'class') {
         return a.class.localeCompare(b.class);
       }
@@ -357,7 +441,7 @@ export default function StudentsView({
     });
 
     return result;
-  }, [students, searchQuery, selectedClassFilter, selectedGenderFilter, selectedStatusFilter, selectedFeeFilter, sortBy, fees]);
+  }, [students, searchQuery, selectedClassFilter, selectedGenderFilter, effectiveStatusFilter, selectedFeeFilter, selectedRegDateFilter, sortBy, fees]);
 
   // --- Pagination Slice ---
   const totalPages = Math.max(1, Math.ceil(filteredStudents.length / pageSize));
@@ -369,7 +453,7 @@ export default function StudentsView({
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedClassFilter, selectedGenderFilter, selectedStatusFilter, selectedFeeFilter, pageSize]);
+  }, [searchQuery, selectedClassFilter, selectedGenderFilter, effectiveStatusFilter, selectedFeeFilter, selectedRegDateFilter, pageSize]);
 
   // --- Selection Handlers ---
   const isAllSelected = paginatedStudents.length > 0 && paginatedStudents.every(s => selectedStudentIds.includes(s.id));
@@ -866,21 +950,130 @@ export default function StudentsView({
     if (onRefreshData) onRefreshData();
   };
 
+  // --- Sync /students/:id URL for Student Profile ---
+  const handleOpenProfile = (student: Student) => {
+    setSelectedProfileStudent(student);
+    if (typeof window !== 'undefined') {
+      window.history.pushState({}, '', `/students/${encodeURIComponent(student.id)}`);
+    }
+  };
+
+  const handleCloseProfile = () => {
+    setSelectedProfileStudent(null);
+    if (typeof window !== 'undefined' && window.location.pathname.toLowerCase().startsWith('/students/')) {
+      const targetPath = subSection && subSection !== 'all' ? `/students/${subSection}` : '/students';
+      window.history.pushState({}, '', targetPath);
+    }
+  };
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || students.length === 0) return;
+    const path = window.location.pathname;
+    if (path.toLowerCase().startsWith('/students/')) {
+      const segment = decodeURIComponent(path.slice('/students/'.length).split('/')[0]);
+      const reserved = ['add', 'active', 'inactive', 'archived', 'import', 'export', 'all'];
+      if (segment && !reserved.includes(segment.toLowerCase())) {
+        const matched = students.find(s => s.id.toLowerCase() === segment.toLowerCase());
+        if (matched) setSelectedProfileStudent(matched);
+      }
+    }
+  }, [students]);
+
+  // =========================================================================
+  // DEDICATED SUBSECTION PAGES: ADD, IMPORT, EXPORT
+  // =========================================================================
+  if (subSection === 'add') {
+    return (
+      <StudentAddView
+        classes={classes}
+        onAddStudent={onAddStudent}
+        onCancel={() => onNavigateSubSection ? onNavigateSubSection('all') : undefined}
+        showToast={showToast}
+        theme={theme}
+      />
+    );
+  }
+
+  if (subSection === 'import') {
+    return (
+      <StudentImportView
+        existingStudents={students}
+        classes={classes}
+        onImportStudents={async (studentsToImport: any[]) => {
+          let okCount = 0;
+          for (const st of studentsToImport) {
+            const ok = await onAddStudent(st);
+            if (ok) okCount++;
+          }
+          if (onRefreshData) onRefreshData();
+          return okCount > 0;
+        }}
+        onCancel={() => onNavigateSubSection ? onNavigateSubSection('all') : undefined}
+        showToast={showToast}
+        theme={theme}
+      />
+    );
+  }
+
+  if (subSection === 'export') {
+    return (
+      <StudentExportView
+        students={students}
+        classes={classes}
+        fees={fees}
+        settings={settings}
+        onCancel={() => onNavigateSubSection ? onNavigateSubSection('all') : undefined}
+        showToast={showToast}
+        theme={theme}
+      />
+    );
+  }
+
+  const subSectionMeta = {
+    all: {
+      breadcrumb: 'All Students',
+      title: 'Dhammaan Ardayda / All Students',
+      subtitle: 'Nidaamka casriga ah ee diiwaangelinta, xog-raadinta, falanqaynta, iyo maamulka guud ee ardayda'
+    },
+    active: {
+      breadcrumb: 'Active Students',
+      title: 'Ardayda Firfircoon / Active Students',
+      subtitle: `Liiska ardayda hadda wax ka barata dugsiga (${stats.active} arday oo firfircoon)`
+    },
+    inactive: {
+      breadcrumb: 'Inactive Students',
+      title: 'Ardayda Hakadka Ku Jirta / Inactive Students',
+      subtitle: `Ardayda si ku-meel-gaar ah u joojisay waxbarashada (${stats.inactive} arday)`
+    },
+    archived: {
+      breadcrumb: 'Archived Students',
+      title: 'Diiwaanka Kaydsan / Archived Students',
+      subtitle: `Ardayda ka qalin-jabisay ama laga saaray liiska firfircoon iyadoo taariikhdooda la dhowrayo (${stats.archived} arday)`
+    }
+  }[subSection === 'active' || subSection === 'inactive' || subSection === 'archived' ? subSection : 'all'];
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* 1. TOP HEADER & ACTION BAR */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
+          <div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-widest text-[#737373] mb-1">
+            <span
+              onClick={() => onNavigateSubSection && onNavigateSubSection('all')}
+              className="hover:text-[#c4b5fd] cursor-pointer transition-colors"
+            >
+              Students
+            </span>
+            <span>·</span>
+            <span className="text-[#c4b5fd] font-semibold">{subSectionMeta.breadcrumb}</span>
+          </div>
           <div className="flex items-center gap-3">
             <h1 className="text-3xl sm:text-4xl font-bold font-serif italic tracking-tight text-[#f5f5f5]">
-              Ardayda / Student Management
+              {subSectionMeta.title}
             </h1>
-            <span className="px-2.5 py-1 rounded-sm text-[10px] font-mono font-bold bg-[#7c3aed]/15 text-[#c4b5fd] border border-[#7c3aed]/30 uppercase tracking-widest">
-              DUGSI PRO 2026
-            </span>
           </div>
-          <p className="text-xs text-[#888888] mt-1 uppercase tracking-wider">
-            Nidaamka casriga ah ee diiwaangelinta, xog-raadinta, falanqaynta, iyo dhoofinta ardayda
+          <p className="text-xs text-[#888888] mt-1">
+            {subSectionMeta.subtitle}
           </p>
         </div>
 
@@ -910,22 +1103,16 @@ export default function StudentsView({
             </button>
           </div>
 
-          {/* Download Template */}
-          <button
-            onClick={downloadTemplate}
-            className="px-3 py-2 rounded-sm bg-[#ffffff05] border border-[#ffffff15] hover:bg-[#ffffff10] text-[#cccccc] text-[10px] uppercase font-bold tracking-widest flex items-center gap-1.5 transition-colors"
-            title="Download Official Excel Template"
-          >
-            <Download className="w-3.5 h-3.5 text-emerald-400" />
-            <span className="hidden md:inline">Template</span>
-          </button>
-
-          {/* Import Excel */}
+          {/* Import Students */}
           <button
             onClick={() => {
-              setImportStep('upload');
-              setImportRows([]);
-              setShowImportModal(true);
+              if (onNavigateSubSection) {
+                onNavigateSubSection('import');
+              } else {
+                setImportStep('upload');
+                setImportRows([]);
+                setShowImportModal(true);
+              }
             }}
             className="px-3 py-2 rounded-sm bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 text-amber-300 text-[10px] uppercase font-bold tracking-widest flex items-center gap-1.5 transition-colors"
           >
@@ -933,42 +1120,30 @@ export default function StudentsView({
             <span>Soo Geli (Import)</span>
           </button>
 
-          {/* Export Dropdown Options */}
-          <div className="relative group">
-            <button
-              className="px-3 py-2 rounded-sm bg-[#7c3aed]/15 border border-[#7c3aed]/30 hover:bg-[#7c3aed]/25 text-[#c4b5fd] text-[10px] uppercase font-bold tracking-widest flex items-center gap-1.5 transition-colors"
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span>Dhoofi (Export)</span>
-            </button>
-            <div className="absolute right-0 top-full mt-1 w-44 bg-[#141414] border border-[#ffffff15] rounded-sm shadow-2xl py-1.5 z-40 hidden group-hover:block divide-y divide-[#ffffff08]">
-              <button
-                onClick={() => exportToExcel()}
-                className="w-full px-3.5 py-2 text-left text-xs text-[#e5e5e5] hover:bg-[#7c3aed]/20 hover:text-white flex items-center gap-2 transition-colors"
-              >
-                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Export Excel (.xlsx)</span>
-              </button>
-              <button
-                onClick={() => exportToPDF()}
-                className="w-full px-3.5 py-2 text-left text-xs text-[#e5e5e5] hover:bg-[#7c3aed]/20 hover:text-white flex items-center gap-2 transition-colors"
-              >
-                <FileText className="w-3.5 h-3.5 text-rose-400" />
-                <span>Export PDF (.pdf)</span>
-              </button>
-              <button
-                onClick={() => exportToCSV()}
-                className="w-full px-3.5 py-2 text-left text-xs text-[#e5e5e5] hover:bg-[#7c3aed]/20 hover:text-white flex items-center gap-2 transition-colors"
-              >
-                <Download className="w-3.5 h-3.5 text-blue-400" />
-                <span>Export CSV (.csv)</span>
-              </button>
-            </div>
-          </div>
+          {/* Export Students */}
+          <button
+            onClick={() => {
+              if (onNavigateSubSection) {
+                onNavigateSubSection('export');
+              } else {
+                exportToExcel();
+              }
+            }}
+            className="px-3 py-2 rounded-sm bg-[#7c3aed]/15 border border-[#7c3aed]/30 hover:bg-[#7c3aed]/25 text-[#c4b5fd] text-[10px] uppercase font-bold tracking-widest flex items-center gap-1.5 transition-colors"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Dhoofi (Export)</span>
+          </button>
 
           {/* Add Student Primary CTA */}
           <button
-            onClick={handleOpenAddModal}
+            onClick={() => {
+              if (onNavigateSubSection) {
+                onNavigateSubSection('add');
+              } else {
+                handleOpenAddModal();
+              }
+            }}
             className="px-4 py-2 rounded-sm bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] hover:from-[#6d28d9] hover:to-[#5b21b6] text-white text-[10px] uppercase font-bold tracking-widest flex items-center gap-2 transition-all shadow-lg shadow-[#7c3aed]/20"
           >
             <UserPlus className="w-4 h-4" />
@@ -977,76 +1152,227 @@ export default function StudentsView({
         </div>
       </div>
 
-      {/* 2. STATS & ANALYTICS OVERVIEW CARDS */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
-        {/* Card 1: Total */}
-        <div className="bg-[#0f0f0f] border border-[#ffffff10] rounded-sm p-4 space-y-1">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] uppercase tracking-widest text-[#888888] font-bold">Wadar Guud</span>
-            <Users className="w-4 h-4 text-[#c4b5fd]" />
-          </div>
-          <p className="text-2xl font-bold font-mono text-white">{stats.total}</p>
-          <p className="text-[9px] text-[#737373] uppercase tracking-wider">Total Enrolled</p>
-        </div>
-
-        {/* Card 2: Active */}
-        <div className="bg-[#0f0f0f] border border-[#ffffff10] rounded-sm p-4 space-y-1">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] uppercase tracking-widest text-emerald-400 font-bold">Firfircoon</span>
-            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-          </div>
-          <p className="text-2xl font-bold font-mono text-emerald-400">{stats.active}</p>
-          <p className="text-[9px] text-[#737373] uppercase tracking-wider">Active Students</p>
-        </div>
-
-        {/* Card 3: Inactive */}
-        <div className="bg-[#0f0f0f] border border-[#ffffff10] rounded-sm p-4 space-y-1">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] uppercase tracking-widest text-amber-400 font-bold">Joojiyey</span>
-            <AlertCircle className="w-4 h-4 text-amber-400" />
-          </div>
-          <p className="text-2xl font-bold font-mono text-amber-400">{stats.inactive}</p>
-          <p className="text-[9px] text-[#737373] uppercase tracking-wider">Inactive Roster</p>
-        </div>
-
-        {/* Card 4: Archived */}
-        <div className="bg-[#0f0f0f] border border-[#ffffff10] rounded-sm p-4 space-y-1">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">Kaydsan</span>
-            <Archive className="w-4 h-4 text-slate-400" />
-          </div>
-          <p className="text-2xl font-bold font-mono text-slate-300">{stats.archived}</p>
-          <p className="text-[9px] text-[#737373] uppercase tracking-wider">Archived History</p>
-        </div>
-
-        {/* Card 5: Male / Female Ratio */}
-        <div className="bg-[#0f0f0f] border border-[#ffffff10] rounded-sm p-4 space-y-1.5 col-span-2 sm:col-span-1 lg:col-span-2">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] uppercase tracking-widest text-[#888888] font-bold">Wiilal & Gabdho</span>
-            <div className="flex items-center gap-2 text-[10px] font-mono">
-              <span className="text-[#60a5fa] font-bold">M: {stats.male}</span>
-              <span className="text-[#737373]">|</span>
-              <span className="text-[#f472b6] font-bold">F: {stats.female}</span>
+      {/* CONTEXTUAL SUBSECTION INFO BANNERS */}
+      {subSection === 'inactive' && (
+        <div className="bg-amber-500/10 border border-amber-500/25 rounded-sm p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-amber-300">
+                Qaybta Ardayda Aan Firfircoonayn (Inactive Roster)
+              </h3>
+              <p className="text-xs text-[#cccccc] mt-0.5">
+                Ardaydani hadda kama muuqdaan xaadirinta maalinlaha ah. Waxaad dib ugu soo celin kartaa Active wakhti kasta.
+              </p>
             </div>
           </div>
-          {/* Ratio bar */}
-          <div className="h-2 w-full bg-[#1e1e1e] rounded-full overflow-hidden flex">
-            <div 
-              style={{ width: `${stats.malePercent}%` }} 
-              className="bg-[#3b82f6] h-full transition-all duration-500" 
-              title={`Male: ${stats.malePercent}%`}
-            />
-            <div 
-              style={{ width: `${stats.femalePercent}%` }} 
-              className="bg-[#ec4899] h-full transition-all duration-500" 
-              title={`Female: ${stats.femalePercent}%`}
-            />
+          { onNavigateSubSection && (
+            <button
+              onClick={() => onNavigateSubSection('all')}
+              className="px-3 py-1.5 rounded-sm bg-[#ffffff08] hover:bg-[#ffffff15] text-xs font-mono text-white shrink-0"
+            >
+              Fiiri Dhammaan Ardayda →
+            </button>
+          )}
+        </div>
+      )}
+
+      {subSection === 'archived' && (
+        <div className="bg-slate-800/40 border border-slate-700/50 rounded-sm p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <Archive className="w-5 h-5 text-slate-300 shrink-0 mt-0.5" />
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-200">
+                Kaydka Taariikhda Ardayda (Archived Records)
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Diiwaannada kaydsan lama tirtiro si loo dhowro taariikhda lacagaha, natiijooyinka imtixaanka, iyo xaadiriska hore.
+              </p>
+            </div>
           </div>
-          <div className="flex justify-between text-[9px] text-[#737373] font-mono">
-            <span>{stats.malePercent}% Wiilal</span>
-            <span>{stats.femalePercent}% Gabdho</span>
+          { onNavigateSubSection && (
+            <button
+              onClick={() => onNavigateSubSection('all')}
+              className="px-3 py-1.5 rounded-sm bg-[#ffffff08] hover:bg-[#ffffff15] text-xs font-mono text-white shrink-0"
+            >
+              Ku Noqo Dhammaan →
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* 2. STATS & ANALYTICS OVERVIEW CARDS */}
+      <div className="space-y-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+          {/* Card 1: Total */}
+          <div
+            onClick={() => onNavigateSubSection ? onNavigateSubSection('all') : setSelectedStatusFilter('all')}
+            className="bg-[#0f0f0f] border border-[#ffffff10] hover:border-[#7c3aed]/40 rounded-sm p-4 space-y-1 cursor-pointer transition-colors"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] uppercase tracking-widest text-[#888888] font-bold">Wadar Guud</span>
+              <Users className="w-4 h-4 text-[#c4b5fd]" />
+            </div>
+            <p className="text-2xl font-bold font-mono text-white">{stats.total}</p>
+            <p className="text-[9px] text-[#737373] uppercase tracking-wider">Total Enrolled</p>
+          </div>
+
+          {/* Card 2: Active */}
+          <div
+            onClick={() => onNavigateSubSection ? onNavigateSubSection('active') : setSelectedStatusFilter('active')}
+            className="bg-[#0f0f0f] border border-[#ffffff10] hover:border-emerald-500/40 rounded-sm p-4 space-y-1 cursor-pointer transition-colors"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] uppercase tracking-widest text-emerald-400 font-bold">Firfircoon</span>
+              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+            </div>
+            <p className="text-2xl font-bold font-mono text-emerald-400">{stats.active}</p>
+            <p className="text-[9px] text-[#737373] uppercase tracking-wider">Active Students</p>
+          </div>
+
+          {/* Card 3: Inactive */}
+          <div
+            onClick={() => onNavigateSubSection ? onNavigateSubSection('inactive') : setSelectedStatusFilter('inactive')}
+            className="bg-[#0f0f0f] border border-[#ffffff10] hover:border-amber-500/40 rounded-sm p-4 space-y-1 cursor-pointer transition-colors"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] uppercase tracking-widest text-amber-400 font-bold">Joojiyey</span>
+              <AlertCircle className="w-4 h-4 text-amber-400" />
+            </div>
+            <p className="text-2xl font-bold font-mono text-amber-400">{stats.inactive}</p>
+            <p className="text-[9px] text-[#737373] uppercase tracking-wider">Inactive Roster</p>
+          </div>
+
+          {/* Card 4: Newly Registered This Month */}
+          <div
+            onClick={() => setSelectedRegDateFilter(selectedRegDateFilter === 'this_month' ? 'all' : 'this_month')}
+            className={`bg-[#0f0f0f] border rounded-sm p-4 space-y-1 cursor-pointer transition-colors ${
+              selectedRegDateFilter === 'this_month' ? 'border-[#7c3aed]' : 'border-[#ffffff10] hover:border-[#7c3aed]/40'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] uppercase tracking-widest text-[#c4b5fd] font-bold">Cusub Bishan</span>
+              <Calendar className="w-4 h-4 text-[#c4b5fd]" />
+            </div>
+            <p className="text-2xl font-bold font-mono text-white">{stats.newlyRegistered}</p>
+            <p className="text-[9px] text-[#737373] uppercase tracking-wider">Newly Registered</p>
+          </div>
+
+          {/* Card 5: Requiring Attention */}
+          <div
+            onClick={() => setSelectedFeeFilter(selectedFeeFilter === 'attention' ? 'all' : 'attention')}
+            className={`bg-[#0f0f0f] border rounded-sm p-4 space-y-1 cursor-pointer transition-colors ${
+              selectedFeeFilter === 'attention' ? 'border-rose-500' : 'border-[#ffffff10] hover:border-rose-500/40'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] uppercase tracking-widest text-rose-400 font-bold">U Baahan Fiiro</span>
+              <AlertTriangle className="w-4 h-4 text-rose-400" />
+            </div>
+            <p className="text-2xl font-bold font-mono text-rose-400">{stats.needsAttention}</p>
+            <p className="text-[9px] text-[#737373] uppercase tracking-wider">Needs Attention</p>
+          </div>
+
+          {/* Card 6: Male / Female Ratio */}
+          <div className="bg-[#0f0f0f] border border-[#ffffff10] rounded-sm p-4 space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] uppercase tracking-widest text-[#888888] font-bold">Lab & Dhedig</span>
+              <div className="flex items-center gap-1.5 text-[10px] font-mono">
+                <span className="text-[#60a5fa] font-bold">M:{stats.male}</span>
+                <span className="text-[#737373]">·</span>
+                <span className="text-[#f472b6] font-bold">F:{stats.female}</span>
+              </div>
+            </div>
+            <div className="h-2 w-full bg-[#1e1e1e] rounded-full overflow-hidden flex">
+              <div 
+                style={{ width: `${stats.malePercent}%` }} 
+                className="bg-[#3b82f6] h-full transition-all duration-500" 
+                title={`Male: ${stats.malePercent}%`}
+              />
+              <div 
+                style={{ width: `${stats.femalePercent}%` }} 
+                className="bg-[#ec4899] h-full transition-all duration-500" 
+                title={`Female: ${stats.femalePercent}%`}
+              />
+            </div>
+            <div className="flex justify-between text-[9px] text-[#737373] font-mono">
+              <span>{stats.malePercent}% M</span>
+              <button
+                type="button"
+                onClick={() => setShowDashboardDetails(!showDashboardDetails)}
+                className="text-[#c4b5fd] hover:underline font-sans font-semibold"
+              >
+                {showDashboardDetails ? 'Qari Faahfaahinta' : 'Faahfaahin +'}
+              </button>
+            </div>
           </div>
         </div>
+
+        {/* Progressive Analytics Drawer: Students by Class, Recently Added & Recently Updated */}
+        {showDashboardDetails && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 bg-[#0f0f0f] border border-[#ffffff10] rounded-sm p-4 animate-fade-in">
+            {/* Students by Class */}
+            <div className="space-y-2">
+              <h4 className="text-[10px] font-mono uppercase tracking-widest text-[#a3a3a3] font-bold border-b border-[#ffffff08] pb-1.5">
+                Ardayda Fasallada (Students by Class)
+              </h4>
+              <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                {stats.byClass.length === 0 ? (
+                  <p className="text-xs text-[#555555]">Ma jiraan fasallo</p>
+                ) : (
+                  stats.byClass.map(item => (
+                    <div
+                      key={item.className}
+                      onClick={() => setSelectedClassFilter(selectedClassFilter === item.className ? 'all' : item.className)}
+                      className="flex items-center justify-between text-xs py-1 px-2 rounded-sm hover:bg-[#ffffff05] cursor-pointer"
+                    >
+                      <span className="text-[#e5e5e5] font-medium">{item.className}</span>
+                      <span className="font-mono text-[#c4b5fd] font-bold">{item.count} arday</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* Recently Added Students */}
+            <div className="space-y-2">
+              <h4 className="text-[10px] font-mono uppercase tracking-widest text-[#a3a3a3] font-bold border-b border-[#ffffff08] pb-1.5">
+                Dhawaan La Diiwaangeliyey (Recently Added)
+              </h4>
+              <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                {stats.recentlyAdded.map(st => (
+                  <div
+                    key={st.id}
+                    onClick={() => handleOpenProfile(st)}
+                    className="flex items-center justify-between text-xs py-1 px-2 rounded-sm hover:bg-[#ffffff05] cursor-pointer"
+                  >
+                    <span className="text-[#e5e5e5] truncate max-w-[160px]">{st.fullName}</span>
+                    <span className="font-mono text-[10px] text-[#737373]">{st.class} · {st.createdAt || '-'}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Recently Updated Students */}
+            <div className="space-y-2">
+              <h4 className="text-[10px] font-mono uppercase tracking-widest text-[#a3a3a3] font-bold border-b border-[#ffffff08] pb-1.5">
+                Dhawaan La Cusbooneysiiyey (Recently Updated)
+              </h4>
+              <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                {stats.recentlyUpdated.map(st => (
+                  <div
+                    key={st.id}
+                    onClick={() => handleOpenProfile(st)}
+                    className="flex items-center justify-between text-xs py-1 px-2 rounded-sm hover:bg-[#ffffff05] cursor-pointer"
+                  >
+                    <span className="text-[#e5e5e5] truncate max-w-[160px]">{st.fullName}</span>
+                    <span className="font-mono text-[10px] text-[#737373]">{st.updatedAt || st.createdAt || '-'}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 3. ADVANCED SEARCH, FILTER & ACTION BAR */}
@@ -1087,17 +1413,19 @@ export default function StudentsView({
               ))}
             </select>
 
-            {/* Status Filter */}
-            <select
-              value={selectedStatusFilter}
-              onChange={(e) => setSelectedStatusFilter(e.target.value)}
-              className="px-3 py-2 bg-[#0a0a0a] text-xs text-[#cccccc] border border-[#ffffff10] rounded-sm focus:outline-none focus:border-[#7c3aed]"
-            >
-              <option value="all">Dhammaan Xaaladaha (All Status)</option>
-              <option value="active">Active (Firfircoon)</option>
-              <option value="inactive">Inactive (Aan Firfircoonayn)</option>
-              <option value="archived">Archived (La Kaydiyey)</option>
-            </select>
+            {/* Status Filter (Only shown on 'all' subsection) */}
+            {subSection === 'all' && (
+              <select
+                value={selectedStatusFilter}
+                onChange={(e) => setSelectedStatusFilter(e.target.value)}
+                className="px-3 py-2 bg-[#0a0a0a] text-xs text-[#cccccc] border border-[#ffffff10] rounded-sm focus:outline-none focus:border-[#7c3aed]"
+              >
+                <option value="all">Dhammaan Xaaladaha (All Status)</option>
+                <option value="active">Active (Firfircoon)</option>
+                <option value="inactive">Inactive (Aan Firfircoonayn)</option>
+                <option value="archived">Archived (La Kaydiyey)</option>
+              </select>
+            )}
 
             {/* Gender Filter */}
             <select
@@ -1110,7 +1438,19 @@ export default function StudentsView({
               <option value="Female">Gabdho (Female)</option>
             </select>
 
-            {/* Fee Filter */}
+            {/* Registration Date Filter */}
+            <select
+              value={selectedRegDateFilter}
+              onChange={(e) => setSelectedRegDateFilter(e.target.value)}
+              className="px-3 py-2 bg-[#0a0a0a] text-xs text-[#cccccc] border border-[#ffffff10] rounded-sm focus:outline-none focus:border-[#7c3aed]"
+            >
+              <option value="all">Taariikhda Qorista (All Dates)</option>
+              <option value="today">Maanta La Qoray (Today)</option>
+              <option value="this_month">Bishan La Qoray (This Month)</option>
+              <option value="this_year">Sanadkan (This Year)</option>
+            </select>
+
+            {/* Fee / Attention Filter */}
             <select
               value={selectedFeeFilter}
               onChange={(e) => setSelectedFeeFilter(e.target.value)}
@@ -1120,6 +1460,7 @@ export default function StudentsView({
               <option value="paid">Lacagta La Bixiyey (Paid)</option>
               <option value="partial">Qabyo (Partial)</option>
               <option value="unpaid">Aan La Bixin (Unpaid)</option>
+              <option value="attention">U Baahan Fiiro (Needs Attention)</option>
             </select>
 
             {/* Sort Filter */}
@@ -1130,13 +1471,57 @@ export default function StudentsView({
             >
               <option value="name_asc">Magaca (A - Z)</option>
               <option value="name_desc">Magaca (Z - A)</option>
-              <option value="date_desc">Ugu Dambeeyey (Newest)</option>
-              <option value="date_asc">Ugu Horreeyey (Oldest)</option>
+              <option value="id_asc">Student ID (A - Z)</option>
+              <option value="date_desc">Taariikhda Qorista (Newest)</option>
+              <option value="date_asc">Taariikhda Qorista (Oldest)</option>
+              <option value="updated_desc">Ugu Dambeeyey Cusbooneysiin</option>
               <option value="class">Fasalka (Class)</option>
             </select>
 
+            {/* Column Visibility Control */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowColumnConfig(!showColumnConfig)}
+                className="px-3 py-2 bg-[#0a0a0a] hover:bg-[#ffffff08] text-xs text-[#cccccc] border border-[#ffffff10] rounded-sm flex items-center gap-1.5"
+                title="Customize Table Columns"
+              >
+                <Layers className="w-3.5 h-3.5 text-[#c4b5fd]" />
+                <span className="hidden sm:inline">Tiirarka (Columns)</span>
+              </button>
+              {showColumnConfig && (
+                <div className="absolute right-0 top-full mt-1 w-48 bg-[#141414] border border-[#ffffff15] rounded-sm shadow-2xl p-3 z-40 space-y-2 text-xs">
+                  <div className="flex items-center justify-between border-b border-[#ffffff10] pb-1.5">
+                    <span className="text-[10px] font-mono uppercase text-[#888888] font-bold">Muujinta Tiirarka</span>
+                    <button onClick={() => setShowColumnConfig(false)} className="text-[#737373] hover:text-white">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  {[
+                    { key: 'id', label: 'Student ID & Roll' },
+                    { key: 'class', label: 'Fasalka (Class)' },
+                    { key: 'gender', label: 'Jinsiga (Gender)' },
+                    { key: 'guardian', label: 'Waalidka (Guardian)' },
+                    { key: 'fees', label: 'Biilka Bisha (Fees)' },
+                    { key: 'status', label: 'Xaaladda (Status)' },
+                    { key: 'updated', label: 'Last Updated' },
+                  ].map(col => (
+                    <label key={col.key} className="flex items-center gap-2 cursor-pointer text-[#d4d4d4] hover:text-white">
+                      <input
+                        type="checkbox"
+                        checked={visibleColumns[col.key] !== false}
+                        onChange={(e) => setVisibleColumns((prev: any) => ({ ...prev, [col.key]: e.target.checked }))}
+                        className="rounded-xs accent-[#7c3aed]"
+                      />
+                      <span>{col.label}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* Reset Filters */}
-            {(searchQuery || selectedClassFilter !== 'all' || selectedStatusFilter !== 'all' || selectedGenderFilter !== 'all' || selectedFeeFilter !== 'all') && (
+            {(searchQuery || selectedClassFilter !== 'all' || selectedStatusFilter !== 'all' || selectedGenderFilter !== 'all' || selectedFeeFilter !== 'all' || selectedRegDateFilter !== 'all') && (
               <button
                 onClick={() => {
                   setSearchQuery('');
@@ -1144,6 +1529,7 @@ export default function StudentsView({
                   setSelectedStatusFilter('all');
                   setSelectedGenderFilter('all');
                   setSelectedFeeFilter('all');
+                  setSelectedRegDateFilter('all');
                   setSortBy('name_asc');
                 }}
                 className="px-2.5 py-2 text-xs text-rose-400 hover:text-rose-300 border border-rose-500/20 bg-rose-500/10 rounded-sm flex items-center gap-1"
@@ -1295,19 +1681,20 @@ export default function StudentsView({
                     </button>
                   </th>
                   <th className="px-4 py-3.5">Ardayga / Student</th>
-                  <th className="px-4 py-3.5">ID / Roll No</th>
-                  <th className="px-4 py-3.5">Fasalka / Class</th>
-                  <th className="px-4 py-3.5">Lab/Dhedig</th>
-                  <th className="px-4 py-3.5">Waalidka / Guardian</th>
-                  <th className="px-4 py-3.5">Biilka Bisha</th>
-                  <th className="px-4 py-3.5">Status</th>
+                  {visibleColumns.id !== false && <th className="px-4 py-3.5">ID / Roll No</th>}
+                  {visibleColumns.class !== false && <th className="px-4 py-3.5">Fasalka / Class</th>}
+                  {visibleColumns.gender !== false && <th className="px-4 py-3.5">Lab/Dhedig</th>}
+                  {visibleColumns.guardian !== false && <th className="px-4 py-3.5">Waalidka / Guardian</th>}
+                  {visibleColumns.fees !== false && <th className="px-4 py-3.5">Biilka Bisha</th>}
+                  {visibleColumns.status !== false && <th className="px-4 py-3.5">Status</th>}
+                  {visibleColumns.updated !== false && <th className="px-4 py-3.5">Reg / Updated</th>}
                   <th className="px-4 py-3.5 text-right">Hawlaha / Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#ffffff08] text-xs">
                 {paginatedStudents.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="px-6 py-16 text-center">
+                    <td colSpan={10} className="px-6 py-16 text-center">
                       <div className="flex flex-col items-center justify-center gap-3">
                         <Users className="w-10 h-10 text-[#333333]" />
                         <p className="text-sm font-semibold text-[#888888]">Wax arday ah oo buuxiyey shuruudaha lama helin</p>
@@ -1345,7 +1732,7 @@ export default function StudentsView({
                         <td className="px-4 py-3">
                           <div 
                             className="flex items-center gap-3 cursor-pointer group"
-                            onClick={() => setSelectedProfileStudent(student)}
+                            onClick={() => handleOpenProfile(student)}
                             title="Fiiri 360° Profile-ka Ardayga"
                           >
                             {student.photo ? (
@@ -1367,112 +1754,130 @@ export default function StudentsView({
                             <div>
                               <p className="font-bold text-[#f0f0f0] group-hover:text-[#c4b5fd] transition-colors flex items-center gap-1.5">
                                 <span>{student.fullName}</span>
-                                {student.status === 'archived' && (
-                                  <span className="text-[9px] px-1.5 py-0.2 rounded-xs bg-slate-700/50 text-slate-300 font-mono">Archived</span>
-                                )}
                               </p>
                               <p className="text-[10px] text-[#737373] font-mono">
-                                Reg: {student.createdAt || "N/A"}
+                                {student.guardianName ? `Waalid: ${student.guardianName}` : `ID: ${student.id}`}
                               </p>
                             </div>
                           </div>
                         </td>
 
                         {/* Student ID & Roll No */}
-                        <td className="px-4 py-3 font-mono text-[11px] text-[#a3a3a3]">
-                          <div>
-                            <span className="px-1.5 py-0.5 rounded-xs bg-[#ffffff05] border border-[#ffffff08] text-white">
-                              {student.id}
-                            </span>
-                            {student.rollNumber && (
-                              <p className="text-[9px] text-[#737373] mt-0.5">
-                                Roll: {student.rollNumber}
-                              </p>
-                            )}
-                          </div>
-                        </td>
+                        {visibleColumns.id !== false && (
+                          <td className="px-4 py-3 font-mono text-[11px] text-[#a3a3a3]">
+                            <div>
+                              <span className="text-white font-semibold">
+                                {student.id}
+                              </span>
+                              {student.rollNumber && (
+                                <p className="text-[9px] text-[#737373] mt-0.5">
+                                  Roll: {student.rollNumber}
+                                </p>
+                              )}
+                            </div>
+                          </td>
+                        )}
 
                         {/* Class & Section */}
-                        <td className="px-4 py-3">
-                          <span className="font-semibold text-[#e5e5e5]">
-                            {student.class}
-                          </span>
-                          {student.section && (
-                            <span className="ml-1.5 px-1.5 py-0.5 rounded-xs bg-[#ffffff08] text-[9px] text-[#a3a3a3] font-mono">
-                              Sec {student.section}
+                        {visibleColumns.class !== false && (
+                          <td className="px-4 py-3">
+                            <span className="font-semibold text-[#e5e5e5]">
+                              {student.class}
                             </span>
-                          )}
-                        </td>
+                            {student.section && (
+                              <span className="ml-1.5 text-[10px] text-[#888888] font-mono">
+                                · Sec {student.section}
+                              </span>
+                            )}
+                          </td>
+                        )}
 
                         {/* Gender */}
-                        <td className="px-4 py-3">
-                          <span className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider ${
-                            student.gender === 'Female' ? 'text-[#f472b6]' : 'text-[#60a5fa]'
-                          }`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${student.gender === 'Female' ? 'bg-[#ec4899]' : 'bg-[#3b82f6]'}`} />
-                            {student.gender}
-                          </span>
-                        </td>
+                        {visibleColumns.gender !== false && (
+                          <td className="px-4 py-3">
+                            <span className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider ${
+                              student.gender === 'Female' ? 'text-[#f472b6]' : 'text-[#60a5fa]'
+                            }`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${student.gender === 'Female' ? 'bg-[#ec4899]' : 'bg-[#3b82f6]'}`} />
+                              {student.gender}
+                            </span>
+                          </td>
+                        )}
 
                         {/* Guardian Contact */}
-                        <td className="px-4 py-3">
-                          {student.guardianPhone ? (
-                            <a
-                              href={`tel:${student.guardianPhone}`}
-                              className="inline-flex items-center gap-1.5 text-[11px] font-mono text-[#c4b5fd] hover:text-white hover:underline transition-colors"
-                              title="Wac Telefoonka Waalidka"
-                            >
-                              <Phone className="w-3 h-3 text-[#7c3aed]" />
-                              <span>{student.guardianPhone}</span>
-                            </a>
-                          ) : (
-                            <span className="text-[#555555] font-mono text-xs">-</span>
-                          )}
-                          {student.guardianName && (
-                            <p className="text-[10px] text-[#737373] mt-0.5">
-                              {student.guardianName}
-                            </p>
-                          )}
-                        </td>
+                        {visibleColumns.guardian !== false && (
+                          <td className="px-4 py-3">
+                            {student.guardianPhone ? (
+                              <a
+                                href={`tel:${student.guardianPhone}`}
+                                className="inline-flex items-center gap-1.5 text-[11px] font-mono text-[#c4b5fd] hover:text-white hover:underline transition-colors"
+                                title="Wac Telefoonka Waalidka"
+                              >
+                                <Phone className="w-3 h-3 text-[#7c3aed]" />
+                                <span>{student.guardianPhone}</span>
+                              </a>
+                            ) : (
+                              <span className="text-rose-400/80 font-mono text-[10px]">Lama gelin</span>
+                            )}
+                            {student.guardianName && (
+                              <p className="text-[10px] text-[#737373] mt-0.5">
+                                {student.guardianName}
+                              </p>
+                            )}
+                          </td>
+                        )}
 
                         {/* Fee Status */}
-                        <td className="px-4 py-3">
-                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-sm text-[10px] font-bold uppercase tracking-wider border ${
-                            feeInfo.status === 'paid'
-                              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                              : feeInfo.status === 'partial'
-                              ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                              : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
-                          }`}>
-                            <DollarSign className="w-2.5 h-2.5" />
-                            <span>{feeInfo.status}</span>
-                          </span>
-                          {feeInfo.status !== 'paid' && feeInfo.balance > 0 && (
-                            <p className="text-[9px] text-[#888888] font-mono mt-0.5">
-                              Dhiman: {settings.currency} {feeInfo.balance}
-                            </p>
-                          )}
-                        </td>
+                        {visibleColumns.fees !== false && (
+                          <td className="px-4 py-3">
+                            <span className={`text-[10px] font-mono font-bold uppercase tracking-wider ${
+                              feeInfo.status === 'paid'
+                                ? 'text-emerald-400'
+                                : feeInfo.status === 'partial'
+                                ? 'text-amber-400'
+                                : 'text-rose-400'
+                            }`}>
+                              {feeInfo.status}
+                            </span>
+                            {feeInfo.status !== 'paid' && feeInfo.balance > 0 && (
+                              <p className="text-[9px] text-[#888888] font-mono mt-0.5">
+                                Bal: {settings.currency} {feeInfo.balance}
+                              </p>
+                            )}
+                          </td>
+                        )}
 
                         {/* Lifecycle Status */}
-                        <td className="px-4 py-3">
-                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-sm text-[9px] font-bold uppercase tracking-wider border ${
-                            student.status === 'active'
-                              ? 'bg-[#7c3aed]/15 text-[#c4b5fd] border-[#7c3aed]/30'
-                              : student.status === 'archived'
-                              ? 'bg-slate-700/30 text-slate-300 border-slate-600/40'
-                              : 'bg-rose-500/15 text-rose-400 border-rose-500/30'
-                          }`}>
-                            {student.status || 'active'}
-                          </span>
-                        </td>
+                        {visibleColumns.status !== false && (
+                          <td className="px-4 py-3">
+                            <span className={`text-[10px] font-mono font-bold uppercase tracking-wider ${
+                              student.status === 'active'
+                                ? 'text-emerald-400'
+                                : student.status === 'archived'
+                                ? 'text-slate-400'
+                                : 'text-amber-400'
+                            }`}>
+                              {student.status || 'active'}
+                            </span>
+                          </td>
+                        )}
+
+                        {/* Registration & Last Updated */}
+                        {visibleColumns.updated !== false && (
+                          <td className="px-4 py-3 font-mono text-[10px] text-[#888888]">
+                            <div>Reg: {student.createdAt || '-'}</div>
+                            {student.updatedAt && (
+                              <div className="text-[9px] text-[#555555]">Upd: {student.updatedAt.split('T')[0]}</div>
+                            )}
+                          </td>
+                        )}
 
                         {/* Row Actions */}
                         <td className="px-4 py-3 text-right">
                           <div className="flex items-center justify-end gap-1.5">
                             {/* Profile 360 */}
                             <button
-                              onClick={() => setSelectedProfileStudent(student)}
+                              onClick={() => handleOpenProfile(student)}
                               className="p-1.5 rounded-sm border border-[#ffffff10] text-[#737373] hover:text-[#c4b5fd] hover:bg-[#7c3aed]/15 hover:border-[#7c3aed]/30 transition-colors"
                               title="360° Profile-ka Ardayga"
                             >
@@ -1488,12 +1893,12 @@ export default function StudentsView({
                               <Edit2 className="w-3.5 h-3.5" />
                             </button>
 
-                            {/* Quick Archive / Restore */}
-                            {student.status === 'archived' ? (
+                            {/* Quick Activate / Archive */}
+                            {student.status === 'archived' || student.status === 'inactive' ? (
                               <button
                                 onClick={() => handleQuickStatusChange(student, 'active')}
                                 className="p-1.5 rounded-sm border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/10 transition-colors"
-                                title="Ka bixi Kaydka (Restore to Active)"
+                                title="Ka dhig Active (Restore to Active)"
                               >
                                 <RotateCcw className="w-3.5 h-3.5" />
                               </button>
@@ -1561,7 +1966,7 @@ export default function StudentsView({
                     )}
                     <div>
                       <h4 
-                        onClick={() => setSelectedProfileStudent(student)}
+                        onClick={() => handleOpenProfile(student)}
                         className="font-bold text-white hover:text-[#c4b5fd] cursor-pointer transition-colors"
                       >
                         {student.fullName}
@@ -1612,7 +2017,7 @@ export default function StudentsView({
                 {/* Action buttons */}
                 <div className="flex items-center justify-between pt-2 border-t border-[#ffffff08]">
                   <button
-                    onClick={() => setSelectedProfileStudent(student)}
+                    onClick={() => handleOpenProfile(student)}
                     className="text-xs text-[#c4b5fd] hover:underline flex items-center gap-1 font-semibold"
                   >
                     <Eye className="w-3.5 h-3.5" /> 360° Profile
@@ -1691,10 +2096,14 @@ export default function StudentsView({
           examScores={examScores}
           subjects={subjects}
           currency={settings.currency}
-          onClose={() => setSelectedProfileStudent(null)}
+          onClose={handleCloseProfile}
           onEditStudent={(st) => {
-            setSelectedProfileStudent(null);
+            handleCloseProfile();
             handleOpenEditModal(st);
+          }}
+          onStatusChange={async (st, newStatus) => {
+            await handleQuickStatusChange(st, newStatus);
+            setSelectedProfileStudent({ ...st, status: newStatus });
           }}
           theme={theme}
         />
