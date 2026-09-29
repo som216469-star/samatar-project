@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { GraduationCap, Menu, X, ArrowRight, User } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { PWAInstallButton } from '../PWAInstallButton';
 
 interface NavbarProps {
   onNavigate: (route: 'login' | 'signup' | 'dashboard') => void;
@@ -86,6 +87,7 @@ export default function Navbar({ onNavigate, isAuthenticated, userEmail, onScrol
 
         {/* Action Buttons */}
         <div className="hidden md:flex items-center gap-3">
+          <PWAInstallButton />
           {isAuthenticated ? (
             <div className="flex items-center gap-3">
               <div className="hidden xl:flex items-center gap-1.5 text-xs text-[#94a3b8] font-mono px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.06]">
@@ -180,6 +182,7 @@ export default function Navbar({ onNavigate, isAuthenticated, userEmail, onScrol
             </div>
 
             <div className="pt-4 border-t border-white/[0.08] flex flex-col gap-2.5">
+              <PWAInstallButton className="w-full justify-center py-2.5" variant="full" />
               {isAuthenticated ? (
                 <button
                   onClick={() => { setMobileMenuOpen(false); onNavigate('dashboard'); }}

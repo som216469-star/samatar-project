@@ -6,6 +6,9 @@ import { createServer as createViteServer } from "vite";
 import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
 import { withSupabase, createSupabaseContext } from "@supabase/server";
+import { registerModernRoutes } from "./server/modernRoutes";
+import { registerFinanceRoutes } from "./server/financeRoutes";
+import { getAuthenticatedUser, createSessionToken } from "./server/authSession";
 
 // Load environment variables
 dotenv.config({ override: true });
@@ -141,14 +144,33 @@ try {
 const LOCAL_DB_PATH = path.join(process.cwd(), "database.json");
 
 interface LocalDB {
-  users: Array<{ email: string; password_hash: string; verified: boolean; verification_code?: string }>;
+  users: Array<{ email: string; password_hash: string; verified: boolean; verification_code?: string; role?: string }>;
   students: Array<any>;
   attendance: Array<{ schoolId?: string; date: string; studentId: string; status: string; timestamp: string; sessionType?: string }>;
   fees: Array<any>;
-  classes: Array<{ id: string; schoolId?: string; className: string; teacherName: string; roomNumber: string; description: string; createdAt: string }>;
-  subjects: Array<{ id: string; schoolId?: string; subjectName: string; subjectCode: string; className: string; teacherName: string; createdAt: string }>;
+  classes: Array<{ id: string; schoolId?: string; className: string; teacherName: string; roomNumber: string; description: string; createdAt: string; section?: string; capacity?: number; academicYear?: string; status?: string }>;
+  subjects: Array<{ id: string; schoolId?: string; subjectName: string; subjectCode: string; className: string; teacherName: string; createdAt: string; category?: string; description?: string; passMarks?: number; maxMarks?: number; status?: string }>;
   examScores: Array<{ id: string; schoolId?: string; studentId: string; studentName: string; className: string; subjectName: string; examName: string; term: string; maxMarks: number; marksObtained: number; grade: string; examDate: string; createdAt: string }>;
   settings: any;
+  teachers?: Array<any>;
+  staff?: Array<any>;
+  guardians?: Array<any>;
+  staffAttendance?: Array<any>;
+  timetable?: Array<any>;
+  admissions?: Array<any>;
+  announcements?: Array<any>;
+  libraryBooks?: Array<any>;
+  libraryLoans?: Array<any>;
+  inventory?: Array<any>;
+  documents?: Array<any>;
+  notifications?: Array<any>;
+  feeStructures?: Array<any>;
+  invoices?: Array<any>;
+  payments?: Array<any>;
+  expenses?: Array<any>;
+  income?: Array<any>;
+  budgets?: Array<any>;
+  payroll?: Array<any>;
 }
 
 const defaultSettings = {
@@ -159,23 +181,49 @@ const defaultSettings = {
 };
 
 function loadLocalDB(): LocalDB {
+  const ensureArrays = (db: any): LocalDB => {
+    if (!db.users) db.users = [];
+    if (!db.students) db.students = [];
+    if (!db.attendance) db.attendance = [];
+    if (!db.fees) db.fees = [];
+    if (!db.classes) db.classes = [];
+    if (!db.subjects) db.subjects = [];
+    if (!db.examScores) db.examScores = [];
+    if (!db.settings) db.settings = defaultSettings;
+    if (!db.teachers) db.teachers = [];
+    if (!db.staff) db.staff = [];
+    if (!db.guardians) db.guardians = [];
+    if (!db.staffAttendance) db.staffAttendance = [];
+    if (!db.timetable) db.timetable = [];
+    if (!db.admissions) db.admissions = [];
+    if (!db.announcements) db.announcements = [];
+    if (!db.libraryBooks) db.libraryBooks = [];
+    if (!db.libraryLoans) db.libraryLoans = [];
+    if (!db.inventory) db.inventory = [];
+    if (!db.documents) db.documents = [];
+    if (!db.notifications) db.notifications = [];
+    if (!db.feeStructures) db.feeStructures = [];
+    if (!db.invoices) db.invoices = [];
+    if (!db.payments) db.payments = [];
+    if (!db.expenses) db.expenses = [];
+    if (!db.income) db.income = [];
+    if (!db.budgets) db.budgets = [];
+    if (!db.payroll) db.payroll = [];
+    return db;
+  };
+
   if (!fs.existsSync(LOCAL_DB_PATH)) {
-    const initial: LocalDB = {
-      users: [], students: [], attendance: [], fees: [],
-      classes: [], subjects: [], examScores: [], settings: defaultSettings
-    };
+    const initial = ensureArrays({ settings: defaultSettings });
     fs.writeFileSync(LOCAL_DB_PATH, JSON.stringify(initial, null, 2));
     return initial;
   }
   try {
     const content = fs.readFileSync(LOCAL_DB_PATH, "utf-8");
-    return JSON.parse(content);
+    const parsed = JSON.parse(content);
+    return ensureArrays(parsed);
   } catch (e) {
     console.error("Failed to parse local DB, recreating...", e);
-    const initial: LocalDB = {
-      users: [], students: [], attendance: [], fees: [],
-      classes: [], subjects: [], examScores: [], settings: defaultSettings
-    };
+    const initial = ensureArrays({ settings: defaultSettings });
     fs.writeFileSync(LOCAL_DB_PATH, JSON.stringify(initial, null, 2));
     return initial;
   }
@@ -186,11 +234,59 @@ function saveLocalDB(data: LocalDB) {
 }
 
 function getSchoolId(req: express.Request): string {
+  // ZERO TRUST CLIENT: Validate tenant from authenticated session or registered database record
+  const authUser = getAuthenticatedUser(req, loadLocalDB);
+  if (authUser && authUser.schoolId) {
+    return authUser.schoolId;
+  }
   const emailHeader = req.headers["x-school-email"] || req.headers["X-School-Email"] || req.headers["x-school-id"] || req.headers["X-School-Id"];
   if (typeof emailHeader === "string" && emailHeader.trim() !== "") {
     return emailHeader.trim().toLowerCase();
   }
   return "default-school";
+}
+
+function buildAuthResponse(cleanEmail: string, db: any) {
+  // Check if user is a teacher
+  const teacher = (db.teachers || []).find((t: any) => (t.email || "").toLowerCase() === cleanEmail);
+  if (teacher) {
+    if (teacher.status === "DEACTIVATED") {
+      return { error: "Akoonkaaga macallinka waa la hakiyey (Account deactivated). Fadlan la xiriir maamulka iskuulka." };
+    }
+    if (teacher.status === "INVITED") {
+      return { error: "Akoonkan weli lama dhaqaajin. Fadlan isticmaal link-gii casuumaadda ee email-kaaga laguugu soo diray si aad u samaysato password." };
+    }
+    teacher.lastLoginAt = new Date().toISOString();
+    const userPayload: any = {
+      email: cleanEmail,
+      role: "teacher",
+      name: teacher.name,
+      teacherId: teacher.id,
+      schoolId: teacher.schoolId || cleanEmail,
+      assignedClasses: teacher.assignedClasses || [],
+      assignedSubjects: teacher.assignedSubjects || []
+    };
+    const token = createSessionToken(userPayload);
+    return {
+      success: true,
+      token,
+      user: userPayload
+    };
+  }
+
+  // Otherwise school administrator
+  const userRecord = (db.users || []).find((u: any) => (u.email || "").toLowerCase() === cleanEmail);
+  const userPayload: any = {
+    email: cleanEmail,
+    role: userRecord?.role || "admin",
+    schoolId: userRecord?.school_id || cleanEmail
+  };
+  const token = createSessionToken(userPayload);
+  return {
+    success: true,
+    token,
+    user: userPayload
+  };
 }
 
 async function testSupabaseTable(tableName: string, checkColumn?: string): Promise<boolean> {
@@ -316,25 +412,21 @@ async function checkSupabaseStatus() {
 checkSupabaseStatus();
 
 const SQL_SETUP_SCRIPT = `
--- Drop old tables if they exist to support complete recreation
-DROP TABLE IF EXISTS dugsiga_settings CASCADE;
-DROP TABLE IF EXISTS dugsiga_fees CASCADE;
-DROP TABLE IF EXISTS dugsiga_attendance CASCADE;
-DROP TABLE IF EXISTS dugsiga_exam_scores CASCADE;
-DROP TABLE IF EXISTS dugsiga_subjects CASCADE;
-DROP TABLE IF EXISTS dugsiga_classes CASCADE;
-DROP TABLE IF EXISTS dugsiga_students CASCADE;
-DROP TABLE IF EXISTS dugsiga_users CASCADE;
+-- =========================================================================
+-- DUGSI PRO 2026 — PRODUCTION SAFE NON-DESTRUCTIVE DATABASE SETUP
+-- Safely creates all core and modernized tables without dropping any data
+-- =========================================================================
 
--- Create users table (No verification code)
+-- 1. Users Table
 CREATE TABLE IF NOT EXISTS dugsiga_users (
   email TEXT PRIMARY KEY,
   password TEXT NOT NULL,
   verified BOOLEAN DEFAULT TRUE,
+  role TEXT DEFAULT 'School Admin',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Create students table with school_id separation
+-- 2. Students Table
 CREATE TABLE IF NOT EXISTS dugsiga_students (
   id TEXT PRIMARY KEY,
   school_id TEXT NOT NULL,
@@ -344,10 +436,15 @@ CREATE TABLE IF NOT EXISTS dugsiga_students (
   guardian_phone TEXT,
   status TEXT DEFAULT 'active',
   created_at TEXT,
-  photo TEXT
+  photo TEXT,
+  date_of_birth TEXT,
+  address TEXT,
+  guardian_name TEXT,
+  section TEXT,
+  roll_number TEXT
 );
 
--- Create classes table with school_id separation
+-- 3. Classes Table
 CREATE TABLE IF NOT EXISTS dugsiga_classes (
   id TEXT PRIMARY KEY,
   school_id TEXT NOT NULL,
@@ -355,10 +452,13 @@ CREATE TABLE IF NOT EXISTS dugsiga_classes (
   teacher_name TEXT,
   room_number TEXT,
   description TEXT,
+  section TEXT,
+  capacity INTEGER,
+  academic_year TEXT,
   created_at TEXT
 );
 
--- Create subjects table with school_id separation
+-- 4. Subjects Table
 CREATE TABLE IF NOT EXISTS dugsiga_subjects (
   id TEXT PRIMARY KEY,
   school_id TEXT NOT NULL,
@@ -366,10 +466,14 @@ CREATE TABLE IF NOT EXISTS dugsiga_subjects (
   subject_code TEXT,
   class_name TEXT,
   teacher_name TEXT,
+  category TEXT,
+  description TEXT,
+  pass_marks NUMERIC DEFAULT 50,
+  max_marks NUMERIC DEFAULT 100,
   created_at TEXT
 );
 
--- Create exam scores table with school_id separation
+-- 5. Exam Scores Table
 CREATE TABLE IF NOT EXISTS dugsiga_exam_scores (
   id TEXT PRIMARY KEY,
   school_id TEXT NOT NULL,
@@ -386,7 +490,7 @@ CREATE TABLE IF NOT EXISTS dugsiga_exam_scores (
   created_at TEXT
 );
 
--- Create attendance table with school_id separation
+-- 6. Student Attendance Table
 CREATE TABLE IF NOT EXISTS dugsiga_attendance (
   school_id TEXT NOT NULL,
   date TEXT NOT NULL,
@@ -397,7 +501,7 @@ CREATE TABLE IF NOT EXISTS dugsiga_attendance (
   PRIMARY KEY (school_id, date, student_id, session_type)
 );
 
--- Create fees table with school_id separation
+-- 7. Fees Table
 CREATE TABLE IF NOT EXISTS dugsiga_fees (
   id TEXT PRIMARY KEY,
   school_id TEXT NOT NULL,
@@ -412,7 +516,7 @@ CREATE TABLE IF NOT EXISTS dugsiga_fees (
   history JSONB
 );
 
--- Create settings table with school_id separation
+-- 8. Settings Table
 CREATE TABLE IF NOT EXISTS dugsiga_settings (
   school_id TEXT NOT NULL,
   key TEXT NOT NULL,
@@ -420,25 +524,253 @@ CREATE TABLE IF NOT EXISTS dugsiga_settings (
   PRIMARY KEY (school_id, key)
 );
 
--- Disable Row Level Security & grant full privileges
-ALTER TABLE dugsiga_users DISABLE ROW LEVEL SECURITY;
-ALTER TABLE dugsiga_students DISABLE ROW LEVEL SECURITY;
-ALTER TABLE dugsiga_classes DISABLE ROW LEVEL SECURITY;
-ALTER TABLE dugsiga_subjects DISABLE ROW LEVEL SECURITY;
-ALTER TABLE dugsiga_exam_scores DISABLE ROW LEVEL SECURITY;
-ALTER TABLE dugsiga_attendance DISABLE ROW LEVEL SECURITY;
-ALTER TABLE dugsiga_fees DISABLE ROW LEVEL SECURITY;
-ALTER TABLE dugsiga_settings DISABLE ROW LEVEL SECURITY;
+-- 9. Teachers Table (Extension)
+CREATE TABLE IF NOT EXISTS dugsiga_teachers (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  teacher_id TEXT,
+  name TEXT NOT NULL,
+  photo TEXT,
+  gender TEXT,
+  date_of_birth TEXT,
+  phone TEXT,
+  email TEXT,
+  address TEXT,
+  qualification TEXT,
+  specialization TEXT,
+  hire_date TEXT,
+  employment_status TEXT DEFAULT 'Full-Time',
+  salary NUMERIC DEFAULT 0,
+  emergency_contact TEXT,
+  notes TEXT,
+  assigned_classes JSONB,
+  assigned_subjects JSONB,
+  created_at TEXT
+);
 
-GRANT ALL ON TABLE dugsiga_users TO anon, authenticated, service_role;
-GRANT ALL ON TABLE dugsiga_students TO anon, authenticated, service_role;
-GRANT ALL ON TABLE dugsiga_classes TO anon, authenticated, service_role;
-GRANT ALL ON TABLE dugsiga_subjects TO anon, authenticated, service_role;
-GRANT ALL ON TABLE dugsiga_exam_scores TO anon, authenticated, service_role;
-GRANT ALL ON TABLE dugsiga_attendance TO anon, authenticated, service_role;
-GRANT ALL ON TABLE dugsiga_fees TO anon, authenticated, service_role;
-GRANT ALL ON TABLE dugsiga_settings TO anon, authenticated, service_role;
+-- 10. Staff Members Table (Extension)
+CREATE TABLE IF NOT EXISTS dugsiga_staff (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  employee_id TEXT,
+  name TEXT NOT NULL,
+  role TEXT NOT NULL,
+  department TEXT,
+  phone TEXT,
+  email TEXT,
+  hire_date TEXT,
+  salary NUMERIC DEFAULT 0,
+  employment_status TEXT DEFAULT 'Full-Time',
+  notes TEXT,
+  created_at TEXT
+);
+
+-- 11. Guardians Table (Extension)
+CREATE TABLE IF NOT EXISTS dugsiga_guardians (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  guardian_id TEXT,
+  name TEXT NOT NULL,
+  relationship TEXT,
+  phone TEXT NOT NULL,
+  whatsapp TEXT,
+  email TEXT,
+  address TEXT,
+  occupation TEXT,
+  emergency_contact TEXT,
+  student_ids JSONB,
+  notes TEXT,
+  created_at TEXT
+);
+
+-- 12. Staff Attendance Table (Extension)
+CREATE TABLE IF NOT EXISTS dugsiga_staff_attendance (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  staff_id TEXT NOT NULL,
+  staff_name TEXT,
+  role TEXT,
+  date TEXT NOT NULL,
+  status TEXT NOT NULL,
+  timestamp TEXT,
+  notes TEXT
+);
+
+-- 13. Timetable Table (Extension)
+CREATE TABLE IF NOT EXISTS dugsiga_timetable (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  academic_year TEXT,
+  term TEXT,
+  class_name TEXT NOT NULL,
+  teacher_name TEXT NOT NULL,
+  subject_name TEXT NOT NULL,
+  room_number TEXT,
+  day TEXT NOT NULL,
+  start_time TEXT NOT NULL,
+  end_time TEXT NOT NULL
+);
+
+-- 14. Admissions Table (Extension)
+CREATE TABLE IF NOT EXISTS dugsiga_admissions (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  applicant_name TEXT NOT NULL,
+  gender TEXT,
+  date_of_birth TEXT,
+  desired_class TEXT NOT NULL,
+  guardian_name TEXT,
+  guardian_phone TEXT,
+  guardian_relationship TEXT,
+  admission_date TEXT,
+  status TEXT DEFAULT 'Pending',
+  notes TEXT,
+  student_id TEXT,
+  created_at TEXT
+);
+
+-- 15. Announcements Table (Extension)
+CREATE TABLE IF NOT EXISTS dugsiga_announcements (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  message TEXT NOT NULL,
+  audience TEXT DEFAULT 'Everyone',
+  target_class TEXT,
+  author TEXT,
+  priority TEXT DEFAULT 'Normal',
+  status TEXT DEFAULT 'Active',
+  publish_date TEXT,
+  expiry_date TEXT,
+  created_at TEXT
+);
+
+-- 16. Library Books Table (Extension)
+CREATE TABLE IF NOT EXISTS dugsiga_library_books (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  isbn TEXT,
+  title TEXT NOT NULL,
+  author TEXT NOT NULL,
+  category TEXT,
+  total_copies INTEGER DEFAULT 1,
+  available_copies INTEGER DEFAULT 1,
+  location TEXT,
+  created_at TEXT
+);
+
+-- 17. Library Loans Table (Extension)
+CREATE TABLE IF NOT EXISTS dugsiga_library_loans (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  book_id TEXT NOT NULL,
+  book_title TEXT,
+  borrower_type TEXT NOT NULL,
+  borrower_id TEXT NOT NULL,
+  borrower_name TEXT NOT NULL,
+  issue_date TEXT NOT NULL,
+  due_date TEXT NOT NULL,
+  return_date TEXT,
+  status TEXT DEFAULT 'Borrowed'
+);
+
+-- 18. Inventory Table (Extension)
+CREATE TABLE IF NOT EXISTS dugsiga_inventory (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  item_name TEXT NOT NULL,
+  category TEXT,
+  quantity INTEGER DEFAULT 1,
+  location TEXT,
+  condition TEXT DEFAULT 'Good',
+  purchase_date TEXT,
+  purchase_cost NUMERIC DEFAULT 0,
+  assigned_to TEXT,
+  status TEXT DEFAULT 'Available',
+  notes TEXT
+);
+
+-- 19. Documents Table (Extension)
+CREATE TABLE IF NOT EXISTS dugsiga_documents (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  category TEXT NOT NULL,
+  related_id TEXT,
+  related_name TEXT,
+  file_type TEXT,
+  file_size TEXT,
+  file_url TEXT,
+  upload_date TEXT,
+  notes TEXT
+);
+
+-- 20. Notifications Table (Extension)
+CREATE TABLE IF NOT EXISTS dugsiga_notifications (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  message TEXT NOT NULL,
+  channel TEXT NOT NULL,
+  recipient TEXT NOT NULL,
+  recipient_name TEXT,
+  status TEXT DEFAULT 'Sent',
+  created_at TEXT
+);
+
+-- Grant privileges for direct access
+DO $$
+BEGIN
+  EXECUTE 'ALTER TABLE dugsiga_users DISABLE ROW LEVEL SECURITY';
+  EXECUTE 'ALTER TABLE dugsiga_students DISABLE ROW LEVEL SECURITY';
+  EXECUTE 'ALTER TABLE dugsiga_classes DISABLE ROW LEVEL SECURITY';
+  EXECUTE 'ALTER TABLE dugsiga_subjects DISABLE ROW LEVEL SECURITY';
+  EXECUTE 'ALTER TABLE dugsiga_exam_scores DISABLE ROW LEVEL SECURITY';
+  EXECUTE 'ALTER TABLE dugsiga_attendance DISABLE ROW LEVEL SECURITY';
+  EXECUTE 'ALTER TABLE dugsiga_fees DISABLE ROW LEVEL SECURITY';
+  EXECUTE 'ALTER TABLE dugsiga_settings DISABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
 `;
+
+// RBAC Permissions Mapping
+const ROLE_PERMISSIONS: Record<string, string[]> = {
+  'Super Admin': ['*'],
+  'School Admin': ['*'],
+  'Principal': [
+    'students.*', 'teachers.*', 'staff.*', 'guardians.*',
+    'attendance.*', 'exams.*', 'classes.*', 'subjects.*',
+    'timetable.*', 'admissions.*', 'announcements.*', 'reports.*',
+    'communication.*', 'library.*', 'inventory.*', 'finance.view'
+  ],
+  'Teacher': [
+    'students.view', 'attendance.view', 'attendance.manage',
+    'exams.view', 'exams.manage', 'classes.view', 'subjects.view',
+    'timetable.view', 'reports.view', 'announcements.view'
+  ],
+  'Accountant': [
+    'finance.*', 'students.view', 'reports.view', 'inventory.view', 'announcements.view'
+  ],
+  'Receptionist': [
+    'students.view', 'students.create', 'students.update',
+    'admissions.*', 'attendance.view', 'announcements.view', 'communication.*'
+  ],
+  'Librarian': [
+    'library.*', 'students.view', 'staff.view', 'announcements.view'
+  ],
+  'Staff': [
+    'timetable.view', 'announcements.view', 'attendance.view'
+  ]
+};
+
+function hasPermission(role: string, requiredPermission: string): boolean {
+  const permissions = ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS['School Admin'];
+  if (permissions.includes('*')) return true;
+  if (permissions.includes(requiredPermission)) return true;
+  const [domain] = requiredPermission.split('.');
+  if (permissions.includes(`${domain}.*`)) return true;
+  return false;
+}
 
 function simpleHash(password: string): string {
   let hash = 0;
@@ -550,6 +882,26 @@ app.get("/api/db/status", async (req, res) => {
   }
 });
 
+app.get("/api/docs/download/pdf", (req, res) => {
+  const filePath = path.join(process.cwd(), "DUGSI_PRO_2026_FULL_DOCUMENTATION.pdf");
+  if (fs.existsSync(filePath)) {
+    res.setHeader("Content-Disposition", 'attachment; filename="DUGSI_PRO_2026_FULL_DOCUMENTATION.pdf"');
+    res.setHeader("Content-Type", "application/pdf");
+    return res.sendFile(filePath);
+  }
+  return res.status(404).json({ error: "PDF documentation not found" });
+});
+
+app.get("/api/docs/download/word", (req, res) => {
+  const filePath = path.join(process.cwd(), "DUGSI_PRO_2026_FULL_DOCUMENTATION.doc");
+  if (fs.existsSync(filePath)) {
+    res.setHeader("Content-Disposition", 'attachment; filename="DUGSI_PRO_2026_FULL_DOCUMENTATION.doc"');
+    res.setHeader("Content-Type", "application/msword");
+    return res.sendFile(filePath);
+  }
+  return res.status(404).json({ error: "Word documentation not found" });
+});
+
 app.get("/api/supabase-server-test", expressWithSupabase({ auth: "none" }, async (_req: any, ctx: any) => {
   try {
     const { data: usersData, error: usersError } = await ctx.supabaseAdmin.from("dugsiga_users").select("email").limit(5);
@@ -632,6 +984,18 @@ app.post("/api/auth/verify", async (req, res) => {
   res.json({ success: true, message: "Verification step is disabled. Automated success." });
 });
 
+app.get("/api/documentation-pdf", (req, res) => {
+  const publicPdf = path.join(process.cwd(), "public", "DUGSI_PRO_2026_DOCUMENTATION.pdf");
+  const rootPdf = path.join(process.cwd(), "DUGSI_PRO_2026_DOCUMENTATION.pdf");
+  const target = fs.existsSync(publicPdf) ? publicPdf : fs.existsSync(rootPdf) ? rootPdf : null;
+  if (target) {
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", 'attachment; filename="DUGSI_PRO_2026_DOCUMENTATION.pdf"');
+    return res.sendFile(target);
+  }
+  res.status(404).json({ error: "Documentation PDF lama helin." });
+});
+
 app.post("/api/auth/login", async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) return res.status(400).json({ error: "Fadlan geli email iyo password." });
@@ -664,7 +1028,12 @@ app.post("/api/auth/login", async (req, res) => {
             db.users.push({ email: cleanEmail, password_hash: passwordHash, verified: true });
           }
           saveLocalDB(db);
-          return res.json({ success: true, user: { email: cleanEmail } });
+
+          const authRes = buildAuthResponse(cleanEmail, db);
+          if (authRes.error) {
+            return res.status(403).json({ error: authRes.error });
+          }
+          return res.json(authRes);
         } else {
           return res.status(400).json({ error: "Password-ka aad gelisay ma saxna." });
         }
@@ -680,7 +1049,11 @@ app.post("/api/auth/login", async (req, res) => {
 
   if (localUser) {
     if (localUser.password_hash === passwordHash) {
-      return res.json({ success: true, user: { email: cleanEmail } });
+      const authRes = buildAuthResponse(cleanEmail, db);
+      if (authRes.error) {
+        return res.status(403).json({ error: authRes.error });
+      }
+      return res.json(authRes);
     } else {
       return res.status(400).json({ error: "Password-ka aad gelisay ma saxna." });
     }
@@ -691,9 +1064,17 @@ app.post("/api/auth/login", async (req, res) => {
 
 app.get("/api/students", async (req, res) => {
   const schoolId = getSchoolId(req);
+  const authUser = getAuthenticatedUser(req, loadLocalDB);
+  const isTeacher = authUser?.role === "teacher";
+  const teacherClasses = authUser?.assignedClasses || [];
+
   if (!useLocalFallback) {
     try {
-      const { data, error } = await supabase.from("dugsiga_students").select("*").eq("school_id", schoolId).order("full_name", { ascending: true });
+      let query = supabase.from("dugsiga_students").select("*").eq("school_id", schoolId).order("full_name", { ascending: true });
+      if (isTeacher && teacherClasses.length > 0) {
+        query = query.in("class", teacherClasses);
+      }
+      const { data, error } = await query;
       if (error) throw error;
       const students = data.map(s => ({
         id: s.id,
@@ -701,16 +1082,137 @@ app.get("/api/students", async (req, res) => {
         class: s.class,
         gender: s.gender,
         guardianPhone: s.guardian_phone,
-        status: s.status,
+        status: s.status || "active",
         createdAt: s.created_at,
-        photo: s.photo || ""
+        photo: s.photo || "",
+        dateOfBirth: s.date_of_birth || "",
+        address: s.address || "",
+        guardianName: s.guardian_name || "",
+        section: s.section || "",
+        rollNumber: s.roll_number || ""
       }));
       return res.json(students);
     } catch (e: any) { return handleSupabaseError(res, e, "Soo qaadista Ardayda (Fetch Students)"); }
   } else {
     const db = loadLocalDB();
-    const list = (db.students || []).filter((s: any) => s.schoolId === schoolId);
+    let list = (db.students || []).filter((s: any) => s.schoolId === schoolId);
+    if (isTeacher && teacherClasses.length > 0) {
+      list = list.filter((s: any) => teacherClasses.includes(s.class));
+    }
     res.json(list);
+  }
+});
+
+app.post("/api/students/check-duplicate", async (req, res) => {
+  const schoolId = getSchoolId(req);
+  const { fullName, className, studentId, guardianPhone, excludeId } = req.body;
+  if (!fullName && !studentId && !guardianPhone) {
+    return res.json({ hasDuplicate: false, duplicates: [] });
+  }
+
+  if (!useLocalFallback) {
+    try {
+      let query = supabase.from("dugsiga_students").select("id, full_name, class, guardian_phone").eq("school_id", schoolId);
+      if (excludeId) {
+        query = query.neq("id", excludeId);
+      }
+      const { data, error } = await query;
+      if (error) throw error;
+
+      const duplicates: any[] = [];
+      const cleanName = (fullName || "").trim().toLowerCase();
+
+      for (const s of (data || [])) {
+        const sName = (s.full_name || "").trim().toLowerCase();
+        const sameId = studentId && s.id && s.id.toLowerCase() === studentId.trim().toLowerCase();
+        const sameNameClass = cleanName && className && sName === cleanName && s.class === className;
+        const samePhone = guardianPhone && s.guardian_phone && guardianPhone.length > 5 && s.guardian_phone === guardianPhone;
+
+        if (sameId || sameNameClass || samePhone) {
+          duplicates.push({
+            id: s.id,
+            fullName: s.full_name,
+            class: s.class,
+            guardianPhone: s.guardian_phone,
+            matchReason: sameId ? 'Same Student ID' : sameNameClass ? 'Same Name & Class' : 'Same Guardian Phone'
+          });
+        }
+      }
+      return res.json({ hasDuplicate: duplicates.length > 0, duplicates });
+    } catch (e: any) {
+      return res.json({ hasDuplicate: false, duplicates: [] });
+    }
+  } else {
+    const db = loadLocalDB();
+    const students = (db.students || []).filter((s: any) => s.schoolId === schoolId && (!excludeId || s.id !== excludeId));
+    const duplicates: any[] = [];
+    const cleanName = (fullName || "").trim().toLowerCase();
+
+    for (const s of students) {
+      const sName = (s.fullName || "").trim().toLowerCase();
+      const sameId = studentId && s.id && s.id.toLowerCase() === studentId.trim().toLowerCase();
+      const sameNameClass = cleanName && className && sName === cleanName && s.class === className;
+      const samePhone = guardianPhone && s.guardianPhone && guardianPhone.length > 5 && s.guardianPhone === guardianPhone;
+
+      if (sameId || sameNameClass || samePhone) {
+        duplicates.push({
+          id: s.id,
+          fullName: s.fullName,
+          class: s.class,
+          guardianPhone: s.guardianPhone,
+          matchReason: sameId ? 'Same Student ID' : sameNameClass ? 'Same Name & Class' : 'Same Guardian Phone'
+        });
+      }
+    }
+    return res.json({ hasDuplicate: duplicates.length > 0, duplicates });
+  }
+});
+
+app.post("/api/students/bulk", async (req, res) => {
+  const schoolId = getSchoolId(req);
+  const { action, studentIds, targetClass, targetStatus } = req.body;
+  if (!Array.isArray(studentIds) || studentIds.length === 0) {
+    return res.status(400).json({ error: "studentIds waa qasab (studentIds array is required)" });
+  }
+
+  if (!useLocalFallback) {
+    try {
+      if (action === 'change_status' && targetStatus) {
+        const { error } = await supabase.from("dugsiga_students").update({ status: targetStatus }).in("id", studentIds).eq("school_id", schoolId);
+        if (error) throw error;
+      } else if (action === 'change_class' && targetClass) {
+        const { error } = await supabase.from("dugsiga_students").update({ class: targetClass }).in("id", studentIds).eq("school_id", schoolId);
+        if (error) throw error;
+      } else if (action === 'archive') {
+        const { error } = await supabase.from("dugsiga_students").update({ status: 'archived' }).in("id", studentIds).eq("school_id", schoolId);
+        if (error) throw error;
+      } else if (action === 'delete') {
+        await supabase.from("dugsiga_fees").delete().in("student_id", studentIds).eq("school_id", schoolId);
+        await supabase.from("dugsiga_attendance").delete().in("student_id", studentIds).eq("school_id", schoolId);
+        const { error } = await supabase.from("dugsiga_students").delete().in("id", studentIds).eq("school_id", schoolId);
+        if (error) throw error;
+      } else {
+        return res.status(400).json({ error: "Action aan sax ahayn (Invalid bulk action)" });
+      }
+      return res.json({ success: true, count: studentIds.length });
+    } catch (e: any) {
+      return handleSupabaseError(res, e, "Hawsha guud ee ardayda (Bulk Students Operation)");
+    }
+  } else {
+    const db = loadLocalDB();
+    if (action === 'change_status' && targetStatus) {
+      db.students = db.students.map((s: any) => (studentIds.includes(s.id) && s.schoolId === schoolId) ? { ...s, status: targetStatus } : s);
+    } else if (action === 'change_class' && targetClass) {
+      db.students = db.students.map((s: any) => (studentIds.includes(s.id) && s.schoolId === schoolId) ? { ...s, class: targetClass } : s);
+    } else if (action === 'archive') {
+      db.students = db.students.map((s: any) => (studentIds.includes(s.id) && s.schoolId === schoolId) ? { ...s, status: 'archived' } : s);
+    } else if (action === 'delete') {
+      db.students = db.students.filter((s: any) => !(studentIds.includes(s.id) && s.schoolId === schoolId));
+      db.fees = db.fees.filter((f: any) => !(studentIds.includes(f.studentId) && f.schoolId === schoolId));
+      db.attendance = db.attendance.filter((a: any) => !(studentIds.includes(a.studentId) && a.schoolId === schoolId));
+    }
+    saveLocalDB(db);
+    return res.json({ success: true, count: studentIds.length });
   }
 });
 
@@ -719,9 +1221,20 @@ app.post("/api/students", async (req, res) => {
   const student = req.body;
   if (!student.fullName || !student.class) return res.status(400).json({ error: "Magaca iyo Class-ka waa qasab." });
   
-  const studentId = student.id || 'std-' + Math.random().toString(36).substring(2, 11);
+  const studentId = (student.id && String(student.id).trim()) || 'std-' + Math.random().toString(36).substring(2, 11);
   const createdAt = student.createdAt || new Date().toISOString().split('T')[0];
-  const fullStudent = { ...student, id: studentId, createdAt };
+  const fullStudent = { 
+    ...student, 
+    id: studentId, 
+    createdAt,
+    status: student.status || "active",
+    gender: student.gender || "Male",
+    dateOfBirth: student.dateOfBirth || "",
+    address: student.address || "",
+    guardianName: student.guardianName || "",
+    section: student.section || "",
+    rollNumber: student.rollNumber || ""
+  };
 
   if (!useLocalFallback) {
     try {
@@ -738,15 +1251,29 @@ app.post("/api/students", async (req, res) => {
         guardian_phone: student.guardianPhone || "",
         status: student.status || "active",
         created_at: createdAt,
-        photo: student.photo || ""
+        photo: student.photo || "",
+        date_of_birth: student.dateOfBirth || "",
+        address: student.address || "",
+        guardian_name: student.guardianName || "",
+        section: student.section || "",
+        roll_number: student.rollNumber || ""
       };
       
       let { error } = await supabase.from("dugsiga_students").insert([insertObj]);
       if (error) {
-        if (error.code === '42703' || (error.message && error.message.includes('photo'))) {
-          console.warn("photo column does not exist on dugsiga_students. Retrying without photo.");
-          delete insertObj.photo;
-          const retryResult = await supabase.from("dugsiga_students").insert([insertObj]);
+        if (error.code === '42703' || (error.message && (error.message.includes('photo') || error.message.includes('date_of_birth') || error.message.includes('section')))) {
+          console.warn("Some columns might not exist on dugsiga_students. Retrying with basic columns.");
+          const basicObj = {
+            id: studentId,
+            school_id: schoolId,
+            full_name: student.fullName.trim(),
+            class: student.class,
+            gender: student.gender || "Male",
+            guardian_phone: student.guardianPhone || "",
+            status: student.status || "active",
+            created_at: createdAt
+          };
+          const retryResult = await supabase.from("dugsiga_students").insert([basicObj]);
           error = retryResult.error;
         }
       }
@@ -769,20 +1296,30 @@ app.put("/api/students/:id", async (req, res) => {
   const updates = req.body;
   if (!useLocalFallback) {
     try {
-      const updateObj: any = {
-        full_name: updates.fullName,
-        class: updates.class,
-        gender: updates.gender,
-        guardian_phone: updates.guardianPhone,
-        status: updates.status,
-        photo: updates.photo
-      };
+      const updateObj: any = {};
+      if (updates.fullName !== undefined) updateObj.full_name = updates.fullName;
+      if (updates.class !== undefined) updateObj.class = updates.class;
+      if (updates.gender !== undefined) updateObj.gender = updates.gender;
+      if (updates.guardianPhone !== undefined) updateObj.guardian_phone = updates.guardianPhone;
+      if (updates.status !== undefined) updateObj.status = updates.status;
+      if (updates.photo !== undefined) updateObj.photo = updates.photo;
+      if (updates.dateOfBirth !== undefined) updateObj.date_of_birth = updates.dateOfBirth;
+      if (updates.address !== undefined) updateObj.address = updates.address;
+      if (updates.guardianName !== undefined) updateObj.guardian_name = updates.guardianName;
+      if (updates.section !== undefined) updateObj.section = updates.section;
+      if (updates.rollNumber !== undefined) updateObj.roll_number = updates.rollNumber;
+
       let { error } = await supabase.from("dugsiga_students").update(updateObj).eq("id", id).eq("school_id", schoolId);
       if (error) {
-        if (error.code === '42703' || (error.message && error.message.includes('photo'))) {
-          console.warn("photo column does not exist on dugsiga_students. Retrying update without photo.");
-          delete updateObj.photo;
-          const retryResult = await supabase.from("dugsiga_students").update(updateObj).eq("id", id).eq("school_id", schoolId);
+        if (error.code === '42703' || (error.message && (error.message.includes('photo') || error.message.includes('date_of_birth')))) {
+          console.warn("Some columns do not exist. Retrying update with base columns.");
+          const baseUpdate: any = {};
+          if (updates.fullName !== undefined) baseUpdate.full_name = updates.fullName;
+          if (updates.class !== undefined) baseUpdate.class = updates.class;
+          if (updates.gender !== undefined) baseUpdate.gender = updates.gender;
+          if (updates.guardianPhone !== undefined) baseUpdate.guardian_phone = updates.guardianPhone;
+          if (updates.status !== undefined) baseUpdate.status = updates.status;
+          const retryResult = await supabase.from("dugsiga_students").update(baseUpdate).eq("id", id).eq("school_id", schoolId);
           error = retryResult.error;
         }
       }
@@ -853,6 +1390,19 @@ app.get("/api/attendance", async (req, res) => {
 
 app.post("/api/attendance", async (req, res) => {
   const schoolId = getSchoolId(req);
+  const authUser = getAuthenticatedUser(req, loadLocalDB);
+  if (authUser?.role === "teacher" && authUser.assignedClasses && authUser.assignedClasses.length > 0) {
+    const db = loadLocalDB();
+    const students = db.students || [];
+    const unassigned = (req.body.records || []).find((r: any) => {
+      const st = students.find((s: any) => s.id === r.studentId);
+      return st && !authUser.assignedClasses?.includes(st.class);
+    });
+    if (unassigned) {
+      return res.status(403).json({ error: "Macallinku awood uma laha calaamadaynta fasal aan loo xilsaarin." });
+    }
+  }
+
   const { date, session_type, records } = req.body;
   if (!date || !Array.isArray(records)) return res.status(400).json({ error: "Date and records array required" });
   const sType = session_type || 'before_break';
@@ -915,6 +1465,11 @@ app.get("/api/fees", async (req, res) => {
 
 app.post("/api/fees", async (req, res) => {
   const schoolId = getSchoolId(req);
+  const authUser = getAuthenticatedUser(req, loadLocalDB);
+  if (authUser?.role === "teacher") {
+    return res.status(403).json({ error: "Macallimiintu awood uma laha abuurista biilasha ardayda." });
+  }
+
   const fee = req.body;
   if (!fee.studentId || !fee.month || !fee.year) return res.status(400).json({ error: "Missing required fields" });
   
@@ -955,6 +1510,11 @@ app.post("/api/fees", async (req, res) => {
 
 app.put("/api/fees/:id", async (req, res) => {
   const schoolId = getSchoolId(req);
+  const authUser = getAuthenticatedUser(req, loadLocalDB);
+  if (authUser?.role === "teacher") {
+    return res.status(403).json({ error: "Macallimiintu awood uma laha wax ka beddelka biilasha ardayda." });
+  }
+
   const { id } = req.params;
   const updates = req.body;
   if (!useLocalFallback) {
@@ -1260,6 +1820,28 @@ app.put("/api/settings", async (req, res) => {
   }
 });
 
+// Register Modernization & Extension Routes (Teachers, Staff, Guardians, Attendance, Timetable, Admissions, Library, Inventory, Announcements, Reports, RBAC)
+registerModernRoutes(app, {
+  getSchoolId,
+  loadLocalDB,
+  saveLocalDB,
+  supabase,
+  getUseLocalFallback: () => useLocalFallback,
+  hasPermission,
+  handleSupabaseError
+});
+
+// Register Complete Finance & Accounting Suite
+registerFinanceRoutes(app, {
+  getSchoolId,
+  loadLocalDB,
+  saveLocalDB,
+  supabase,
+  getUseLocalFallback: () => useLocalFallback,
+  hasPermission,
+  handleSupabaseError
+});
+
 app.post("/api/reset", async (req, res) => {
   const schoolId = getSchoolId(req);
   if (!useLocalFallback) {
@@ -1287,6 +1869,18 @@ app.post("/api/reset", async (req, res) => {
   db.examScores = (db.examScores || []).filter((e: any) => e.schoolId !== schoolId);
   db.classes = (db.classes || []).filter((c: any) => c.schoolId !== schoolId);
   db.subjects = (db.subjects || []).filter((s: any) => s.schoolId !== schoolId);
+  if (db.teachers) db.teachers = db.teachers.filter((t: any) => t.schoolId !== schoolId);
+  if (db.staff) db.staff = db.staff.filter((s: any) => s.schoolId !== schoolId);
+  if (db.guardians) db.guardians = db.guardians.filter((g: any) => g.schoolId !== schoolId);
+  if (db.staffAttendance) db.staffAttendance = db.staffAttendance.filter((a: any) => a.schoolId !== schoolId);
+  if (db.timetable) db.timetable = db.timetable.filter((t: any) => t.schoolId !== schoolId);
+  if (db.admissions) db.admissions = db.admissions.filter((a: any) => a.schoolId !== schoolId);
+  if (db.announcements) db.announcements = db.announcements.filter((a: any) => a.schoolId !== schoolId);
+  if (db.libraryBooks) db.libraryBooks = db.libraryBooks.filter((b: any) => b.schoolId !== schoolId);
+  if (db.libraryLoans) db.libraryLoans = db.libraryLoans.filter((l: any) => l.schoolId !== schoolId);
+  if (db.inventory) db.inventory = db.inventory.filter((i: any) => i.schoolId !== schoolId);
+  if (db.documents) db.documents = db.documents.filter((d: any) => d.schoolId !== schoolId);
+  if (db.notifications) db.notifications = db.notifications.filter((n: any) => n.schoolId !== schoolId);
   if (db.settings && typeof db.settings === 'object' && !db.settings.schoolName) {
     delete db.settings[schoolId];
   } else {
@@ -1301,6 +1895,8 @@ if (process.env.DISABLE_HMR !== "true") {
 }
 
 async function startServer() {
+  app.use(express.static(path.join(process.cwd(), "public")));
+
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },

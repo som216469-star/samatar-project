@@ -33,7 +33,13 @@ import {
   Activity,
   BookOpen,
   Award,
-  Camera
+  Camera,
+  GraduationCap,
+  Briefcase,
+  UserPlus,
+  Package,
+  Bell,
+  ClipboardList
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -50,30 +56,69 @@ import {
   Cell 
 } from 'recharts';
 
-import { Student, AttendanceRecord, FeeRecord, SystemSettings, DbStatus, SchoolClass, SchoolSubject, ExamScore } from './types';
+import { 
+  Student, 
+  AttendanceRecord, 
+  FeeRecord, 
+  SystemSettings, 
+  DbStatus, 
+  SchoolClass, 
+  SchoolSubject, 
+  ExamScore,
+  Teacher,
+  StaffMember,
+  Guardian,
+  StaffAttendance,
+  TimetableSlot,
+  Admission,
+  LibraryBook,
+  LibraryLoan,
+  InventoryItem,
+  Announcement
+} from './types';
 import ClassesView from './components/ClassesView';
 import SubjectsView from './components/SubjectsView';
 import ExamsView from './components/ExamsView';
 import ReportsView from './components/ReportsView';
 import LandingPage from './components/LandingPage';
+import PeopleView from './components/PeopleView';
+import StaffAttendanceView from './components/StaffAttendanceView';
+import TimetableScheduleView from './components/TimetableScheduleView';
+import AdmissionsView from './components/AdmissionsView';
+import LibraryView from './components/LibraryView';
+import InventoryView from './components/InventoryView';
+import AnnouncementsView from './components/AnnouncementsView';
+import StudentProfileModal from './components/StudentProfileModal';
+import StudentsView from './components/StudentsView';
+import { FinanceView } from './components/FinanceView';
+import { TeacherActivationView } from './components/TeacherActivationView';
+import { TeacherDashboardView } from './components/TeacherDashboardView';
+import { OfflineSyncBadge } from './components/OfflineSyncBadge';
+import { PWAInstallButton } from './components/PWAInstallButton';
+import { enqueueOfflineAction } from './utils/offlineSync';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 
-// Intercept all fetch calls to automatically inject X-School-Email header from authenticated user
+// Intercept all fetch calls to automatically inject X-School-Email and Authorization token from authenticated user
 const fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
   const userStr = localStorage.getItem('dugsiga_auth');
   let schoolEmail = '';
+  let token = '';
   if (userStr) {
     try {
       const u = JSON.parse(userStr);
       if (u && u.email) schoolEmail = u.email;
+      if (u && u.token) token = u.token;
     } catch (e) {}
   }
   
   const headers = new Headers(init?.headers);
   if (schoolEmail) {
     headers.set('X-School-Email', schoolEmail);
+  }
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
   }
   
   return window.fetch(input, {
@@ -83,10 +128,12 @@ const fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Resp
 };
 
 export default function App() {
-  // Public Routing State: 'landing' | 'login' | 'signup' | 'dashboard'
-  const [currentRoute, setCurrentRoute] = useState<'landing' | 'login' | 'signup' | 'dashboard'>(() => {
+  // Public Routing State: 'landing' | 'login' | 'signup' | 'dashboard' | 'activate-teacher'
+  const [currentRoute, setCurrentRoute] = useState<'landing' | 'login' | 'signup' | 'dashboard' | 'activate-teacher'>(() => {
     if (typeof window === 'undefined') return 'landing';
     const path = window.location.pathname.toLowerCase();
+    const search = window.location.search;
+    if (path.startsWith('/activate-teacher') || search.includes('token=')) return 'activate-teacher';
     if (path === '/login') return 'login';
     if (path === '/signup') return 'signup';
     if (path === '/dashboard') return 'dashboard';
@@ -94,7 +141,16 @@ export default function App() {
   });
 
   // Authentication State
-  const [user, setUser] = useState<{ email: string } | null>(() => {
+  const [user, setUser] = useState<{
+    email: string;
+    role?: 'admin' | 'teacher' | 'staff';
+    schoolId?: string;
+    name?: string;
+    teacherId?: string;
+    assignedClasses?: string[];
+    assignedSubjects?: string[];
+    token?: string;
+  } | null>(() => {
     const saved = localStorage.getItem('dugsiga_auth');
     return saved ? JSON.parse(saved) : null;
   });
@@ -109,7 +165,7 @@ export default function App() {
   const [authError, setAuthError] = useState('');
 
   // Navigation router handler
-  const navigate = (route: 'landing' | 'login' | 'signup' | 'dashboard') => {
+  const navigate = (route: 'landing' | 'login' | 'signup' | 'dashboard' | 'activate-teacher') => {
     setCurrentRoute(route);
     if (route === 'login') {
       setAuthView('login');
@@ -119,6 +175,8 @@ export default function App() {
       window.history.pushState({}, '', '/signup');
     } else if (route === 'dashboard') {
       window.history.pushState({}, '', '/dashboard');
+    } else if (route === 'activate-teacher') {
+      // Keep search params if present
     } else {
       window.history.pushState({}, '', '/');
     }
@@ -127,7 +185,10 @@ export default function App() {
   useEffect(() => {
     const handlePopState = () => {
       const path = window.location.pathname.toLowerCase();
-      if (path === '/login') {
+      const search = window.location.search;
+      if (path.startsWith('/activate-teacher') || search.includes('token=')) {
+        setCurrentRoute('activate-teacher');
+      } else if (path === '/login') {
         setCurrentRoute('login');
         setAuthView('login');
       } else if (path === '/signup') {
@@ -144,7 +205,10 @@ export default function App() {
   }, []);
 
   // App Layout & Tabs
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'students' | 'attendance' | 'fees' | 'reports' | 'settings' | 'classes' | 'subjects' | 'exams'>('dashboard');
+  const [activeTab, setActiveTab] = useState<
+    'dashboard' | 'students' | 'attendance' | 'fees' | 'reports' | 'settings' | 'classes' | 'subjects' | 'exams' |
+    'people' | 'staff_attendance' | 'timetable' | 'admissions' | 'library' | 'inventory' | 'announcements'
+  >('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     const savedTheme = localStorage.getItem('dugsiga_theme');
@@ -162,6 +226,19 @@ export default function App() {
   const [attendanceSubTab, setAttendanceSubTab] = useState<'sheet' | 'history'>('sheet');
   const [historyStudentId, setHistoryStudentId] = useState<string>('All');
   const [fees, setFees] = useState<FeeRecord[]>([]);
+
+  // Modernized Module Datasets
+  const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [staff, setStaff] = useState<StaffMember[]>([]);
+  const [guardians, setGuardians] = useState<Guardian[]>([]);
+  const [staffAttendance, setStaffAttendance] = useState<StaffAttendance[]>([]);
+  const [timetable, setTimetable] = useState<TimetableSlot[]>([]);
+  const [admissions, setAdmissions] = useState<Admission[]>([]);
+  const [libraryBooks, setLibraryBooks] = useState<LibraryBook[]>([]);
+  const [libraryLoans, setLibraryLoans] = useState<LibraryLoan[]>([]);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [selectedStudentForProfile, setSelectedStudentForProfile] = useState<Student | null>(null);
   const [settings, setSettings] = useState<SystemSettings>({
     schoolName: "Dugsiga Pro 2026",
     currency: "USD",
@@ -467,13 +544,26 @@ export default function App() {
     if (!user) return;
     setLoading(true);
     try {
-      const [resStudents, resFees, resSettings, resClasses, resSubjects, resExams] = await Promise.all([
+      const [
+        resStudents, resFees, resSettings, resClasses, resSubjects, resExams,
+        resTeachers, resStaff, resGuardians, resTimetable, resAdmissions,
+        resBooks, resLoans, resInventory, resAnnouncements
+      ] = await Promise.all([
         fetch('/api/students'),
         fetch('/api/fees'),
         fetch('/api/settings'),
         fetch('/api/classes'),
         fetch('/api/subjects'),
-        fetch('/api/exams')
+        fetch('/api/exams'),
+        fetch('/api/teachers'),
+        fetch('/api/staff'),
+        fetch('/api/guardians'),
+        fetch('/api/timetable'),
+        fetch('/api/admissions'),
+        fetch('/api/library/books'),
+        fetch('/api/library/loans'),
+        fetch('/api/inventory'),
+        fetch('/api/announcements')
       ]);
 
       if (resStudents.ok) setStudents(await resStudents.json());
@@ -481,6 +571,16 @@ export default function App() {
       if (resClasses.ok) setClasses(await resClasses.json());
       if (resSubjects.ok) setSubjects(await resSubjects.json());
       if (resExams.ok) setExamScores(await resExams.json());
+      if (resTeachers?.ok) setTeachers(await resTeachers.json());
+      if (resStaff?.ok) setStaff(await resStaff.json());
+      if (resGuardians?.ok) setGuardians(await resGuardians.json());
+      if (resTimetable?.ok) setTimetable(await resTimetable.json());
+      if (resAdmissions?.ok) setAdmissions(await resAdmissions.json());
+      if (resBooks?.ok) setLibraryBooks(await resBooks.json());
+      if (resLoans?.ok) setLibraryLoans(await resLoans.json());
+      if (resInventory?.ok) setInventory(await resInventory.json());
+      if (resAnnouncements?.ok) setAnnouncements(await resAnnouncements.json());
+
       if (resSettings.ok) {
         const s = await resSettings.json();
         setSettings(s);
@@ -670,6 +770,96 @@ export default function App() {
     }
   };
 
+  const handleApiAddStudent = async (studentData: any): Promise<boolean> => {
+    try {
+      const res = await fetch('/api/students', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(studentData)
+      });
+      if (res.ok) {
+        fetchAllData();
+        return true;
+      } else {
+        const err = await res.json();
+        showToast(err.error || "Hawshu way fashilantay", "error");
+        return false;
+      }
+    } catch (e: any) {
+      enqueueOfflineAction('student', '/api/students', 'POST', studentData);
+      setStudents(prev => [studentData, ...prev]);
+      showToast("Ardayga waxaa lagu keydiyey Offline Sync Queue", "info");
+      return true;
+    }
+  };
+
+  const handleApiUpdateStudent = async (id: string, updates: any): Promise<boolean> => {
+    try {
+      const res = await fetch(`/api/students/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates)
+      });
+      if (res.ok) {
+        fetchAllData();
+        return true;
+      } else {
+        const err = await res.json();
+        showToast(err.error || "Cusbooneysiintu way fashilantay", "error");
+        return false;
+      }
+    } catch (e: any) {
+      enqueueOfflineAction('student', `/api/students/${id}`, 'PUT', updates);
+      setStudents(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
+      showToast("Isbeddelka ardayga waxaa lagu keydiyey Offline Queue", "info");
+      return true;
+    }
+  };
+
+  const handleApiDeleteStudent = async (id: string): Promise<boolean> => {
+    try {
+      const res = await fetch(`/api/students/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        fetchAllData();
+        return true;
+      } else {
+        showToast("Tirtiriddu way fashilantay", "error");
+        return false;
+      }
+    } catch (e) {
+      enqueueOfflineAction('student', `/api/students/${id}`, 'DELETE', { id });
+      setStudents(prev => prev.filter(s => s.id !== id));
+      showToast("Tirtiridda waxaa lagu keydiyey Offline Queue", "info");
+      return true;
+    }
+  };
+
+  const handleApiBulkUpdate = async (action: string, studentIds: string[], targetValue?: string): Promise<boolean> => {
+    try {
+      const res = await fetch('/api/students/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action,
+          studentIds,
+          targetClass: action === 'change_class' ? targetValue : undefined,
+          targetStatus: action === 'change_status' ? targetValue : undefined
+        })
+      });
+      if (res.ok) {
+        fetchAllData();
+        return true;
+      } else {
+        const err = await res.json();
+        showToast(err.error || "Hawsha bulk way fashilantay", "error");
+        return false;
+      }
+    } catch (e) {
+      showToast("Khalad ayaa dhacay fulinta hawsha guud", "error");
+      return false;
+    }
+  };
+
   const downloadStudentExcelTemplate = () => {
     const sampleRows = [
       {
@@ -839,6 +1029,16 @@ export default function App() {
       };
     });
 
+    if (!navigator.onLine) {
+      enqueueOfflineAction('attendance', '/api/attendance', 'POST', { 
+        date: attendanceDate, 
+        session_type: attendanceSession, 
+        records: recordsToSave 
+      });
+      showToast(`Waxaad ku jirtaa habka Offline-ka! Xaadirinta waxaa lagu keydiyey qalabkaaga, waxaana si toos ah loo sync-gareyn doonaa marka aad online noqoto.`, "info");
+      return;
+    }
+
     setSubmitting(true);
     try {
       const res = await fetch('/api/attendance', {
@@ -857,7 +1057,12 @@ export default function App() {
         showToast("Xaadirinta la kaydin kari waayey", "error");
       }
     } catch (e) {
-      showToast("Khalad isku xirka ah", "error");
+      enqueueOfflineAction('attendance', '/api/attendance', 'POST', { 
+        date: attendanceDate, 
+        session_type: attendanceSession, 
+        records: recordsToSave 
+      });
+      showToast("Xiriirka server-ka ayaa go'an. Xaadirinta waxaa lagu keydiyey Offline Sync Queue si loogu diro marka xiriirku soo laabto.", "info");
     } finally {
       setSubmitting(false);
     }
@@ -1109,6 +1314,20 @@ export default function App() {
   const handleAddExamScore = async (examData: Omit<ExamScore, 'id' | 'createdAt'>) => {
     if (submitting) return;
     setSubmitting(true);
+
+    if (!navigator.onLine) {
+      enqueueOfflineAction('exam_score', '/api/exams', 'POST', examData);
+      const optimisticExam: ExamScore = {
+        id: 'offline-' + Date.now(),
+        ...examData,
+        createdAt: new Date().toISOString()
+      };
+      setExamScores(prev => [optimisticExam, ...prev]);
+      showToast("Offline: Natiijada imtixaanka waxaa lagu kaydiyey qalabkaaga (will sync)", "info");
+      setSubmitting(false);
+      return;
+    }
+
     try {
       const res = await fetch('/api/exams', {
         method: 'POST',
@@ -1122,13 +1341,27 @@ export default function App() {
         showToast("Kaydinta natiijada way fashilantay", "error");
       }
     } catch (e) {
-      showToast("Khalad isku xirka ah", "error");
+      enqueueOfflineAction('exam_score', '/api/exams', 'POST', examData);
+      const optimisticExam: ExamScore = {
+        id: 'offline-' + Date.now(),
+        ...examData,
+        createdAt: new Date().toISOString()
+      };
+      setExamScores(prev => [optimisticExam, ...prev]);
+      showToast("Offline: Natiijada imtixaanka waxaa lagu kaydiyey qalabkaaga (will sync)", "info");
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleUpdateExamScore = async (id: string, examData: Partial<ExamScore>) => {
+    if (!navigator.onLine) {
+      enqueueOfflineAction('exam_score', `/api/exams/${id}`, 'PUT', examData);
+      setExamScores(prev => prev.map(ex => ex.id === id ? { ...ex, ...examData } : ex));
+      showToast("Offline: Natiijada waa la cusbooneysiiyey qalabkaaga (will sync)", "info");
+      return;
+    }
+
     try {
       const res = await fetch(`/api/exams/${id}`, {
         method: 'PUT',
@@ -1142,7 +1375,9 @@ export default function App() {
         showToast("Cusbooneysiinta natiijada way fashilantay", "error");
       }
     } catch (e) {
-      showToast("Khalad isku xirka ah", "error");
+      enqueueOfflineAction('exam_score', `/api/exams/${id}`, 'PUT', examData);
+      setExamScores(prev => prev.map(ex => ex.id === id ? { ...ex, ...examData } : ex));
+      showToast("Offline: Natiijada waa la cusbooneysiiyey qalabkaaga (will sync)", "info");
     }
   };
 
@@ -1403,6 +1638,472 @@ export default function App() {
     });
   };
 
+  // Modern Modules Operations
+  // 1. Teachers
+  const handleAddTeacher = async (teacherData: Omit<Teacher, 'id' | 'createdAt'>) => {
+    try {
+      const res = await fetch('/api/teachers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(teacherData)
+      });
+      if (res.ok) {
+        showToast("Macallinka si guul leh ayaa loo diiwaangeliyey!", "success");
+        fetchAllData();
+      } else {
+        showToast("Diiwaangelinta macallinka way fashilantay", "error");
+      }
+    } catch {
+      showToast("Khalad isku xirka ah", "error");
+    }
+  };
+
+  const handleUpdateTeacher = async (id: string, teacherData: Partial<Teacher>) => {
+    try {
+      const res = await fetch(`/api/teachers/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(teacherData)
+      });
+      if (res.ok) {
+        showToast("Xogta macallinka waa la cusbooneysiiyey!", "success");
+        fetchAllData();
+      } else {
+        showToast("Cusbooneysiinta macallinka way fashilantay", "error");
+      }
+    } catch {
+      showToast("Khalad isku xirka ah", "error");
+    }
+  };
+
+  const handleDeleteTeacher = async (id: string) => {
+    try {
+      const res = await fetch(`/api/teachers/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        showToast("Macallinka waa la tirtiray!", "info");
+        fetchAllData();
+      } else {
+        showToast("Tirtirista macallinka way fashilantay", "error");
+      }
+    } catch {
+      showToast("Khalad isku xirka ah", "error");
+    }
+  };
+
+  // 2. Staff
+  const handleAddStaff = async (staffData: Omit<StaffMember, 'id' | 'createdAt'>) => {
+    try {
+      const res = await fetch('/api/staff', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(staffData)
+      });
+      if (res.ok) {
+        showToast("Shaqaalaha si guul leh ayaa loo qoray!", "success");
+        fetchAllData();
+      } else {
+        showToast("Diiwaangelinta shaqaalaha way fashilantay", "error");
+      }
+    } catch {
+      showToast("Khalad isku xirka ah", "error");
+    }
+  };
+
+  const handleUpdateStaff = async (id: string, staffData: Partial<StaffMember>) => {
+    try {
+      const res = await fetch(`/api/staff/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(staffData)
+      });
+      if (res.ok) {
+        showToast("Xogta shaqaalaha waa la cusbooneysiiyey!", "success");
+        fetchAllData();
+      } else {
+        showToast("Cusbooneysiinta way fashilantay", "error");
+      }
+    } catch {
+      showToast("Khalad isku xirka ah", "error");
+    }
+  };
+
+  const handleDeleteStaff = async (id: string) => {
+    try {
+      const res = await fetch(`/api/staff/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        showToast("Shaqaalaha waa la tirtiray!", "info");
+        fetchAllData();
+      } else {
+        showToast("Tirtirista way fashilantay", "error");
+      }
+    } catch {
+      showToast("Khalad isku xirka ah", "error");
+    }
+  };
+
+  // 3. Guardians
+  const handleAddGuardian = async (guardianData: Omit<Guardian, 'id' | 'createdAt'>) => {
+    try {
+      const res = await fetch('/api/guardians', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(guardianData)
+      });
+      if (res.ok) {
+        showToast("Waalidka waa la diiwaangeliyey!", "success");
+        fetchAllData();
+      } else {
+        showToast("Diiwaangelinta waalidka way fashilantay", "error");
+      }
+    } catch {
+      showToast("Khalad isku xirka ah", "error");
+    }
+  };
+
+  const handleUpdateGuardian = async (id: string, guardianData: Partial<Guardian>) => {
+    try {
+      const res = await fetch(`/api/guardians/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(guardianData)
+      });
+      if (res.ok) {
+        showToast("Xogta waalidka waa la cusbooneysiiyey!", "success");
+        fetchAllData();
+      } else {
+        showToast("Cusbooneysiinta way fashilantay", "error");
+      }
+    } catch {
+      showToast("Khalad isku xirka ah", "error");
+    }
+  };
+
+  const handleDeleteGuardian = async (id: string) => {
+    try {
+      const res = await fetch(`/api/guardians/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        showToast("Waalidka waa la tirtiray!", "info");
+        fetchAllData();
+      } else {
+        showToast("Tirtirista way fashilantay", "error");
+      }
+    } catch {
+      showToast("Khalad isku xirka ah", "error");
+    }
+  };
+
+  // 4. Staff Attendance
+  const handleSaveStaffAttendance = async (recordsOrDate: any, maybeRecords?: any) => {
+    const records = Array.isArray(recordsOrDate) ? recordsOrDate : (maybeRecords || []);
+    try {
+      const res = await fetch('/api/staff-attendance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(records)
+      });
+      if (res.ok) {
+        showToast("Xaadirinta shaqaalaha waa la kaydiyey!", "success");
+        const fetchStaffAtt = await fetch(`/api/staff-attendance?date=${new Date().toISOString().split('T')[0]}`);
+        if (fetchStaffAtt.ok) {
+          setStaffAttendance(await fetchStaffAtt.json());
+        }
+      } else {
+        showToast("Kaydinta xaadiriska shaqaalaha way fashilantay", "error");
+      }
+    } catch {
+      showToast("Khalad isku xirka ah", "error");
+    }
+  };
+
+  // 5. Timetable
+  const handleAddTimetableSlot = async (slotData: Omit<TimetableSlot, 'id' | 'createdAt'>) => {
+    try {
+      const res = await fetch('/api/timetable', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(slotData)
+      });
+      if (res.ok) {
+        showToast("Jadwalka xiisadda si guul leh ayaa loo daray!", "success");
+        fetchAllData();
+      } else {
+        showToast("Ku darista jadwalka way fashilantay", "error");
+      }
+    } catch {
+      showToast("Khalad isku xirka ah", "error");
+    }
+  };
+
+  const handleDeleteTimetableSlot = async (id: string) => {
+    try {
+      const res = await fetch(`/api/timetable/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        showToast("Xiisadda jadwalka waa la tiray!", "info");
+        fetchAllData();
+      } else {
+        showToast("Tirista way fashilantay", "error");
+      }
+    } catch {
+      showToast("Khalad isku xirka ah", "error");
+    }
+  };
+
+  // 6. Admissions
+  const handleAddAdmission = async (admissionData: Omit<Admission, 'id' | 'createdAt'>) => {
+    try {
+      const res = await fetch('/api/admissions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(admissionData)
+      });
+      if (res.ok) {
+        showToast("Codsiga ardayga cusub waa la diiwaangeliyey!", "success");
+        fetchAllData();
+      } else {
+        showToast("Diiwaangelinta codsiga way fashilantay", "error");
+      }
+    } catch {
+      showToast("Khalad isku xirka ah", "error");
+    }
+  };
+
+  const handleUpdateAdmission = async (id: string, admissionData: Partial<Admission>) => {
+    try {
+      const res = await fetch(`/api/admissions/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(admissionData)
+      });
+      if (res.ok) {
+        showToast("Codsiga waa la cusbooneysiiyey!", "success");
+        fetchAllData();
+      } else {
+        showToast("Cusbooneysiinta way fashilantay", "error");
+      }
+    } catch {
+      showToast("Khalad isku xirka ah", "error");
+    }
+  };
+
+  const handleEnrollApplicant = async (id: string) => {
+    try {
+      const res = await fetch(`/api/admissions/${id}/enroll`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      if (res.ok) {
+        showToast("Ardayga waxaa si toos ah loogu gudbiyey Diiwaanka Guud!", "success");
+        fetchAllData();
+      } else {
+        showToast("Gudbinta ardaygu way fashilantay", "error");
+      }
+    } catch {
+      showToast("Khalad isku xirka ah", "error");
+    }
+  };
+
+  const handleDeleteAdmission = async (id: string) => {
+    try {
+      const res = await fetch(`/api/admissions/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        showToast("Codsiga waa la tirtiray!", "info");
+        fetchAllData();
+      } else {
+        showToast("Tirtirista way fashilantay", "error");
+      }
+    } catch {
+      showToast("Khalad isku xirka ah", "error");
+    }
+  };
+
+  // 7. Library
+  const handleAddBook = async (bookData: Omit<LibraryBook, 'id' | 'createdAt'>) => {
+    try {
+      const res = await fetch('/api/library/books', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(bookData)
+      });
+      if (res.ok) {
+        showToast("Buugga cusub waa la kaydiyey!", "success");
+        fetchAllData();
+      } else {
+        showToast("Kaydinta buugga way fashilantay", "error");
+      }
+    } catch {
+      showToast("Khalad isku xirka ah", "error");
+    }
+  };
+
+  const handleUpdateBook = async (id: string, bookData: Partial<LibraryBook>) => {
+    try {
+      const res = await fetch(`/api/library/books/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(bookData)
+      });
+      if (res.ok) {
+        showToast("Xogta buugga waa la cusbooneysiiyey!", "success");
+        fetchAllData();
+      } else {
+        showToast("Cusbooneysiinta way fashilantay", "error");
+      }
+    } catch {
+      showToast("Khalad isku xirka ah", "error");
+    }
+  };
+
+  const handleDeleteBook = async (id: string) => {
+    try {
+      const res = await fetch(`/api/library/books/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        showToast("Buugga waa la tirtiray!", "info");
+        fetchAllData();
+      } else {
+        showToast("Tirtirista way fashilantay", "error");
+      }
+    } catch {
+      showToast("Khalad isku xirka ah", "error");
+    }
+  };
+
+  const handleIssueLoan = async (loanData: Omit<LibraryLoan, 'id' | 'createdAt'>) => {
+    try {
+      const res = await fetch('/api/library/loans', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(loanData)
+      });
+      if (res.ok) {
+        showToast("Buugga waxaa loo dhiibay ardayga!", "success");
+        fetchAllData();
+      } else {
+        showToast("Dhiibista buugga way fashilantay", "error");
+      }
+    } catch {
+      showToast("Khalad isku xirka ah", "error");
+    }
+  };
+
+  const handleReturnLoan = async (loanId: string) => {
+    try {
+      const res = await fetch(`/api/library/loans/${loanId}/return`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      if (res.ok) {
+        showToast("Buugga dib ayaa loogu celiyey maktabadda!", "success");
+        fetchAllData();
+      } else {
+        showToast("Celinta buugga way fashilantay", "error");
+      }
+    } catch {
+      showToast("Khalad isku xirka ah", "error");
+    }
+  };
+
+  // 8. Inventory
+  const handleAddItem = async (itemData: Omit<InventoryItem, 'id' | 'createdAt'>) => {
+    try {
+      const res = await fetch('/api/inventory', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(itemData)
+      });
+      if (res.ok) {
+        showToast("Qalabka/hantida waa la diiwaangeliyey!", "success");
+        fetchAllData();
+      } else {
+        showToast("Diiwaangelintu way fashilantay", "error");
+      }
+    } catch {
+      showToast("Khalad isku xirka ah", "error");
+    }
+  };
+
+  const handleUpdateItem = async (id: string, itemData: Partial<InventoryItem>) => {
+    try {
+      const res = await fetch(`/api/inventory/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(itemData)
+      });
+      if (res.ok) {
+        showToast("Qalabka waa la cusbooneysiiyey!", "success");
+        fetchAllData();
+      } else {
+        showToast("Cusbooneysiinta way fashilantay", "error");
+      }
+    } catch {
+      showToast("Khalad isku xirka ah", "error");
+    }
+  };
+
+  const handleDeleteItem = async (id: string) => {
+    try {
+      const res = await fetch(`/api/inventory/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        showToast("Qalabka waa la tirtiray!", "info");
+        fetchAllData();
+      } else {
+        showToast("Tirtirista way fashilantay", "error");
+      }
+    } catch {
+      showToast("Khalad isku xirka ah", "error");
+    }
+  };
+
+  // 9. Announcements
+  const handleAddAnnouncement = async (announcementData: Omit<Announcement, 'id' | 'createdAt'>) => {
+    try {
+      const res = await fetch('/api/announcements', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(announcementData)
+      });
+      if (res.ok) {
+        showToast("Ogeysiiska waa la daabacay!", "success");
+        fetchAllData();
+      } else {
+        showToast("Daabacaadda ogeysiiska way fashilantay", "error");
+      }
+    } catch {
+      showToast("Khalad isku xirka ah", "error");
+    }
+  };
+
+  const handleUpdateAnnouncement = async (id: string, announcementData: Partial<Announcement>) => {
+    try {
+      const res = await fetch(`/api/announcements/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(announcementData)
+      });
+      if (res.ok) {
+        showToast("Ogeysiiska waa la cusbooneysiiyey!", "success");
+        fetchAllData();
+      } else {
+        showToast("Cusbooneysiinta way fashilantay", "error");
+      }
+    } catch {
+      showToast("Khalad isku xirka ah", "error");
+    }
+  };
+
+  const handleDeleteAnnouncement = async (id: string) => {
+    try {
+      const res = await fetch(`/api/announcements/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        showToast("Ogeysiiska waa la tirtiray!", "info");
+        fetchAllData();
+      } else {
+        showToast("Tirtirista way fashilantay", "error");
+      }
+    } catch {
+      showToast("Khalad isku xirka ah", "error");
+    }
+  };
+
   // Local Helpers for Analytics
   const activeStudents = students.filter(s => s.status === 'active');
   const totalStudentsCount = students.length;
@@ -1471,6 +2172,24 @@ export default function App() {
     URL.revokeObjectURL(url);
     showToast(`${filename} si guul leh ayaa loo soo degsaday!`, "success");
   };
+
+  /* ==============================================
+     TEACHER ACTIVATION ROUTE (/activate-teacher)
+     ============================================== */
+  if (currentRoute === 'activate-teacher') {
+    const tokenParam = typeof window !== 'undefined' ? (new URLSearchParams(window.location.search).get('token') || '') : '';
+    return (
+      <TeacherActivationView
+        token={tokenParam}
+        onActivatedSuccess={(activatedEmail) => {
+          setEmail(activatedEmail);
+          navigate('login');
+          showToast("Akoonkaaga si guul leh ayaa loo dhaqaajiyey! Fadlan hadda gal.", "success");
+        }}
+        onGoToLogin={() => navigate('login')}
+      />
+    );
+  }
 
   /* ==============================================
      PUBLIC LANDING PAGE ROUTE (HOME /)
@@ -1700,57 +2419,70 @@ export default function App() {
 
         {/* Sidebar Navigation with sleek indicators */}
         <nav className="p-4 space-y-1 flex-1 overflow-y-auto">
-          {[
-            { id: 'dashboard', label: 'Dashboard', icon: Activity },
-            { id: 'classes', label: 'Fasallada / Classes', icon: ShieldCheck },
-            { id: 'subjects', label: 'Maddooyinka / Subjects', icon: BookOpen },
-            { id: 'students', label: 'Ardayda / Students', icon: Users },
-            { id: 'attendance', label: 'Xaadirinta / Attendance', icon: Calendar },
-            { id: 'exams', label: 'Natiijooyinka / Exams', icon: Award },
-            { id: 'fees', label: 'Lacagaha / Finance', icon: DollarSign },
-            { id: 'reports', label: 'Warbixino / Reports', icon: FileText },
-            { id: 'settings', label: 'Qaabaynta / Settings', icon: SettingsIcon },
-          ].map(tab => {
-            const IconComponent = tab.icon;
-            const isSelected = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => {
-                  setActiveTab(tab.id as any);
-                  setSidebarOpen(false);
-                }}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-sm text-xs uppercase tracking-wider font-semibold transition-all duration-150 ${
-                  isSelected 
-                    ? 'bg-[#ffffff05] border-l-2 border-[#7c3aed] text-[#e5e5e5]' 
-                    : 'text-[#737373] hover:text-[#e5e5e5] hover:bg-[#ffffff02]'
-                }`}
-              >
-                <IconComponent className={`w-4 h-4 shrink-0 ${isSelected ? 'text-[#c4b5fd]' : 'text-[#737373]'}`} />
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
+          {(() => {
+            const isTeacher = user.role === 'teacher';
+            const navItems = isTeacher ? [
+              { id: 'dashboard', label: 'Dashboard / Xafiiska', icon: Activity },
+              { id: 'attendance', label: 'Xaadirinta / Attendance', icon: Calendar },
+              { id: 'exams', label: 'Natiijooyinka / Exams', icon: Award },
+              { id: 'students', label: 'Ardayda / Students', icon: Users },
+              { id: 'timetable', label: 'Jadwalka / Timetable', icon: Clock },
+              { id: 'announcements', label: 'Ogeysiisyada / Notices', icon: Bell },
+              { id: 'settings', label: 'Profile / Settings', icon: SettingsIcon },
+            ] : [
+              { id: 'dashboard', label: 'Dashboard', icon: Activity },
+              { id: 'students', label: 'Ardayda / Students', icon: Users },
+              { id: 'classes', label: 'Fasallada / Classes', icon: ShieldCheck },
+              { id: 'subjects', label: 'Maddooyinka / Subjects', icon: BookOpen },
+              { id: 'people', label: 'Macallimiinta & Shaqaalaha', icon: GraduationCap },
+              { id: 'staff_attendance', label: 'Xaadirinta Shaqaalaha', icon: ClipboardList },
+              { id: 'timetable', label: 'Jadwalka / Timetable', icon: Clock },
+              { id: 'admissions', label: 'Codsiyada / Admissions', icon: UserPlus },
+              { id: 'attendance', label: 'Xaadirinta / Attendance', icon: Calendar },
+              { id: 'exams', label: 'Natiijooyinka / Exams', icon: Award },
+              { id: 'fees', label: 'Lacagaha / Finance', icon: DollarSign },
+              { id: 'library', label: 'Maktabadda / Library', icon: BookOpen },
+              { id: 'inventory', label: 'Hantida & Qalabka', icon: Package },
+              { id: 'announcements', label: 'Ogeysiisyada / Notices', icon: Bell },
+              { id: 'reports', label: 'Warbixino / Reports', icon: FileText },
+              { id: 'settings', label: 'Qaabaynta / Settings', icon: SettingsIcon },
+            ];
+
+            return navItems.map(tab => {
+              const IconComponent = tab.icon;
+              const isSelected = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => {
+                    setActiveTab(tab.id as any);
+                    setSidebarOpen(false);
+                  }}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-sm text-xs uppercase tracking-wider font-semibold transition-all duration-150 ${
+                    isSelected 
+                      ? 'bg-[#ffffff05] border-l-2 border-[#7c3aed] text-[#e5e5e5]' 
+                      : 'text-[#737373] hover:text-[#e5e5e5] hover:bg-[#ffffff02]'
+                  }`}
+                >
+                  <IconComponent className={`w-4 h-4 shrink-0 ${isSelected ? 'text-[#c4b5fd]' : 'text-[#737373]'}`} />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            });
+          })()}
         </nav>
 
         {/* Sidebar Footer */}
         <div className="p-4 border-t border-[#ffffff10] bg-[#0f0f0f]">
-          {/* Supabase Status Indicator */}
-          <div className="flex items-center justify-between px-2.5 py-1.5 mb-3 rounded-sm bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-mono">
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span className="font-semibold">Supabase: Kuxiran</span>
-            </div>
-            <span className="text-[9px] text-emerald-500/80">Cloud Live</span>
-          </div>
-
           <div className="flex items-center gap-3 mb-4 truncate">
             <div className="w-9 h-9 rounded-sm bg-[#ffffff05] border border-[#ffffff10] flex items-center justify-center text-[#e5e5e5] font-bold text-xs font-mono uppercase">
               {user.email.substring(0, 2)}
             </div>
             <div className="truncate flex-1">
-              <p className="text-xs font-semibold text-[#e5e5e5] truncate">{user.email}</p>
-              <p className="text-[10px] text-[#737373] font-medium uppercase font-mono">Admin</p>
+              <p className="text-xs font-semibold text-[#e5e5e5] truncate">{user.name || user.email}</p>
+              <p className="text-[10px] text-[#737373] font-medium uppercase font-mono">
+                {user.role === 'teacher' ? 'Macallin (Teacher)' : 'Admin'}
+              </p>
             </div>
           </div>
           <button 
@@ -1774,6 +2506,8 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-3">
+            <PWAInstallButton />
+            <OfflineSyncBadge />
             <button
               onClick={() => navigate('landing')}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-sm border border-[#ffffff10] text-xs font-medium text-[#94a3b8] hover:text-white hover:bg-[#ffffff05] transition-colors"
@@ -1798,6 +2532,15 @@ export default function App() {
           ) : (
             <AnimatePresence mode="wait">
               {activeTab === 'dashboard' && (
+                user.role === 'teacher' ? (
+                  <TeacherDashboardView
+                    user={user as any}
+                    students={students}
+                    classes={classes}
+                    subjects={subjects}
+                    onNavigate={(tab) => setActiveTab(tab as any)}
+                  />
+                ) : (
                 <motion.div
                   initial={{ opacity: 0, y: 15 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -1833,6 +2576,58 @@ export default function App() {
                         </div>
                       );
                     })}
+                  </div>
+
+                  {/* Institutional Overview Quick Bar */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <div 
+                      onClick={() => setActiveTab('people')}
+                      className="bg-[#0f0f0f] border border-[#ffffff08] hover:border-[#7c3aed]/40 p-4 rounded-sm flex items-center gap-3 cursor-pointer transition-all hover:bg-[#ffffff02]"
+                    >
+                      <div className="p-2.5 rounded-sm bg-[#7c3aed]/10 text-[#c4b5fd]">
+                        <GraduationCap className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <span className="text-[9px] uppercase tracking-widest text-[#737373] block">Macallimiinta</span>
+                        <span className="text-lg font-bold font-mono text-[#e5e5e5]">{teachers.length} Active</span>
+                      </div>
+                    </div>
+                    <div 
+                      onClick={() => setActiveTab('people')}
+                      className="bg-[#0f0f0f] border border-[#ffffff08] hover:border-[#3b82f6]/40 p-4 rounded-sm flex items-center gap-3 cursor-pointer transition-all hover:bg-[#ffffff02]"
+                    >
+                      <div className="p-2.5 rounded-sm bg-[#3b82f6]/10 text-[#60a5fa]">
+                        <Briefcase className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <span className="text-[9px] uppercase tracking-widest text-[#737373] block">Shaqaalaha</span>
+                        <span className="text-lg font-bold font-mono text-[#e5e5e5]">{staff.length} Staff</span>
+                      </div>
+                    </div>
+                    <div 
+                      onClick={() => setActiveTab('admissions')}
+                      className="bg-[#0f0f0f] border border-[#ffffff08] hover:border-amber-500/40 p-4 rounded-sm flex items-center gap-3 cursor-pointer transition-all hover:bg-[#ffffff02]"
+                    >
+                      <div className="p-2.5 rounded-sm bg-amber-500/10 text-amber-400">
+                        <UserPlus className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <span className="text-[9px] uppercase tracking-widest text-[#737373] block">Codsiyada Cusub</span>
+                        <span className="text-lg font-bold font-mono text-[#e5e5e5]">{admissions.filter(a => a.status === 'pending').length} Sugaya</span>
+                      </div>
+                    </div>
+                    <div 
+                      onClick={() => setActiveTab('library')}
+                      className="bg-[#0f0f0f] border border-[#ffffff08] hover:border-emerald-500/40 p-4 rounded-sm flex items-center gap-3 cursor-pointer transition-all hover:bg-[#ffffff02]"
+                    >
+                      <div className="p-2.5 rounded-sm bg-emerald-500/10 text-emerald-400">
+                        <BookOpen className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <span className="text-[9px] uppercase tracking-widest text-[#737373] block">Maktabadda</span>
+                        <span className="text-lg font-bold font-mono text-[#e5e5e5]">{libraryBooks.length} Buug</span>
+                      </div>
+                    </div>
                   </div>
 
                   {/* Charts Grid */}
@@ -1997,303 +2792,27 @@ export default function App() {
                     </div>
                   </div>
                 </motion.div>
+                )
               )}
 
-              {/* Students Directory */}
+              {/* Students Management Directory (Upgraded Dugsi Pro 2026 Engine) */}
               {activeTab === 'students' && (
-                <motion.div
-                  initial={{ opacity: 0, y: 15 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0 }}
-                  className="space-y-6"
-                >
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div>
-                      <h1 className="text-4xl md:text-5xl font-bold font-serif italic tracking-tight text-[#f5f5f5]">Ardayda / Students</h1>
-                      <p className="text-[11px] uppercase tracking-widest text-[#737373] mt-1">Diiwaangelinta, tafatika, iyo tirtirida ardayda Dugsiga</p>
-                    </div>
-                    <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-                      <button 
-                        onClick={downloadStudentExcelTemplate}
-                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-sm bg-emerald-600/10 border border-emerald-500/20 hover:bg-emerald-600/20 text-emerald-400 uppercase tracking-widest text-[10px] font-bold transition-colors shadow-md cursor-pointer"
-                        title="Download Student Excel Template"
-                      >
-                        <Download className="w-4 h-4" />
-                        <span>Template Excel</span>
-                      </button>
-                      <label className="inline-flex items-center gap-2 px-4 py-2.5 rounded-sm bg-amber-600/10 border border-amber-500/20 hover:bg-amber-600/20 text-amber-400 uppercase tracking-widest text-[10px] font-bold transition-colors shadow-md cursor-pointer">
-                        <Upload className="w-4 h-4" />
-                        <span>Soo Geli (Import)</span>
-                        <input 
-                          type="file"
-                          accept=".xlsx, .xls"
-                          onChange={handleStudentExcelImport}
-                          className="hidden"
-                        />
-                      </label>
-                      <button 
-                        onClick={exportStudentsToPDF}
-                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-sm bg-[#7c3aed]/10 border border-[#7c3aed]/20 hover:bg-[#7c3aed]/20 text-[#c4b5fd] uppercase tracking-widest text-[10px] font-bold transition-colors shadow-md cursor-pointer"
-                      >
-                        <Download className="w-4 h-4" />
-                        <span>Dhoofi PDF (Export PDF)</span>
-                      </button>
-                      <button 
-                        onClick={() => {
-                          if (classes.length === 0) {
-                            showToast("Fadlan marka hore samee fasal inta aadan arday ku darin! (Please create a class first!)", "error");
-                            return;
-                          }
-                          setEditingStudent(null);
-                          setStudentForm({ fullName: '', class: '', gender: 'Male', guardianPhone: '', status: 'active', photo: '' });
-                          setShowStudentModal(true);
-                        }}
-                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-sm bg-[#e5e5e5] hover:bg-white text-[#0a0a0a] uppercase tracking-widest text-[10px] font-bold transition-colors shadow-md"
-                      >
-                        <Plus className="w-4 h-4" />
-                        <span>Ku dar Arday (Add Student)</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {classes.length === 0 && (
-                    <div className="bg-amber-500/10 border border-amber-500/20 p-4.5 rounded-sm text-xs text-amber-400 space-y-2.5">
-                      <p className="font-bold uppercase tracking-wider text-[10px] flex items-center gap-2">⚠️ Digniin: Fasal ma jiro (Warning: No classes exist)</p>
-                      <p className="text-[#a3a3a3]">Ma abuurto kartid arday inta uu nidaamka ku jirin ugu yaraan hal fasal. Fadlan marka hore samee fasal si aad ardayga ugu diiwaangeliso.</p>
-                      <button 
-                        onClick={() => setActiveTab('classes')}
-                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-sm bg-amber-500 hover:bg-amber-400 text-black font-bold uppercase tracking-widest text-[9px] transition-colors"
-                      >
-                        Abuur Fasal Hada (Create Class Now)
-                      </button>
-                    </div>
-                  )}
-
-                  {students.length > 0 && (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      {/* Left: General Info Card */}
-                      <div className="md:col-span-2 bg-[#0f0f0f] border border-[#ffffff10] rounded-sm p-6 flex flex-col justify-between">
-                        <div>
-                          <h3 className="font-serif italic text-lg text-[#f5f5f5]">Tirada & Kala-saraynta Ardayda (Student Overview)</h3>
-                          <p className="text-[10px] uppercase tracking-widest text-[#737373] mt-0.5">Xogta guud ee ardayda lab iyo dhedig ee hadda ka diiwaangashan iskuulka</p>
-                        </div>
-                        <div className="grid grid-cols-3 gap-4 mt-6">
-                          <div className="p-4 rounded-sm bg-[#ffffff02] border border-[#ffffff05] space-y-1">
-                            <span className="text-[9px] uppercase tracking-widest text-[#737373] font-bold block">Wadar (Total)</span>
-                            <span className="font-mono text-2xl font-extrabold text-[#e5e5e5]">{students.length}</span>
-                          </div>
-                          <div className="p-4 rounded-sm bg-[#3b82f6]/5 border border-[#3b82f6]/10 space-y-1">
-                            <span className="text-[9px] uppercase tracking-widest text-[#3b82f6]/70 font-bold block">Wiilal (Male)</span>
-                            <div className="flex items-baseline gap-1.5">
-                              <span className="font-mono text-2xl font-extrabold text-[#60a5fa]">{students.filter(s => s.gender === 'Male').length}</span>
-                              <span className="text-[10px] text-[#737373] font-mono">({students.length > 0 ? Math.round((students.filter(s => s.gender === 'Male').length / students.length) * 100) : 0}%)</span>
-                            </div>
-                          </div>
-                          <div className="p-4 rounded-sm bg-[#ec4899]/5 border border-[#ec4899]/10 space-y-1">
-                            <span className="text-[9px] uppercase tracking-widest text-[#ec4899]/70 font-bold block">Gabdho (Female)</span>
-                            <div className="flex items-baseline gap-1.5">
-                              <span className="font-mono text-2xl font-extrabold text-[#f472b6]">{students.filter(s => s.gender === 'Female').length}</span>
-                              <span className="text-[10px] text-[#737373] font-mono">({students.length > 0 ? Math.round((students.filter(s => s.gender === 'Female').length / students.length) * 100) : 0}%)</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Right: Small Donut Chart Card */}
-                      <div className="bg-[#0f0f0f] border border-[#ffffff10] rounded-sm p-6 flex flex-col justify-between items-center md:items-stretch">
-                        <div>
-                          <h3 className="font-serif italic text-base text-[#f5f5f5]">Shaxda Lab/Dhedig (Gender Donut)</h3>
-                          <p className="text-[10px] uppercase tracking-widest text-[#737373] mt-0.5">Qaybsanaanta boqolayda ardayda</p>
-                        </div>
-                        <div className="h-28 w-full relative mt-4">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                              <Pie
-                                data={[
-                                  { name: 'Wiilal (Male)', value: students.filter(s => s.gender === 'Male').length },
-                                  { name: 'Gabdho (Female)', value: students.filter(s => s.gender === 'Female').length }
-                                ]}
-                                cx="50%"
-                                cy="50%"
-                                innerRadius={28}
-                                outerRadius={42}
-                                paddingAngle={5}
-                                dataKey="value"
-                              >
-                                <Cell fill="#3b82f6" />
-                                <Cell fill="#ec4899" />
-                              </Pie>
-                              <Tooltip 
-                                contentStyle={{ backgroundColor: '#0f0f0f', borderColor: '#ffffff10', color: '#e5e5e5', fontSize: '10px' }}
-                                itemStyle={{ color: '#e5e5e5' }}
-                              />
-                            </PieChart>
-                          </ResponsiveContainer>
-                          {/* Total Indicator inside the hole */}
-                          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                            <span className="text-[10px] text-[#737373] uppercase tracking-widest font-mono">Total</span>
-                            <span className="text-sm font-bold text-white font-mono">{students.length}</span>
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-center gap-4 text-[10px] uppercase tracking-widest font-bold mt-2">
-                          <div className="flex items-center gap-1.5">
-                            <div className="w-2 h-2 rounded-full bg-[#3b82f6]"></div>
-                            <span className="text-[#a3a3a3]">Wiilal</span>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <div className="w-2 h-2 rounded-full bg-[#ec4899]"></div>
-                            <span className="text-[#a3a3a3]">Gabdho</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Filter & Search Bar */}
-                  <div className="bg-[#0f0f0f] border border-[#ffffff10] rounded-sm p-4 flex items-center">
-                    <div className="relative flex-1">
-                      <Search className="absolute left-3.5 top-3 w-4 h-4 text-[#737373]" />
-                      <input 
-                        type="text" 
-                        value={searchStudentQuery}
-                        onChange={(e) => setSearchStudentQuery(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 bg-[#0a0a0a] text-xs uppercase tracking-wider text-[#e5e5e5] border border-[#ffffff10] rounded-sm focus:outline-none focus:border-[#7c3aed]"
-                        placeholder="Ku raadi magac, class ama taleefan..."
-                      />
-                    </div>
-                  </div>
-
-                  {/* Students Table */}
-                  <div className="bg-[#0f0f0f] border border-[#ffffff10] rounded-sm overflow-hidden">
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left border-collapse">
-                        <thead>
-                          <tr className="bg-[#0a0a0a] border-b border-[#ffffff10] text-[10px] uppercase font-bold tracking-widest text-[#737373]">
-                            <th className="px-6 py-4">Magaca / Full Name</th>
-                            <th className="px-6 py-4">Falka / Class</th>
-                            <th className="px-6 py-4">Lab/Dhedig (Gender)</th>
-                            <th className="px-6 py-4">Taleefanka Labka (Guardian)</th>
-                            <th className="px-6 py-4">Status</th>
-                            <th className="px-6 py-4 text-right">Settings / Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-[#ffffff10] text-xs">
-                          {students.filter(s => 
-                            s.fullName.toLowerCase().includes(searchStudentQuery.toLowerCase()) ||
-                            s.class.toLowerCase().includes(searchStudentQuery.toLowerCase()) ||
-                            (s.guardianPhone && s.guardianPhone.includes(searchStudentQuery))
-                          ).length === 0 ? (
-                            <tr>
-                              <td colSpan={6} className="px-6 py-12 text-center text-[#737373] uppercase tracking-wider text-[10px]">
-                                Wax arday ah oo buuxiyey shuruudaha lama helin.
-                              </td>
-                            </tr>
-                          ) : (
-                            students.filter(s => 
-                              s.fullName.toLowerCase().includes(searchStudentQuery.toLowerCase()) ||
-                              s.class.toLowerCase().includes(searchStudentQuery.toLowerCase()) ||
-                              (s.guardianPhone && s.guardianPhone.includes(searchStudentQuery))
-                            ).map(student => (
-                              <tr key={student.id} className="hover:bg-[#ffffff02] transition-colors">
-                                <td className="px-6 py-4 font-bold text-[#e5e5e5] flex items-center justify-between gap-3">
-                                  <div className="flex items-center gap-3">
-                                    {student.photo ? (
-                                      <img src={student.photo} alt={student.fullName} className="w-8 h-8 rounded-full object-cover border border-[#ffffff10]" />
-                                    ) : (
-                                      <div className="w-8 h-8 rounded-full bg-[#7c3aed]/10 border border-[#7c3aed]/20 text-[#c4b5fd] flex items-center justify-center font-mono font-bold text-xs uppercase">
-                                        {student.fullName.trim() ? student.fullName.trim().charAt(0) : '?'}
-                                      </div>
-                                    )}
-                                    <span className="uppercase tracking-wider">{student.fullName}</span>
-                                  </div>
-
-                                  {/* Fee status indicator & tooltip */}
-                                  {(() => {
-                                    const currentMonthName = monthsList[new Date().getMonth()];
-                                    const currentYearValue = new Date().getFullYear();
-                                    const studentFee = fees.find(f => f.studentId === student.id && f.month === currentMonthName && f.year === currentYearValue);
-                                    if (studentFee && (studentFee.status === 'unpaid' || studentFee.status === 'partial')) {
-                                      return (
-                                        <div className="relative group flex items-center">
-                                          <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm text-[9px] font-bold uppercase tracking-widest border select-none transition-all duration-200 cursor-help ${
-                                            studentFee.status === 'unpaid' 
-                                              ? 'bg-rose-500/10 text-rose-400 border-rose-500/20 hover:bg-rose-500/20' 
-                                              : 'bg-amber-500/10 text-amber-400 border-amber-500/20 hover:bg-amber-500/20'
-                                          }`}>
-                                            <DollarSign className={`w-2.5 h-2.5 ${studentFee.status === 'unpaid' ? 'animate-pulse text-rose-400' : 'text-amber-400'}`} />
-                                            <span>{studentFee.status}</span>
-                                          </span>
-                                          
-                                          {/* Sleek Tooltip */}
-                                          <div className="absolute right-0 bottom-full mb-2 hidden group-hover:flex flex-col items-center z-30 pointer-events-none transition-all duration-200">
-                                            <div className="bg-[#171717] border border-[#ffffff15] text-[#f5f5f5] text-[10px] uppercase tracking-wider rounded-sm p-2.5 shadow-xl w-56 space-y-1">
-                                              <p className="font-bold border-b border-[#ffffff10] pb-1 flex items-center justify-between text-left">
-                                                <span>Diiwaanka Lacagta</span>
-                                                <span className={studentFee.status === 'unpaid' ? 'text-rose-400' : 'text-amber-400'}>
-                                                  {studentFee.status === 'unpaid' ? 'Bilmey' : 'Qabyo'}
-                                                </span>
-                                              </p>
-                                              <div className="font-mono text-[9px] text-[#a3a3a3] space-y-0.5 text-left">
-                                                <p><span className="text-[#737373]">Month:</span> {studentFee.month} {studentFee.year}</p>
-                                                <p><span className="text-[#737373]">Bill:</span> {settings.currency} {studentFee.amount}</p>
-                                                <p><span className="text-[#737373]">Paid:</span> {settings.currency} {studentFee.paidAmount}</p>
-                                                <p className="border-t border-[#ffffff08] mt-1 pt-1 font-bold text-[#e5e5e5]">
-                                                  <span className="text-[#737373]">Remaining:</span> {settings.currency} {Math.max(0, studentFee.amount - studentFee.paidAmount)}
-                                                </p>
-                                              </div>
-                                            </div>
-                                            <div className="w-2 h-2 bg-[#171717] border-r border-b border-[#ffffff15] rotate-45 -mt-1.5"></div>
-                                          </div>
-                                        </div>
-                                      );
-                                    }
-                                    return null;
-                                  })()}
-                                </td>
-                                <td className="px-6 py-4 font-medium text-[#a3a3a3]">{student.class}</td>
-                                <td className="px-6 py-4 text-[#737373]">{student.gender}</td>
-                                <td className="px-6 py-4 font-mono text-[#737373]">{student.guardianPhone || '-'}</td>
-                                <td className="px-6 py-4">
-                                  <span className={`inline-flex px-2 py-0.5 rounded-sm text-[10px] font-bold uppercase tracking-wider ${
-                                    student.status === 'active' ? 'bg-[#7c3aed]/10 text-[#c4b5fd] border border-[#7c3aed]/20' :
-                                    'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-                                  }`}>{student.status}</span>
-                                </td>
-                                <td className="px-6 py-4 text-right space-x-1">
-                                  <button 
-                                    onClick={() => {
-                                      setEditingStudent(student);
-                                      setStudentForm({
-                                        fullName: student.fullName,
-                                        class: student.class,
-                                        gender: student.gender,
-                                        guardianPhone: student.guardianPhone || '',
-                                        status: student.status,
-                                        photo: student.photo || ''
-                                      });
-                                      setShowStudentModal(true);
-                                    }}
-                                    className="p-1.5 rounded-sm border border-[#ffffff10] text-[#737373] hover:text-[#e5e5e5] hover:bg-[#ffffff05]"
-                                    title="Tafatir (Edit)"
-                                  >
-                                    <Edit2 className="w-3.5 h-3.5" />
-                                  </button>
-                                  <button 
-                                    onClick={() => handleDeleteStudent(student.id)}
-                                    className="p-1.5 rounded-sm border border-[#ffffff10] text-[#737373] hover:text-rose-400 hover:bg-[#ef444410]"
-                                    title="Tirtir (Delete)"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                </td>
-                              </tr>
-                            ))
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </motion.div>
+                <StudentsView
+                  students={students}
+                  classes={classes}
+                  fees={fees}
+                  attendance={attendance}
+                  examScores={examScores}
+                  subjects={subjects}
+                  settings={settings}
+                  onAddStudent={handleApiAddStudent}
+                  onUpdateStudent={handleApiUpdateStudent}
+                  onDeleteStudent={handleApiDeleteStudent}
+                  onBulkUpdate={handleApiBulkUpdate}
+                  onRefreshData={fetchAllData}
+                  showToast={showToast}
+                  theme={theme}
+                />
               )}
 
               {/* Attendance Tracker */}
@@ -2692,7 +3211,7 @@ export default function App() {
                 </motion.div>
               )}
 
-              {/* Fees & Finance Portal */}
+              {/* Fees & Complete Finance Suite */}
               {activeTab === 'fees' && (
                 <motion.div
                   initial={{ opacity: 0, y: 15 }}
@@ -2700,120 +3219,14 @@ export default function App() {
                   exit={{ opacity: 0 }}
                   className="space-y-6"
                 >
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div>
-                      <h1 className="text-4xl md:text-5xl font-bold font-serif italic tracking-tight text-[#f5f5f5]">Fees & Finance</h1>
-                      <p className="text-[11px] uppercase tracking-widest text-[#737373] mt-1">Abuur biilacha, diiwaangeli lacag bixinta, iyo dabagalka dakhliga</p>
-                    </div>
-                    <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-                      <button 
-                        onClick={exportFeesToPDF}
-                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-sm bg-[#10b981]/10 border border-[#10b981]/20 hover:bg-[#10b981]/20 text-emerald-400 uppercase tracking-widest text-[10px] font-bold transition-colors shadow-md cursor-pointer"
-                      >
-                        <Download className="w-4 h-4" />
-                        <span>Dhoofi PDF (Export PDF)</span>
-                      </button>
-                      <button 
-                        onClick={() => {
-                          setEditingFee(null);
-                          setFeeForm({
-                            studentId: students[0]?.id || '',
-                            month: 'January',
-                            year: new Date().getFullYear(),
-                            amount: settings.feeAmount,
-                            paidAmount: 0
-                          });
-                          setShowFeeModal(true);
-                        }}
-                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-sm bg-[#e5e5e5] hover:bg-white text-[#0a0a0a] uppercase tracking-widest text-[10px] font-bold transition-colors shadow-md"
-                      >
-                        <Plus className="w-4 h-4" />
-                        <span>Abuur Biil (Create Invoice)</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Invoices List Card */}
-                  <div className="bg-[#0f0f0f] border border-[#ffffff10] rounded-sm overflow-hidden">
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left border-collapse">
-                        <thead>
-                          <tr className="bg-[#0a0a0a] border-b border-[#ffffff10] text-[10px] uppercase font-bold tracking-widest text-[#737373]">
-                            <th className="px-6 py-4">Ardayga / Student</th>
-                            <th className="px-6 py-4">Month / Year</th>
-                            <th className="px-6 py-4">Biilka Total (Invoice)</th>
-                            <th className="px-6 py-4">Bixiyay (Paid)</th>
-                            <th className="px-6 py-4">Baaqi (Balance)</th>
-                            <th className="px-6 py-4">Status</th>
-                            <th className="px-6 py-4 text-right">Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-[#ffffff10] text-xs">
-                          {fees.length === 0 ? (
-                            <tr>
-                              <td colSpan={7} className="px-6 py-12 text-center text-[#737373] uppercase tracking-wider text-[10px]">
-                                Wax biilal ama dakhli ah oo diiwaangashan ma jiraan.
-                              </td>
-                            </tr>
-                          ) : (
-                            fees.map(fee => {
-                              const studentName = students.find(s => s.id === fee.studentId)?.fullName || 'Unknown Student';
-                              const balance = Math.max(0, fee.amount - fee.paidAmount);
-                              return (
-                                <tr key={fee.id} className="hover:bg-[#ffffff02] transition-colors">
-                                  <td className="px-6 py-4 font-bold text-[#e5e5e5]">{studentName}</td>
-                                  <td className="px-6 py-4 font-medium text-[#a3a3a3] font-mono">{fee.month} {fee.year}</td>
-                                  <td className="px-6 py-4 font-mono font-bold text-[#e5e5e5]">{settings.currency} {fee.amount}</td>
-                                  <td className="px-6 py-4 font-mono font-bold text-emerald-400">{settings.currency} {fee.paidAmount}</td>
-                                  <td className="px-6 py-4 font-mono font-bold text-[#737373]">{settings.currency} {balance}</td>
-                                  <td className="px-6 py-4">
-                                    <span className={`inline-flex px-2 py-0.5 rounded-sm text-[10px] font-bold uppercase tracking-wider ${
-                                      fee.status === 'paid' ? 'bg-[#7c3aed]/10 text-[#c4b5fd] border border-[#7c3aed]/20' :
-                                      fee.status === 'partial' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
-                                      'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-                                    }`}>{fee.status}</span>
-                                  </td>
-                                  <td className="px-6 py-4 text-right space-x-1">
-                                    <button 
-                                      onClick={() => {
-                                        setEditingFee(fee);
-                                        setFeeForm({
-                                          studentId: fee.studentId,
-                                          month: fee.month,
-                                          year: fee.year,
-                                          amount: fee.amount,
-                                          paidAmount: fee.paidAmount
-                                        });
-                                        setShowFeeModal(true);
-                                      }}
-                                      className="p-1.5 rounded-sm border border-[#ffffff10] text-[#737373] hover:text-[#e5e5e5] hover:bg-[#ffffff05]"
-                                      title="Recording Pay / Edit"
-                                    >
-                                      <Edit2 className="w-3.5 h-3.5" />
-                                    </button>
-                                    <button 
-                                      onClick={() => setShowHistoryModal(fee)}
-                                      className="p-1.5 rounded-sm border border-[#ffffff10] text-[#737373] hover:text-[#e5e5e5] hover:bg-[#ffffff05]"
-                                      title="Transaction Audit Logs"
-                                    >
-                                      <Clock className="w-3.5 h-3.5" />
-                                    </button>
-                                    <button 
-                                      onClick={() => handleDeleteFee(fee.id)}
-                                      className="p-1.5 rounded-sm border border-[#ffffff10] text-[#737373] hover:text-rose-400 hover:bg-[#ef444410]"
-                                      title="Delete Invoice"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
-                                  </td>
-                                </tr>
-                              );
-                            })
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
+                  <FinanceView
+                    students={students}
+                    classes={classes}
+                    teachers={teachers}
+                    staff={staff}
+                    currency={settings.currency}
+                    schoolName={settings.schoolName}
+                  />
                 </motion.div>
               )}
 
@@ -2882,6 +3295,146 @@ export default function App() {
                     onUpdateExamScore={handleUpdateExamScore}
                     onDeleteExamScore={handleDeleteExamScore}
                     theme={theme}
+                  />
+                </motion.div>
+              )}
+
+              {/* People Management: Teachers, Staff, Guardians */}
+              {activeTab === 'people' && (
+                <motion.div
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                >
+                  <PeopleView
+                    teachers={teachers}
+                    staff={staff}
+                    guardians={guardians}
+                    classes={classes}
+                    subjects={subjects}
+                    students={students}
+                    onAddTeacher={handleAddTeacher}
+                    onUpdateTeacher={handleUpdateTeacher}
+                    onDeleteTeacher={handleDeleteTeacher}
+                    onAddStaff={handleAddStaff}
+                    onUpdateStaff={handleUpdateStaff}
+                    onDeleteStaff={handleDeleteStaff}
+                    onAddGuardian={handleAddGuardian}
+                    onUpdateGuardian={handleUpdateGuardian}
+                    onDeleteGuardian={handleDeleteGuardian}
+                    theme={theme}
+                  />
+                </motion.div>
+              )}
+
+              {/* Staff Attendance */}
+              {activeTab === 'staff_attendance' && (
+                <motion.div
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                >
+                  <StaffAttendanceView
+                    staff={staff}
+                    teachers={teachers}
+                    records={staffAttendance}
+                    onSaveAttendance={handleSaveStaffAttendance}
+                    theme={theme}
+                  />
+                </motion.div>
+              )}
+
+              {/* Timetable Schedule */}
+              {activeTab === 'timetable' && (
+                <motion.div
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                >
+                  <TimetableScheduleView
+                    timetable={timetable}
+                    classes={classes}
+                    subjects={subjects}
+                    teachers={teachers}
+                    onAddSlot={handleAddTimetableSlot}
+                    onDeleteSlot={handleDeleteTimetableSlot}
+                    theme={theme}
+                  />
+                </motion.div>
+              )}
+
+              {/* Admissions & Student Intake */}
+              {activeTab === 'admissions' && (
+                <motion.div
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                >
+                  <AdmissionsView
+                    admissions={admissions}
+                    classes={classes}
+                    onAddAdmission={handleAddAdmission}
+                    onUpdateAdmission={handleUpdateAdmission}
+                    onEnrollApplicant={handleEnrollApplicant}
+                    onDeleteAdmission={handleDeleteAdmission}
+                    theme={theme}
+                  />
+                </motion.div>
+              )}
+
+              {/* Library & Book Borrowing */}
+              {activeTab === 'library' && (
+                <motion.div
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                >
+                  <LibraryView
+                    books={libraryBooks}
+                    loans={libraryLoans}
+                    students={students}
+                    onAddBook={handleAddBook}
+                    onUpdateBook={handleUpdateBook}
+                    onDeleteBook={handleDeleteBook}
+                    onIssueLoan={handleIssueLoan}
+                    onReturnLoan={handleReturnLoan}
+                    theme={theme}
+                  />
+                </motion.div>
+              )}
+
+              {/* Inventory & Asset Management */}
+              {activeTab === 'inventory' && (
+                <motion.div
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                >
+                  <InventoryView
+                    items={inventory}
+                    onAddItem={handleAddItem}
+                    onUpdateItem={handleUpdateItem}
+                    onDeleteItem={handleDeleteItem}
+                    theme={theme}
+                  />
+                </motion.div>
+              )}
+
+              {/* Notice Board & Announcements */}
+              {activeTab === 'announcements' && (
+                <motion.div
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                >
+                  <AnnouncementsView
+                    announcements={announcements}
+                    classes={classes}
+                    onAddAnnouncement={handleAddAnnouncement}
+                    onUpdateAnnouncement={handleUpdateAnnouncement}
+                    onDeleteAnnouncement={handleDeleteAnnouncement}
+                    theme={theme}
+                    showToast={showToast}
                   />
                 </motion.div>
               )}
@@ -3071,36 +3624,6 @@ export default function App() {
                     </div>
 
                     <div className="space-y-6">
-                      {/* Supabase Cloud Connection Status */}
-                      <div className="bg-[#0f0f0f] border border-emerald-500/20 rounded-sm p-6 space-y-4">
-                        <div className="flex items-center justify-between">
-                          <h3 className="font-serif italic text-lg text-[#f5f5f5] flex items-center gap-2">
-                            <Database className="w-4 h-4 text-emerald-400" /> Supabase Cloud Database
-                          </h3>
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                            Kuxiran (Connected)
-                          </span>
-                        </div>
-                        <p className="text-xs text-[#a3a3a3] leading-relaxed">
-                          Nidaamka DUGSI PRO wuxuu si toos ah ugu xiran yahay cloud database-ka Supabase. Dhammaan xogta ardayda, fasallada, maadooyinka, imtixaanaadka iyo lacagaha waxaa si toos ah looga maareynayaa cloud-ka.
-                        </p>
-                        <div className="bg-black/50 p-3 rounded border border-white/5 space-y-2 text-xs font-mono">
-                          <div className="flex justify-between text-[11px]">
-                            <span className="text-gray-400">Endpoint:</span>
-                            <span className="text-gray-200 truncate max-w-[200px]">mdvfcqujqjnvfpzowayo.supabase.co</span>
-                          </div>
-                          <div className="flex justify-between text-[11px]">
-                            <span className="text-gray-400">Status:</span>
-                            <span className="text-emerald-400 font-semibold">Active & Synced</span>
-                          </div>
-                          <div className="flex justify-between text-[11px]">
-                            <span className="text-gray-400">Mode:</span>
-                            <span className="text-gray-200">Direct PostgreSQL Cloud</span>
-                          </div>
-                        </div>
-                      </div>
-
                       {/* Database Backup Tool */}
                       <div className="bg-[#0f0f0f] border border-[#ffffff10] rounded-sm p-6 space-y-4">
                         <h3 className="font-serif italic text-lg text-[#f5f5f5] flex items-center gap-2">
@@ -3176,6 +3699,20 @@ export default function App() {
       {/* ==============================================
          MODALS (STUDENT / FEE INVOICE / AUDIT TRAILS)
          ============================================== */}
+
+      {/* 0. STUDENT 360° PROFILE MODAL */}
+      {selectedStudentForProfile && (
+        <StudentProfileModal
+          student={selectedStudentForProfile}
+          classes={classes}
+          fees={fees}
+          attendance={attendance}
+          examScores={examScores}
+          subjects={subjects}
+          onClose={() => setSelectedStudentForProfile(null)}
+          theme={theme}
+        />
+      )}
 
       {/* 1. STUDENT MODAL */}
       {showStudentModal && (
