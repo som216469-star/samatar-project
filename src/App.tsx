@@ -107,7 +107,8 @@ export default function App() {
 
   // Restore session & URL state on mount
   useEffect(() => {
-    const savedUser = localStorage.getItem('dugsi_user');
+    const savedUser =
+      localStorage.getItem('dugsi_user') || localStorage.getItem('dugsiga_auth');
     const parsed = parseAppLocation(window.location.pathname, window.location.search);
 
     if (savedUser) {
@@ -125,6 +126,7 @@ export default function App() {
         }
       } catch {
         localStorage.removeItem('dugsi_user');
+        localStorage.removeItem('dugsiga_auth');
         setPublicRoute(parsed.publicRoute === 'dashboard' ? 'login' : parsed.publicRoute);
       }
     } else {
@@ -136,7 +138,8 @@ export default function App() {
   useEffect(() => {
     const handlePopState = () => {
       const parsed = parseAppLocation(window.location.pathname, window.location.search);
-      const savedUser = localStorage.getItem('dugsi_user');
+      const savedUser =
+        localStorage.getItem('dugsi_user') || localStorage.getItem('dugsiga_auth');
       if (parsed.publicRoute === 'dashboard' && !savedUser && !user) {
         setPublicRoute('login');
         return;
@@ -153,6 +156,7 @@ export default function App() {
 
   const handleLogout = useCallback(() => {
     localStorage.removeItem('dugsi_user');
+    localStorage.removeItem('dugsiga_auth');
     localStorage.removeItem('dugsi_token');
     setUser(null);
     setPublicRoute('landing');
@@ -223,6 +227,7 @@ export default function App() {
           authUser.token = payload.token;
         }
         localStorage.setItem('dugsi_user', JSON.stringify(authUser));
+        localStorage.setItem('dugsiga_auth', JSON.stringify(authUser));
         setUser(authUser);
         setPublicRoute('dashboard');
         setActiveTab('overview');

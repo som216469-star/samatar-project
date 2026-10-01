@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import type { BudgetRecord } from "../../types";
 import { formatMoney, exportToExcel } from "./financeUtils";
+import { apiFetch } from "../../lib/apiClient";
 
 interface BudgetsModuleProps {
   budgets: BudgetRecord[];
@@ -87,13 +88,13 @@ export const BudgetsModule: React.FC<BudgetsModuleProps> = ({
     setSubmitting(true);
     try {
       if (editingBudget) {
-        await fetch(`/api/budgets/${editingBudget.id}`, {
+        await apiFetch(`/api/budgets/${editingBudget.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(form)
         });
       } else {
-        await fetch("/api/budgets", {
+        await apiFetch("/api/budgets", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(form)
@@ -111,7 +112,7 @@ export const BudgetsModule: React.FC<BudgetsModuleProps> = ({
   const handleDelete = async (id: string) => {
     if (!confirm("Ma hubtaa inaad tirtirto miisaaniyaddan?")) return;
     try {
-      const res = await fetch(`/api/budgets/${id}`, { method: "DELETE" });
+      const res = await apiFetch(`/api/budgets/${id}`, { method: "DELETE" });
       if (res.ok) onRefresh();
     } catch (err) {
       console.error(err);

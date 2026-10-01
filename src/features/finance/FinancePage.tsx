@@ -53,8 +53,20 @@ import { FeeStructuresModule } from './FeeStructuresModule';
 import { PageContainer, PageHeader } from '../../components/layout/PageLayout';
 import { Card, Button, Badge } from '../../components/ui/primitives';
 import { FinanceSubSection } from '../../app/navigationConfig';
+import { apiFetch } from '../../lib/apiClient';
 
 export type { FinanceSubSection };
+
+async function safeJson<T = any>(res: Response, fallback: T): Promise<T> {
+  if (!res.ok) return fallback;
+  const contentType = res.headers.get('content-type') || '';
+  if (!contentType.includes('application/json')) return fallback;
+  try {
+    return (await res.json()) as T;
+  } catch {
+    return fallback;
+  }
+}
 
 interface FinanceViewProps {
   students: any[];
@@ -139,28 +151,52 @@ export const FinancePage: React.FC<FinanceViewProps> = ({
         pnlRes,
         cfRes
       ] = await Promise.all([
-        fetch('/api/finance/stats'),
-        fetch('/api/fee-structures'),
-        fetch('/api/invoices'),
-        fetch('/api/payments'),
-        fetch('/api/expenses'),
-        fetch('/api/income'),
-        fetch('/api/budgets'),
-        fetch('/api/payroll'),
-        fetch('/api/finance/profit-loss'),
-        fetch('/api/finance/cash-flow')
+        apiFetch('/api/finance/stats'),
+        apiFetch('/api/fee-structures'),
+        apiFetch('/api/invoices'),
+        apiFetch('/api/payments'),
+        apiFetch('/api/expenses'),
+        apiFetch('/api/income'),
+        apiFetch('/api/budgets'),
+        apiFetch('/api/payroll'),
+        apiFetch('/api/profit-loss'),
+        apiFetch('/api/cash-flow')
       ]);
 
-      if (statsRes.ok) setStats(await statsRes.json());
-      if (fsRes.ok) setFeeStructures(await fsRes.json());
-      if (invRes.ok) setInvoices(await invRes.json());
-      if (payRes.ok) setPayments(await payRes.json());
-      if (expRes.ok) setExpenses(await expRes.json());
-      if (incRes.ok) setIncomeList(await incRes.json());
-      if (budRes.ok) setBudgets(await budRes.json());
-      if (prRes.ok) setPayroll(await prRes.json());
-      if (pnlRes.ok) setPnlData(await pnlRes.json());
-      if (cfRes.ok) setCashFlowData(await cfRes.json());
+      const [
+        statsData,
+        fsData,
+        invData,
+        payData,
+        expData,
+        incData,
+        budData,
+        prData,
+        pnlResult,
+        cfResult
+      ] = await Promise.all([
+        safeJson(statsRes, null),
+        safeJson(fsRes, []),
+        safeJson(invRes, []),
+        safeJson(payRes, []),
+        safeJson(expRes, []),
+        safeJson(incRes, []),
+        safeJson(budRes, []),
+        safeJson(prRes, []),
+        safeJson(pnlRes, null),
+        safeJson(cfRes, null)
+      ]);
+
+      if (statsData) setStats(statsData);
+      if (Array.isArray(fsData)) setFeeStructures(fsData);
+      if (Array.isArray(invData)) setInvoices(invData);
+      if (Array.isArray(payData)) setPayments(payData);
+      if (Array.isArray(expData)) setExpenses(expData);
+      if (Array.isArray(incData)) setIncomeList(incData);
+      if (Array.isArray(budData)) setBudgets(budData);
+      if (Array.isArray(prData)) setPayroll(prData);
+      if (pnlResult) setPnlData(pnlResult);
+      if (cfResult) setCashFlowData(cfResult);
     } catch (error) {
       console.error('Error loading finance data:', error);
     } finally {
@@ -171,6 +207,32 @@ export const FinancePage: React.FC<FinanceViewProps> = ({
   useEffect(() => {
     fetchAllFinanceData();
   }, [fetchAllFinanceData]);
+
+  const handlePnlPeriodChange = useCallback(
+    async (period: string, startDate?: string, endDate?: string) => {
+      try {
+        const params = new URLSearchParams({ period });
+        if (startDate) params.set('from', startDate);
+        if (endDate) params.set('to', endDate);
+        const res = await apiFetch(`/api/profit-loss?${params.toString()}`);
+        const data = await safeJson(res, null);
+        if (data) setPnlData(data);
+      } catch (err) {
+        console.error('Error updating P&L period:', err);
+      }
+    },
+    []
+  );
+
+  const handleCashFlowPeriodChange = useCallback(async (period: string) => {
+    try {
+      const res = await apiFetch(`/api/cash-flow?period=${encodeURIComponent(period)}`);
+      const data = await safeJson(res, null);
+      if (data) setCashFlowData(data);
+    } catch (err) {
+      console.error('Error updating Cash Flow period:', err);
+    }
+  }, []);
 
   const handleQuickAction = (action: string) => {
     if (action === 'create_invoice') {
@@ -270,11 +332,14 @@ export const FinancePage: React.FC<FinanceViewProps> = ({
         {activeSubTab === 'overview' && (
           <FinanceDashboard
             stats={stats}
-            invoices={invoices}
-            payments={payments}
-            expenses={expenses}
+            pnlData={pnlData}
+            cashFlowData={cashFlowData}
             currency={currency}
-            onQuickAction={handleQuickAction}
+            onNavigateTab={(tabId) => setActiveSubTab(tabId as FinanceSubSection)}
+            onOpenNewInvoice={() => handleQuickAction('create_invoice')}
+            onOpenNewPayment={() => handleQuickAction('record_payment')}
+            onOpenNewExpense={() => handleQuickAction('add_expense')}
+            onOpenNewIncome={() => handleQuickAction('add_income')}
           />
         )}
 
@@ -288,6 +353,7 @@ export const FinancePage: React.FC<FinanceViewProps> = ({
             schoolName={schoolName}
             onRefresh={fetchAllFinanceData}
             onRecordPayment={handleRecordPaymentFromInvoice}
+            showCreateModalDefault={quickOpenModal === 'create_invoice'}
           />
         )}
 
@@ -358,6 +424,7 @@ export const FinancePage: React.FC<FinanceViewProps> = ({
             pnlData={pnlData}
             currency={currency}
             schoolName={schoolName}
+            onPeriodChange={handlePnlPeriodChange}
           />
         )}
 
@@ -366,6 +433,7 @@ export const FinancePage: React.FC<FinanceViewProps> = ({
             cashFlowData={cashFlowData}
             currency={currency}
             schoolName={schoolName}
+            onPeriodChange={handleCashFlowPeriodChange}
           />
         )}
 

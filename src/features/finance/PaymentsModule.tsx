@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import type { PaymentTransaction, Invoice } from "../../types";
 import { formatMoney, exportToExcel, generateReceiptPDF, openWhatsApp } from "./financeUtils";
+import { apiFetch } from "../../lib/apiClient";
 
 interface PaymentsModuleProps {
   payments: PaymentTransaction[];
@@ -73,7 +74,7 @@ export const PaymentsModule: React.FC<PaymentsModuleProps> = ({
 
     setSubmitting(true);
     try {
-      const res = await fetch("/api/payments", {
+      const res = await apiFetch("/api/payments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

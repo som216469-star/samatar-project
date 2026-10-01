@@ -21,7 +21,9 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
   variant?: ButtonVariant;
   size?: ButtonSize;
   loading?: boolean;
+  isLoading?: boolean;
   icon?: React.ReactNode;
+  leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
   fullWidth?: boolean;
 }
@@ -30,7 +32,9 @@ export const Button: React.FC<ButtonProps> = ({
   variant = 'primary',
   size = 'md',
   loading = false,
+  isLoading = false,
   icon,
+  leftIcon,
   rightIcon,
   fullWidth = false,
   className = '',
@@ -39,6 +43,9 @@ export const Button: React.FC<ButtonProps> = ({
   type = 'button',
   ...rest
 }) => {
+  const resolvedLoading = Boolean(loading || isLoading);
+  const resolvedLeftIcon = icon ?? leftIcon;
+
   const sizeStyles: Record<ButtonSize, string> = {
     xs: 'px-2.5 py-1 text-[11px] gap-1.5 rounded-[var(--radius-xs)]',
     sm: 'px-3 py-1.5 text-xs gap-1.5 rounded-[var(--radius-sm)]',
@@ -64,15 +71,15 @@ export const Button: React.FC<ButtonProps> = ({
   return (
     <button
       type={type}
-      disabled={disabled || loading}
+      disabled={disabled || resolvedLoading}
       className={`inline-flex items-center justify-center font-semibold tracking-tight transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${sizeStyles[size]} ${variantStyles[variant]} ${
         fullWidth ? 'w-full' : ''
       } ${className}`}
       {...rest}
     >
-      {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" /> : icon}
+      {resolvedLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" /> : resolvedLeftIcon}
       {children && <span>{children}</span>}
-      {!loading && rightIcon}
+      {!resolvedLoading && rightIcon}
     </button>
   );
 };

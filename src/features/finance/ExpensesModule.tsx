@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import type { ExpenseRecord } from "../../types";
 import { formatMoney, exportToExcel } from "./financeUtils";
+import { apiFetch } from "../../lib/apiClient";
 
 interface ExpensesModuleProps {
   expenses: ExpenseRecord[];
@@ -120,13 +121,13 @@ export const ExpensesModule: React.FC<ExpensesModuleProps> = ({
     setSubmitting(true);
     try {
       if (editingExpense) {
-        await fetch(`/api/expenses/${editingExpense.id}`, {
+        await apiFetch(`/api/expenses/${editingExpense.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(form)
         });
       } else {
-        await fetch("/api/expenses", {
+        await apiFetch("/api/expenses", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(form)
@@ -143,7 +144,7 @@ export const ExpensesModule: React.FC<ExpensesModuleProps> = ({
 
   const handleApprove = async (id: string) => {
     try {
-      const res = await fetch(`/api/expenses/${id}/approve`, { method: "POST" });
+      const res = await apiFetch(`/api/expenses/${id}/approve`, { method: "PUT" });
       if (res.ok) onRefresh();
     } catch (err) {
       console.error(err);
@@ -153,7 +154,7 @@ export const ExpensesModule: React.FC<ExpensesModuleProps> = ({
   const handleDelete = async (id: string) => {
     if (!confirm("Ma hubtaa inaad tirtirto kharashkan? (Delete expense)")) return;
     try {
-      const res = await fetch(`/api/expenses/${id}`, { method: "DELETE" });
+      const res = await apiFetch(`/api/expenses/${id}`, { method: "DELETE" });
       if (res.ok) onRefresh();
     } catch (err) {
       console.error(err);

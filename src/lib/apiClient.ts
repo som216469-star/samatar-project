@@ -5,13 +5,14 @@ import { enqueueOfflineAction } from '../utils/offlineSync';
  * Automatically attaches tenant X-School-Email and Bearer JWT token from local session.
  */
 export async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-  const userStr = localStorage.getItem('dugsiga_auth');
+  const userStr =
+    localStorage.getItem('dugsi_user') || localStorage.getItem('dugsiga_auth');
   let schoolEmail = '';
-  let token = '';
+  let token = localStorage.getItem('dugsi_token') || '';
   if (userStr) {
     try {
       const u = JSON.parse(userStr);
-      if (u && u.email) schoolEmail = u.email;
+      if (u && (u.schoolId || u.email)) schoolEmail = u.schoolId || u.email;
       if (u && u.token) token = u.token;
     } catch {
       // Ignore malformed JSON in localStorage

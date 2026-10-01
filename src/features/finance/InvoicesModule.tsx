@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import type { Invoice, FeeStructure } from "../../types";
 import { formatMoney, exportToExcel, generateInvoicePDF, openWhatsApp } from "./financeUtils";
+import { apiFetch } from "../../lib/apiClient";
 
 interface InvoicesModuleProps {
   invoices: Invoice[];
@@ -24,6 +25,7 @@ interface InvoicesModuleProps {
   schoolName: string;
   onRefresh: () => void;
   onRecordPayment: (invoice: Invoice) => void;
+  showCreateModalDefault?: boolean;
 }
 
 export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
@@ -34,14 +36,15 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
   currency,
   schoolName,
   onRefresh,
-  onRecordPayment
+  onRecordPayment,
+  showCreateModalDefault = false
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [classFilter, setClassFilter] = useState("All");
 
   // Modals state
-  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(showCreateModalDefault);
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -87,7 +90,7 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
     if (!singleForm.studentId) return;
     setSubmitting(true);
     try {
-      const res = await fetch("/api/invoices", {
+      const res = await apiFetch("/api/invoices", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(singleForm)
@@ -107,7 +110,7 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
     e.preventDefault();
     setSubmitting(true);
     try {
-      const res = await fetch("/api/invoices/bulk", {
+      const res = await apiFetch("/api/invoices/bulk", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -133,7 +136,7 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
   const handleDeleteInvoice = async (id: string) => {
     if (!confirm("Ma hubtaa inaad tirtirto biilkan? (Confirm invoice deletion)")) return;
     try {
-      const res = await fetch(`/api/invoices/${id}`, { method: "DELETE" });
+      const res = await apiFetch(`/api/invoices/${id}`, { method: "DELETE" });
       if (res.ok) onRefresh();
     } catch (err) {
       console.error(err);

@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import type { FeeStructure } from "../../types";
 import { formatMoney, exportToExcel } from "./financeUtils";
+import { apiFetch } from "../../lib/apiClient";
 
 interface FeeStructuresModuleProps {
   feeStructures: FeeStructure[];
@@ -84,13 +85,13 @@ export const FeeStructuresModule: React.FC<FeeStructuresModuleProps> = ({
     setSubmitting(true);
     try {
       if (editingFee) {
-        await fetch(`/api/fee-structures/${editingFee.id}`, {
+        await apiFetch(`/api/fee-structures/${editingFee.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(form)
         });
       } else {
-        await fetch("/api/fee-structures", {
+        await apiFetch("/api/fee-structures", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(form)
@@ -108,7 +109,7 @@ export const FeeStructuresModule: React.FC<FeeStructuresModuleProps> = ({
   const handleDelete = async (id: string) => {
     if (!confirm("Ma hubtaa inaad tirtirto qaab-dhismeedkan fiiga?")) return;
     try {
-      const res = await fetch(`/api/fee-structures/${id}`, { method: "DELETE" });
+      const res = await apiFetch(`/api/fee-structures/${id}`, { method: "DELETE" });
       if (res.ok) onRefresh();
     } catch (err) {
       console.error(err);

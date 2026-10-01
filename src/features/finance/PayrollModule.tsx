@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import type { PayrollRecord } from "../../types";
 import { formatMoney, exportToExcel, generatePayslipPDF } from "./financeUtils";
+import { apiFetch } from "../../lib/apiClient";
 
 interface PayrollModuleProps {
   payroll: PayrollRecord[];
@@ -94,7 +95,7 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
     }
     setSubmitting(true);
     try {
-      const res = await fetch("/api/payroll", {
+      const res = await apiFetch("/api/payroll", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -117,8 +118,8 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
   const handleMarkAsPaid = async (id: string) => {
     if (!confirm("Ma hubtaa inaad bixiso mushahaarkan? Tani waxay si toos ah u qori doontaa kharashka mushahaarka (Record as paid salary).")) return;
     try {
-      const res = await fetch(`/api/payroll/${id}/pay`, {
-        method: "POST",
+      const res = await apiFetch(`/api/payroll/${id}/pay`, {
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ paymentDate: new Date().toISOString().split("T")[0] })
       });
@@ -131,7 +132,7 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
   const handleDelete = async (id: string) => {
     if (!confirm("Ma hubtaa inaad tirtirto diiwaankan?")) return;
     try {
-      const res = await fetch(`/api/payroll/${id}`, { method: "DELETE" });
+      const res = await apiFetch(`/api/payroll/${id}`, { method: "DELETE" });
       if (res.ok) onRefresh();
     } catch (err) {
       console.error(err);

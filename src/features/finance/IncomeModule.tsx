@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import type { IncomeRecord } from "../../types";
 import { formatMoney, exportToExcel } from "./financeUtils";
+import { apiFetch } from "../../lib/apiClient";
 
 interface IncomeModuleProps {
   incomeList: IncomeRecord[];
@@ -72,7 +73,7 @@ export const IncomeModule: React.FC<IncomeModuleProps> = ({
     e.preventDefault();
     setSubmitting(true);
     try {
-      const res = await fetch("/api/income", {
+      const res = await apiFetch("/api/income", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form)
@@ -91,7 +92,7 @@ export const IncomeModule: React.FC<IncomeModuleProps> = ({
   const handleDelete = async (id: string) => {
     if (!confirm("Ma hubtaa inaad tirtirto dakhligan? (Delete income)")) return;
     try {
-      const res = await fetch(`/api/income/${id}`, { method: "DELETE" });
+      const res = await apiFetch(`/api/income/${id}`, { method: "DELETE" });
       if (res.ok) onRefresh();
     } catch (err) {
       console.error(err);
