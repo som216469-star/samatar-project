@@ -1,68 +1,89 @@
 import React from 'react';
-import { Layers, Database, Zap, BarChart3 } from 'lucide-react';
 
 export default function TrustStatement() {
-  const valueCards = [
+  const capabilityMetrics = [
     {
-      icon: Layers,
-      title: 'One Platform',
-      description: 'Bring school operations together in a single unified web environment.'
+      figure: '12',
+      unit: 'Integrated Modules',
+      context: 'Unified student registry, grading, billing, and campus operations',
     },
     {
-      icon: Database,
-      title: 'Organized Data',
-      description: 'Keep important school records, profiles, and historical logs structured.'
+      figure: '2×',
+      unit: 'Daily Roll Call Sessions',
+      context: 'Morning (Before Break) and Afternoon (After Break) attendance tracking',
     },
     {
-      icon: Zap,
-      title: 'Faster Operations',
-      description: 'Reduce repetitive administrative paperwork and manual data entry.'
+      figure: '100%',
+      unit: 'Multi-Tenant Isolation',
+      context: 'Dedicated School ID database separation with role-based access control',
     },
     {
-      icon: BarChart3,
-      title: 'Clear Insights',
-      description: 'Use reports and records to understand daily academic and financial activity.'
-    }
+      figure: '< 2s',
+      unit: 'Official PDF Generation',
+      context: 'Instant printable report cards, fee receipts, and audit statements',
+    },
+  ];
+
+  const domainPillars = [
+    'Academic Registry & Admissions',
+    'Morning & Afternoon Attendance',
+    'Examinations & Automated Grading',
+    'Tuition Invoicing & Payroll Ledger',
+    'Timetable, Library & Inventory',
+    'Role-Based Access & Security',
   ];
 
   return (
-    <section id="trust-statement" className="py-16 md:py-24 bg-[#080a11] border-y border-white/[0.08]">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-        
-        <span className="text-xs uppercase tracking-widest text-[#a78bfa] font-bold block mb-3">
-          Core Foundation
-        </span>
-        
-        <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-white tracking-tight max-w-3xl mx-auto mb-5 leading-tight">
-          Everything Your School Needs. In One Place.
-        </h2>
-        
-        <p className="text-base sm:text-lg text-[#94a3b8] max-w-2xl mx-auto leading-relaxed mb-12">
-          DUGSI PRO 2026 brings essential school operations into one organized platform so administrators and staff can manage information, monitor activities, and keep school records structured.
-        </p>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 text-left">
-          {valueCards.map((card, idx) => {
-            const Icon = card.icon;
-            return (
-              <div 
-                key={idx}
-                className="p-6 rounded-2xl bg-[#0c0f17] border border-white/[0.08] hover:border-[#6366f1]/30 transition-all duration-200 group"
-              >
-                <div className="w-10 h-10 rounded-xl bg-[#6366f1]/10 border border-[#6366f1]/20 flex items-center justify-center text-[#a78bfa] mb-4 group-hover:scale-105 group-hover:bg-[#6366f1]/20 transition-all">
-                  <Icon className="w-5 h-5" />
-                </div>
-                <h3 className="text-base font-bold text-white mb-2">
-                  {card.title}
-                </h3>
-                <p className="text-xs text-[#94a3b8] leading-relaxed">
-                  {card.description}
-                </p>
-              </div>
-            );
-          })}
+    <section
+      id="trust-statement"
+      className="py-16 md:py-24 bg-[#070a12] border-y border-white/[0.07]"
+    >
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Top Editorial Statement */}
+        <div className="max-w-3xl mx-auto text-center mb-14">
+          <div className="text-xs font-medium text-[#94a3b8] mb-3">
+            Institutional Infrastructure · Built for Primary, Secondary &amp; Academy Networks
+          </div>
+          <h2 className="landing-display text-2xl sm:text-3xl md:text-4xl font-bold text-white tracking-tight text-balance mb-4">
+            Everything your school needs, in one place.
+          </h2>
+          <p className="text-sm sm:text-base text-[#94a3b8] leading-relaxed">
+            Replace disconnected spreadsheets, handwritten registers, and paper receipt books with a single source of truth engineered for daily educational operations.
+          </p>
         </div>
 
+        {/* Quantitative Capability Benchmarks (Hairline Architectural Grid) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 border-y border-white/[0.08] divide-y sm:divide-y-0 sm:divide-x divide-white/[0.08]">
+          {capabilityMetrics.map((metric, idx) => (
+            <div key={idx} className="py-6 sm:px-6 first:sm:pl-0 last:sm:pr-0">
+              <div className="flex items-baseline gap-2 mb-2">
+                <span className="landing-display text-3xl sm:text-4xl font-bold text-white font-mono tabular-nums">
+                  {metric.figure}
+                </span>
+                <span className="text-xs font-semibold text-[#a5b4fc]">
+                  {metric.unit}
+                </span>
+              </div>
+              <p className="text-xs text-[#94a3b8] leading-relaxed">
+                {metric.context}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        {/* Unboxed Product Category Indicators */}
+        <div className="pt-8 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs text-[#64748b]">
+          {domainPillars.map((pillar, idx) => (
+            <React.Fragment key={pillar}>
+              <span className="text-[#94a3b8] font-medium">{pillar}</span>
+              {idx < domainPillars.length - 1 && (
+                <span aria-hidden="true" className="text-white/20">
+                  ·
+                </span>
+              )}
+            </React.Fragment>
+          ))}
+        </div>
       </div>
     </section>
   );

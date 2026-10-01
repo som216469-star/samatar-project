@@ -1,78 +1,82 @@
 import React from 'react';
-import { 
-  Check, 
-  Sparkles, 
-  LayoutDashboard, 
-  Smartphone, 
-  ShieldCheck, 
-  Zap, 
-  Sliders
-} from 'lucide-react';
 
 export default function WhyDugsiPro() {
-  const pillars = [
+  const principles = [
     {
-      title: 'Simple',
-      desc: 'Clean, clutter-free interfaces that teachers and administrators can master within 15 minutes without complicated technical training.'
+      index: '01',
+      title: 'Multi-Tenant Data Isolation',
+      description:
+        'Every school operates within a strict tenant boundary keyed to its verified School ID. Student records, fee ledgers, and grades never cross institutional boundaries.',
     },
     {
-      title: 'Organized',
-      desc: 'A unified structural hierarchy where students belong to classes, classes have designated head teachers, and subjects map to grade levels.'
+      index: '02',
+      title: 'Role-Based Access Control (RBAC)',
+      description:
+        'Principals, registrars, bursars, and class teachers each receive scoped navigation and route guards aligned with their exact institutional responsibilities.',
     },
     {
-      title: 'Modern',
-      desc: 'Built on high-performance web standards with high-contrast typography, fast data loading, and instant PDF report rendering.'
+      index: '03',
+      title: 'Offline-Resilient PWA Architecture',
+      description:
+        'Built with Progressive Web App caching and offline action queuing so teachers can continue logging attendance even during intermittent connectivity.',
     },
     {
-      title: 'Accessible',
-      desc: 'Fully responsive experience accessible on school office desktop computers, laptops, administrative tablets, and mobile devices.'
+      index: '04',
+      title: 'Bilingual Operational Clarity',
+      description:
+        'Designed for immediate adoption by both Somali and English-speaking administrators and faculty, with intuitive workflows that require zero technical training.',
     },
     {
-      title: 'Practical',
-      desc: 'Eliminates unnecessary bloat. Every button, table, and modal addresses a direct daily task faced by school staff.'
+      index: '05',
+      title: 'Publication-Grade PDF & Excel Engines',
+      description:
+        'Generate official report cards, tuition receipts, attendance statements, and full Excel spreadsheets directly from the browser without third-party plugins.',
     },
     {
-      title: 'Workflow-Aligned',
-      desc: 'Directly mirrors real academic cycles: enrollment, twice-daily roll calls (Before & After Break), monthly billing, and term report cards.'
-    }
+      index: '06',
+      title: 'Full Institutional Data Ownership',
+      description:
+        'Export your school’s complete database into structured JSON or Excel formats at any time with a single click for archival and compliance.',
+    },
   ];
 
   return (
-    <section id="why-dugsi-pro" className="py-20 md:py-28 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      
-      <div className="text-center max-w-3xl mx-auto mb-16">
-        <span className="text-xs uppercase tracking-widest text-[#a78bfa] font-bold block mb-3">
-          Product Philosophy
-        </span>
-        <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-white tracking-tight mb-4">
-          Built for Modern School Management
-        </h2>
-        <p className="text-base sm:text-lg text-[#94a3b8] leading-relaxed">
-          DUGSI PRO 2026 is engineered specifically for primary, secondary, and community schools seeking dependable administrative control without unnecessary complexity.
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {pillars.map((pillar, idx) => (
-          <div 
-            key={idx}
-            className="p-7 rounded-2xl bg-[#0c0f17] border border-white/[0.08] hover:border-[#6366f1]/30 transition-all duration-200"
-          >
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-7 h-7 rounded-lg bg-[#6366f1]/10 text-[#a78bfa] flex items-center justify-center font-bold text-xs">
-                {idx + 1}
-              </div>
-              <h3 className="text-lg font-bold text-white">
-                {pillar.title}
-              </h3>
-            </div>
-            <p className="text-xs sm:text-sm text-[#94a3b8] leading-relaxed">
-              {pillar.desc}
-            </p>
+    <section
+      id="why-dugsi-pro"
+      className="py-24 md:py-32 bg-[#06080f] border-t border-white/[0.07]"
+    >
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-3xl mb-16">
+          <div className="text-xs font-medium text-[#94a3b8] mb-3">
+            08 · Enterprise Architecture &amp; Reliability
           </div>
-        ))}
-      </div>
+          <h2 className="landing-display text-3xl sm:text-4xl md:text-5xl font-bold text-white tracking-tight text-balance mb-4">
+            Engineered for institutional trust and longevity.
+          </h2>
+          <p className="text-base sm:text-lg text-[#94a3b8] leading-relaxed">
+            Dugsi Pro combines modern web performance with strict security boundaries so your school’s academic and financial history remains protected year after year.
+          </p>
+        </div>
 
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 border-t border-l border-white/[0.08]">
+          {principles.map((item) => (
+            <div
+              key={item.index}
+              className="p-7 sm:p-8 border-r border-b border-white/[0.08] bg-[#06080f] hover:bg-[#0a0d16] transition-colors duration-150"
+            >
+              <div className="font-mono text-xs text-[#818cf8] tabular-nums mb-3">
+                {item.index}
+              </div>
+              <h3 className="text-base font-bold text-white mb-2.5">
+                {item.title}
+              </h3>
+              <p className="text-xs sm:text-sm text-[#94a3b8] leading-relaxed">
+                {item.description}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
     </section>
   );
 }

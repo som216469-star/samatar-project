@@ -1,5 +1,5 @@
 import React from 'react';
-import { GraduationCap, ShieldCheck, ArrowRight } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 
 interface FooterProps {
   onNavigate: (route: 'login' | 'signup' | 'dashboard') => void;
@@ -7,162 +7,211 @@ interface FooterProps {
   onScrollTo: (id: string) => void;
 }
 
-export default function Footer({ onNavigate, isAuthenticated, onScrollTo }: FooterProps) {
+export default function Footer({
+  onNavigate,
+  isAuthenticated,
+  onScrollTo,
+}: FooterProps) {
   return (
     <footer className="border-t border-white/[0.08] bg-[#05070c] py-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-10 mb-12">
-          
-          {/* Brand Column */}
-          <div className="space-y-3 md:col-span-1">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-[#6366f1] flex items-center justify-center text-white">
-                <GraduationCap className="w-4 h-4" />
-              </div>
-              <span className="font-extrabold text-base tracking-wider text-white">
-                DUGSI PRO 2026
-              </span>
-            </div>
-            <p className="text-xs text-[#94a3b8] leading-relaxed">
-              School Management Made Simple. A modern, centralized platform for primary, secondary, and community schools.
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-10 pb-12 border-b border-white/[0.06]">
+          {/* Brand Column (4 Cols) */}
+          <div className="md:col-span-4 space-y-3">
+            <button
+              type="button"
+              onClick={() => onScrollTo('hero')}
+              className="text-left text-lg font-bold tracking-tight text-white landing-display cursor-pointer"
+            >
+              DUGSI PRO
+            </button>
+            <p className="text-xs sm:text-sm text-[#94a3b8] leading-relaxed max-w-sm">
+              The unified school management platform for student registries, twice-daily attendance, automated exam grading, tuition finance, and institutional operations.
             </p>
-            <div className="pt-2 text-[11px] text-[#64748b]">
-              Enterprise-grade multi-tenant architecture with school-level data isolation.
+            <div className="pt-1 text-xs text-[#64748b]">
+              Multi-tenant School ID data isolation · Offline-ready web platform
             </div>
           </div>
 
-          {/* Product & Solutions */}
-          <div>
-            <span className="text-xs uppercase font-bold tracking-wider text-white block mb-4">
-              Platform Modules
-            </span>
-            <ul className="space-y-2 text-xs text-[#94a3b8]">
+          {/* Product Column (2 Cols) */}
+          <div className="md:col-span-2">
+            <div className="text-xs font-semibold text-white mb-4">Product</div>
+            <ul className="space-y-2.5 text-xs text-[#94a3b8]">
               <li>
-                <button onClick={() => onScrollTo('hero')} className="hover:text-white cursor-pointer">
-                  Platform Overview
+                <button
+                  type="button"
+                  onClick={() => onScrollTo('product-overview')}
+                  className="hover:text-white transition-colors cursor-pointer"
+                >
+                  Ecosystem Architecture
                 </button>
               </li>
               <li>
-                <button onClick={() => onScrollTo('features')} className="hover:text-white cursor-pointer">
-                  Core Modules
+                <button
+                  type="button"
+                  onClick={() => onScrollTo('preview')}
+                  className="hover:text-white transition-colors cursor-pointer"
+                >
+                  Interactive Demo
                 </button>
               </li>
               <li>
-                <button onClick={() => onScrollTo('preview')} className="hover:text-white cursor-pointer">
-                  Live System Preview
+                <button
+                  type="button"
+                  onClick={() => onScrollTo('workflow')}
+                  className="hover:text-white transition-colors cursor-pointer"
+                >
+                  Operating Workflow
                 </button>
               </li>
               <li>
-                <button onClick={() => onScrollTo('students-management')} className="hover:text-white cursor-pointer">
-                  Student Directory
-                </button>
-              </li>
-              <li>
-                <button onClick={() => onScrollTo('attendance-management')} className="hover:text-white cursor-pointer">
-                  Multi-Session Attendance
-                </button>
-              </li>
-              <li>
-                <button onClick={() => onScrollTo('fees-management')} className="hover:text-white cursor-pointer">
-                  Tuition Invoicing
-                </button>
-              </li>
-              <li>
-                <button onClick={() => onScrollTo('exams-management')} className="hover:text-white cursor-pointer">
-                  Exams & Automated Grading
-                </button>
-              </li>
-            </ul>
-          </div>
-
-          {/* Institutional Navigation */}
-          <div>
-            <span className="text-xs uppercase font-bold tracking-wider text-white block mb-4">
-              Institutional Navigation
-            </span>
-            <ul className="space-y-2 text-xs text-[#94a3b8]">
-              <li>
-                <button onClick={() => onScrollTo('how-it-works')} className="hover:text-white cursor-pointer">
-                  How It Works (3 Steps)
-                </button>
-              </li>
-              <li>
-                <button onClick={() => onScrollTo('workflow')} className="hover:text-white cursor-pointer">
-                  School Operating Workflow
-                </button>
-              </li>
-              <li>
-                <button onClick={() => onScrollTo('benefits')} className="hover:text-white cursor-pointer">
-                  Practical Benefits
-                </button>
-              </li>
-              <li>
-                <button onClick={() => onScrollTo('why-dugsi-pro')} className="hover:text-white cursor-pointer">
-                  Why DUGSI PRO 2026
-                </button>
-              </li>
-              <li>
-                <button onClick={() => onScrollTo('pricing')} className="hover:text-white cursor-pointer">
-                  Pricing Tiers
-                </button>
-              </li>
-              <li>
-                <button onClick={() => onScrollTo('faq')} className="hover:text-white cursor-pointer">
-                  Frequently Asked Questions
+                <button
+                  type="button"
+                  onClick={() => onScrollTo('pricing')}
+                  className="hover:text-white transition-colors cursor-pointer"
+                >
+                  Institutional Pricing
                 </button>
               </li>
             </ul>
           </div>
 
-          {/* Quick Access & System Status */}
-          <div>
-            <span className="text-xs uppercase font-bold tracking-wider text-white block mb-4">
-              Direct Access
-            </span>
-            <ul className="space-y-2.5 text-xs text-[#94a3b8] mb-6">
+          {/* Capabilities Column (3 Cols) */}
+          <div className="md:col-span-3">
+            <div className="text-xs font-semibold text-white mb-4">
+              Core Capabilities
+            </div>
+            <ul className="space-y-2.5 text-xs text-[#94a3b8]">
+              <li>
+                <button
+                  type="button"
+                  onClick={() => onScrollTo('students-management')}
+                  className="hover:text-white transition-colors cursor-pointer"
+                >
+                  Student Registry &amp; Excel Import
+                </button>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  onClick={() => onScrollTo('attendance-management')}
+                  className="hover:text-white transition-colors cursor-pointer"
+                >
+                  Morning &amp; Afternoon Attendance
+                </button>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  onClick={() => onScrollTo('exams-management')}
+                  className="hover:text-white transition-colors cursor-pointer"
+                >
+                  Examinations &amp; Automated Grading
+                </button>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  onClick={() => onScrollTo('fees-management')}
+                  className="hover:text-white transition-colors cursor-pointer"
+                >
+                  Tuition Billing, Payroll &amp; Finance
+                </button>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  onClick={() => onScrollTo('campus-operations')}
+                  className="hover:text-white transition-colors cursor-pointer"
+                >
+                  Admissions, Timetable &amp; Library
+                </button>
+              </li>
+            </ul>
+          </div>
+
+          {/* Solutions & Workspace Access (3 Cols) */}
+          <div className="md:col-span-3">
+            <div className="text-xs font-semibold text-white mb-4">
+              Workspace Access
+            </div>
+            <ul className="space-y-2.5 text-xs text-[#94a3b8]">
+              <li>
+                <button
+                  type="button"
+                  onClick={() => onScrollTo('solutions')}
+                  className="hover:text-white transition-colors cursor-pointer"
+                >
+                  Solutions by School Role
+                </button>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  onClick={() => onScrollTo('resources')}
+                  className="hover:text-white transition-colors cursor-pointer"
+                >
+                  Implementation Guides &amp; FAQ
+                </button>
+              </li>
               {isAuthenticated ? (
-                <li>
-                  <button 
-                    onClick={() => onNavigate('dashboard')} 
-                    className="inline-flex items-center gap-1.5 text-[#a78bfa] hover:text-white font-bold cursor-pointer"
+                <li className="pt-1">
+                  <button
+                    type="button"
+                    onClick={() => onNavigate('dashboard')}
+                    className="inline-flex items-center gap-1.5 text-[#a5b4fc] hover:text-white font-semibold cursor-pointer"
                   >
-                    <span>Open Dashboard</span>
-                    <ArrowRight className="w-3 h-3" />
+                    <span>Open Active Dashboard</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
                   </button>
                 </li>
               ) : (
                 <>
                   <li>
-                    <button onClick={() => onNavigate('login')} className="hover:text-white cursor-pointer">
-                      Login to Existing Account
+                    <button
+                      type="button"
+                      onClick={() => onNavigate('login')}
+                      className="hover:text-white transition-colors cursor-pointer"
+                    >
+                      Sign In to School Portal
                     </button>
                   </li>
-                  <li>
-                    <button onClick={() => onNavigate('signup')} className="hover:text-white font-semibold text-[#a78bfa] cursor-pointer">
-                      Get Started (New School)
+                  <li className="pt-1">
+                    <button
+                      type="button"
+                      onClick={() => onNavigate('signup')}
+                      className="inline-flex items-center gap-1.5 text-[#a5b4fc] hover:text-white font-semibold cursor-pointer"
+                    >
+                      <span>Create New School Account</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
                     </button>
                   </li>
                 </>
               )}
             </ul>
-
-            <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.04] space-y-1.5">
-              <div className="flex items-center gap-2 text-xs text-white font-semibold">
-                <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-                <span>System Status: Online</span>
-              </div>
-              <div className="font-mono text-[10px] text-[#64748b]">
-                Platform Build: v2026.1-prod<br />
-                Multi-Tenant School ID Security Active
-              </div>
-            </div>
           </div>
-
         </div>
 
-        <div className="pt-8 border-t border-white/[0.06] flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-[#64748b]">
-          <p>&copy; {new Date().getFullYear()} DUGSI PRO 2026. All rights reserved.</p>
-          <p className="font-mono text-[11px]">Empowering smarter educational management</p>
+        {/* Quiet Copyright Bar */}
+        <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-[#64748b]">
+          <p>&copy; {new Date().getFullYear()} Dugsi Pro. All rights reserved.</p>
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              onClick={() => onScrollTo('roles-permissions')}
+              className="hover:text-[#94a3b8] transition-colors cursor-pointer"
+            >
+              Data Isolation &amp; Security
+            </button>
+            <span aria-hidden="true">·</span>
+            <button
+              type="button"
+              onClick={() => onScrollTo('faq')}
+              className="hover:text-[#94a3b8] transition-colors cursor-pointer"
+            >
+              Support &amp; FAQ
+            </button>
+          </div>
         </div>
       </div>
     </footer>

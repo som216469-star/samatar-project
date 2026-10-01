@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
-import { GraduationCap, Menu, X, ArrowRight, User } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Menu, X, ArrowRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { PWAInstallButton } from '../PWAInstallButton';
 
 interface NavbarProps {
   onNavigate: (route: 'login' | 'signup' | 'dashboard') => void;
@@ -10,8 +9,46 @@ interface NavbarProps {
   onScrollTo: (id: string) => void;
 }
 
-export default function Navbar({ onNavigate, isAuthenticated, userEmail, onScrollTo }: NavbarProps) {
+export default function Navbar({
+  onNavigate,
+  isAuthenticated,
+  onScrollTo,
+}: NavbarProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const mobileDrawerRef = useRef<HTMLDivElement>(null);
+  const menuTriggerRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 16);
+    };
+    handleScroll();
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setMobileMenuOpen(false);
+        menuTriggerRef.current?.focus();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [mobileMenuOpen]);
+
+  const navItems = [
+    { label: 'Product', target: 'product-overview' },
+    { label: 'Features', target: 'features' },
+    { label: 'Solutions', target: 'solutions' },
+    { label: 'Pricing', target: 'pricing' },
+    { label: 'Resources', target: 'resources' },
+  ];
 
   const handleNavClick = (sectionId: string) => {
     setMobileMenuOpen(false);
@@ -19,100 +56,64 @@ export default function Navbar({ onNavigate, isAuthenticated, userEmail, onScrol
   };
 
   return (
-    <header className="sticky top-0 z-50 border-b border-white/[0.08] bg-[#07090e]/95 backdrop-blur-md">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
-        
-        {/* Brand */}
-        <div 
-          onClick={() => handleNavClick('hero')} 
-          className="flex items-center gap-3 cursor-pointer group"
+    <header
+      className={`sticky top-0 z-50 transition-colors duration-200 ${
+        scrolled
+          ? 'bg-[#06080f]/90 backdrop-blur-xl border-b border-white/[0.08] shadow-[0_8px_30px_rgb(0,0,0,0.45)]'
+          : 'bg-[#06080f]/60 backdrop-blur-md border-b border-white/[0.04]'
+      }`}
+    >
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+        {/* Zone 1: Single clean Brand Wordmark */}
+        <button
+          type="button"
+          onClick={() => handleNavClick('hero')}
+          className="text-left text-lg font-bold tracking-tight text-white hover:text-[#cbd5e1] transition-colors duration-150 cursor-pointer whitespace-nowrap shrink-0 landing-display"
         >
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#6366f1] to-[#a78bfa] flex items-center justify-center shadow-lg shadow-indigo-500/20 group-hover:scale-105 transition-transform duration-200">
-            <GraduationCap className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-extrabold text-lg tracking-wider text-white">
-                DUGSI PRO
-              </span>
-              <span className="px-1.5 py-0.5 text-[10px] font-mono font-semibold bg-[#6366f1]/20 text-[#a78bfa] border border-[#6366f1]/30 rounded">
-                2026
-              </span>
-            </div>
-            <span className="text-[11px] text-[#94a3b8] font-medium tracking-wide block">
-              School Management System
-            </span>
-          </div>
-        </div>
+          DUGSI PRO
+        </button>
 
-        {/* Desktop Navigation */}
-        <nav className="hidden lg:flex items-center gap-7 text-sm font-medium text-[#94a3b8]">
-          <button 
-            onClick={() => handleNavClick('hero')} 
-            className="hover:text-white transition-colors duration-150 py-1 cursor-pointer"
-          >
-            Home
-          </button>
-          <button 
-            onClick={() => handleNavClick('features')} 
-            className="hover:text-white transition-colors duration-150 py-1 cursor-pointer"
-          >
-            Features
-          </button>
-          <button 
-            onClick={() => handleNavClick('solutions')} 
-            className="hover:text-white transition-colors duration-150 py-1 cursor-pointer"
-          >
-            Solutions
-          </button>
-          <button 
-            onClick={() => handleNavClick('how-it-works')} 
-            className="hover:text-white transition-colors duration-150 py-1 cursor-pointer"
-          >
-            How It Works
-          </button>
-          <button 
-            onClick={() => handleNavClick('pricing')} 
-            className="hover:text-white transition-colors duration-150 py-1 cursor-pointer"
-          >
-            Pricing
-          </button>
-          <button 
-            onClick={() => handleNavClick('faq')} 
-            className="hover:text-white transition-colors duration-150 py-1 cursor-pointer"
-          >
-            FAQ
-          </button>
+        {/* Zone 2: 5 Clean Single-Line Text Navigation Links */}
+        <nav
+          aria-label="Primary Navigation"
+          className="hidden md:flex items-center gap-8 text-sm font-medium text-[#94a3b8]"
+        >
+          {navItems.map((item) => (
+            <button
+              key={item.target}
+              type="button"
+              onClick={() => handleNavClick(item.target)}
+              className="relative py-1 text-[#94a3b8] hover:text-white transition-colors duration-150 cursor-pointer whitespace-nowrap shrink-0 after:content-[''] after:absolute after:left-0 after:bottom-0 after:w-full after:h-[1.5px] after:bg-[#6366f1] after:origin-left after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:duration-150"
+            >
+              {item.label}
+            </button>
+          ))}
         </nav>
 
-        {/* Action Buttons */}
-        <div className="hidden md:flex items-center gap-3">
-          <PWAInstallButton />
+        {/* Zone 3: 1-2 Primary Actions */}
+        <div className="hidden md:flex items-center gap-3 shrink-0">
           {isAuthenticated ? (
-            <div className="flex items-center gap-3">
-              <div className="hidden xl:flex items-center gap-1.5 text-xs text-[#94a3b8] font-mono px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.06]">
-                <User className="w-3.5 h-3.5 text-[#a78bfa]" />
-                <span className="max-w-[160px] truncate">{userEmail || 'School Admin'}</span>
-              </div>
-              <button
-                onClick={() => onNavigate('dashboard')}
-                className="px-5 py-2.5 rounded-lg bg-[#6366f1] hover:bg-[#4f46e5] text-white font-semibold text-xs uppercase tracking-wider transition-all duration-200 shadow-md shadow-indigo-600/30 flex items-center gap-2 cursor-pointer"
-              >
-                <span>Go to Dashboard</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => onNavigate('dashboard')}
+              className="px-4 py-2 rounded-lg bg-[#4f46e5] hover:bg-[#4338ca] text-white font-semibold text-sm transition-colors duration-150 flex items-center gap-2 cursor-pointer whitespace-nowrap shrink-0"
+            >
+              <span>Go to Dashboard</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
           ) : (
             <>
               <button
+                type="button"
                 onClick={() => onNavigate('login')}
-                className="px-4 py-2.5 rounded-lg border border-white/10 hover:border-white/20 hover:bg-white/[0.04] text-[#f8fafc] font-medium text-xs uppercase tracking-wider transition-all duration-150 cursor-pointer"
+                className="px-4 py-2 rounded-lg text-[#cbd5e1] hover:text-white hover:bg-white/[0.04] font-medium text-sm transition-colors duration-150 cursor-pointer whitespace-nowrap shrink-0"
               >
                 Login
               </button>
               <button
+                type="button"
                 onClick={() => onNavigate('signup')}
-                className="px-5 py-2.5 rounded-lg bg-[#6366f1] hover:bg-[#4f46e5] text-white font-semibold text-xs uppercase tracking-wider transition-all duration-200 shadow-md shadow-indigo-600/30 flex items-center gap-1.5 cursor-pointer"
+                className="px-4 py-2 rounded-lg bg-[#4f46e5] hover:bg-[#4338ca] text-white font-semibold text-sm transition-colors duration-150 shadow-sm shadow-indigo-500/20 flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
               >
                 <span>Get Started</span>
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -121,86 +122,81 @@ export default function Navbar({ onNavigate, isAuthenticated, userEmail, onScrol
           )}
         </div>
 
-        {/* Mobile menu button */}
-        <div className="lg:hidden flex items-center gap-2">
+        {/* Mobile Hamburger Button (>= 44px touch target) */}
+        <div className="md:hidden flex items-center">
           <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="p-2 rounded-lg text-[#94a3b8] hover:text-white hover:bg-white/[0.05] cursor-pointer"
-            aria-label="Toggle Navigation Menu"
+            ref={menuTriggerRef}
+            type="button"
+            onClick={() => setMobileMenuOpen((prev) => !prev)}
+            className="w-11 h-11 rounded-lg flex items-center justify-center text-[#94a3b8] hover:text-white hover:bg-white/[0.05] transition-colors duration-150 cursor-pointer"
+            aria-label={mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+            aria-expanded={mobileMenuOpen}
+            aria-controls="mobile-navigation-drawer"
           >
-            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
         </div>
       </div>
 
-      {/* Mobile menu dropdown */}
+      {/* Accessible Animated Mobile Drawer */}
       <AnimatePresence>
         {mobileMenuOpen && (
           <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="lg:hidden border-t border-white/[0.08] bg-[#080a11] px-6 py-5 space-y-4 shadow-2xl"
+            id="mobile-navigation-drawer"
+            ref={mobileDrawerRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Mobile Navigation"
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+            className="md:hidden border-t border-white/[0.08] bg-[#080b14]/98 backdrop-blur-xl px-4 pt-3 pb-6 space-y-4 shadow-2xl"
           >
-            <div className="flex flex-col space-y-3 text-sm font-medium text-[#94a3b8]">
-              <button 
-                onClick={() => handleNavClick('hero')} 
-                className="text-left py-2 hover:text-white cursor-pointer"
-              >
-                Home
-              </button>
-              <button 
-                onClick={() => handleNavClick('features')} 
-                className="text-left py-2 hover:text-white cursor-pointer"
-              >
-                Features
-              </button>
-              <button 
-                onClick={() => handleNavClick('solutions')} 
-                className="text-left py-2 hover:text-white cursor-pointer"
-              >
-                Solutions
-              </button>
-              <button 
-                onClick={() => handleNavClick('how-it-works')} 
-                className="text-left py-2 hover:text-white cursor-pointer"
-              >
-                How It Works
-              </button>
-              <button 
-                onClick={() => handleNavClick('pricing')} 
-                className="text-left py-2 hover:text-white cursor-pointer"
-              >
-                Pricing
-              </button>
-              <button 
-                onClick={() => handleNavClick('faq')} 
-                className="text-left py-2 hover:text-white cursor-pointer"
-              >
-                FAQ
-              </button>
-            </div>
+            <nav className="flex flex-col space-y-1" aria-label="Mobile sections">
+              {navItems.map((item) => (
+                <button
+                  key={item.target}
+                  type="button"
+                  onClick={() => handleNavClick(item.target)}
+                  className="w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium text-[#cbd5e1] hover:text-white hover:bg-white/[0.04] transition-colors duration-150 cursor-pointer"
+                >
+                  {item.label}
+                </button>
+              ))}
+            </nav>
 
-            <div className="pt-4 border-t border-white/[0.08] flex flex-col gap-2.5">
-              <PWAInstallButton className="w-full justify-center py-2.5" variant="full" />
+            <div className="pt-3 border-t border-white/[0.08] flex flex-col gap-2.5">
               {isAuthenticated ? (
                 <button
-                  onClick={() => { setMobileMenuOpen(false); onNavigate('dashboard'); }}
-                  className="w-full py-3 rounded-lg bg-[#6366f1] text-white font-semibold text-xs uppercase tracking-wider text-center cursor-pointer"
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    onNavigate('dashboard');
+                  }}
+                  className="w-full py-2.5 px-4 rounded-lg bg-[#4f46e5] hover:bg-[#4338ca] text-white font-semibold text-sm text-center transition-colors duration-150 cursor-pointer"
                 >
                   Go to Dashboard
                 </button>
               ) : (
                 <>
                   <button
-                    onClick={() => { setMobileMenuOpen(false); onNavigate('login'); }}
-                    className="w-full py-3 rounded-lg border border-white/10 text-white font-medium text-xs uppercase tracking-wider text-center cursor-pointer"
+                    type="button"
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      onNavigate('login');
+                    }}
+                    className="w-full py-2.5 px-4 rounded-lg border border-white/[0.12] bg-white/[0.02] hover:bg-white/[0.06] text-white font-medium text-sm text-center transition-colors duration-150 cursor-pointer"
                   >
                     Login
                   </button>
                   <button
-                    onClick={() => { setMobileMenuOpen(false); onNavigate('signup'); }}
-                    className="w-full py-3 rounded-lg bg-[#6366f1] text-white font-semibold text-xs uppercase tracking-wider text-center cursor-pointer"
+                    type="button"
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      onNavigate('signup');
+                    }}
+                    className="w-full py-2.5 px-4 rounded-lg bg-[#4f46e5] hover:bg-[#4338ca] text-white font-semibold text-sm text-center transition-colors duration-150 cursor-pointer"
                   >
                     Get Started
                   </button>

@@ -1,117 +1,149 @@
-import React from 'react';
-import { 
-  Users, 
-  BookOpen, 
-  Calendar, 
-  DollarSign, 
-  Award, 
-  FileText, 
-  ChevronRight,
-  Sparkles
+import React, { useState } from 'react';
+import {
+  UserPlus,
+  Users,
+  BookOpen,
+  Calendar,
+  DollarSign,
+  Award,
+  FileText,
 } from 'lucide-react';
 
 export default function SchoolWorkflow() {
-  const workflowNodes = [
+  const workflowStages = [
     {
-      id: 1,
+      index: '01',
+      name: 'Admissions',
+      short: 'Applicant intake',
+      icon: UserPlus,
+      detail:
+        'Prospective students submit applications and assessment records. Approved applicants convert into enrolled students with one click.',
+    },
+    {
+      index: '02',
+      name: 'Student Registry',
+      short: 'Master profile',
       icon: Users,
-      name: 'Students',
-      desc: 'Enrollment & profiles'
+      detail:
+        'Each student receives a unique ID, guardian contact profile, and active enrollment status in the central school database.',
     },
     {
-      id: 2,
+      index: '03',
+      name: 'Classes & Timetable',
+      short: 'Room & schedule',
       icon: BookOpen,
-      name: 'Classes',
-      desc: 'Grade & room mapping'
+      detail:
+        'Students are mapped to grade classrooms with designated Class Masters, subject curricula, and weekly period schedules.',
     },
     {
-      id: 3,
+      index: '04',
+      name: 'Daily Roll Call',
+      short: '2× daily sessions',
       icon: Calendar,
-      name: 'Attendance',
-      desc: 'Twice daily roll call'
+      detail:
+        'Teachers log Morning (Before Break) and Afternoon (After Break) attendance directly from classroom rosters.',
     },
     {
-      id: 4,
+      index: '05',
+      name: 'Tuition Billing',
+      short: 'Invoices & receipts',
       icon: DollarSign,
-      name: 'Fees',
-      desc: 'Invoices & payments'
+      detail:
+        'Monthly fee structures generate student invoices automatically, tracking full payments, partial balances, and audit receipts.',
     },
     {
-      id: 5,
+      index: '06',
+      name: 'Exams & Grading',
+      short: 'Automated marks',
       icon: Award,
-      name: 'Exams',
-      desc: 'Term score capture'
+      detail:
+        'Subject instructors enter term exam scores; Dugsi Pro computes percentages and assigns A, B, C, D, or Fail grades.',
     },
     {
-      id: 6,
-      icon: Award,
-      name: 'Results',
-      desc: 'Automated grades'
-    },
-    {
-      id: 7,
+      index: '07',
+      name: 'Official Reports',
+      short: 'PDF transcripts',
       icon: FileText,
-      name: 'Reports',
-      desc: 'Official PDF cards'
-    }
+      detail:
+        'Principals and registrars generate printable PDF report cards, attendance statements, and financial reconciliation ledgers.',
+    },
   ];
 
+  const [activeStageIndex, setActiveStageIndex] = useState(0);
+  const activeStage = workflowStages[activeStageIndex];
+
   return (
-    <section id="workflow" className="py-20 md:py-28 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      
-      <div className="text-center max-w-3xl mx-auto mb-14">
-        <span className="text-xs uppercase tracking-widest text-[#a78bfa] font-bold block mb-3">
-          Seamless Data Flow
-        </span>
-        <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-white tracking-tight mb-4">
-          The School Operating Workflow
-        </h2>
-        <p className="text-base sm:text-lg text-[#94a3b8] leading-relaxed">
-          Information entered once powers every downstream module. When a student is enrolled in a class, their name instantly appears in roll call sheets, tuition billing ledgers, and exam rosters.
-        </p>
-      </div>
-
-      {/* Horizontal Pipeline (Responsive) */}
-      <div className="p-6 md:p-8 rounded-2xl bg-[#0c0f17] border border-white/[0.08] shadow-2xl">
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4 relative">
-          {workflowNodes.map((node, index) => {
-            const Icon = node.icon;
-            const isLast = index === workflowNodes.length - 1;
-            return (
-              <div key={node.id} className="flex flex-col items-center text-center group">
-                <div className="w-12 h-12 rounded-xl bg-white/[0.04] border border-white/[0.08] group-hover:border-[#6366f1]/50 group-hover:bg-[#6366f1]/10 text-[#a78bfa] flex items-center justify-center mb-3 transition-all duration-200">
-                  <Icon className="w-6 h-6" />
-                </div>
-                <span className="text-xs font-bold text-white mb-1">
-                  {node.name}
-                </span>
-                <span className="text-[11px] text-[#64748b] leading-tight">
-                  {node.desc}
-                </span>
-                
-                {/* Arrow indicator for desktop */}
-                {!isLast && (
-                  <div className="hidden lg:block absolute top-6 translate-x-12 text-white/20">
-                    {/* Visual spacer */}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Pipeline connecting bar description */}
-        <div className="mt-8 pt-6 border-t border-white/[0.06] flex flex-col sm:flex-row items-center justify-between text-xs text-[#94a3b8] gap-3">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-            <span>Zero manual re-entry between modules</span>
+    <section
+      id="workflow"
+      className="py-24 md:py-32 bg-[#070a12] border-t border-white/[0.07]"
+    >
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-3xl mb-14">
+          <div className="text-xs font-medium text-[#94a3b8] mb-3">
+            05 · Connected Institutional Lifecycle
           </div>
-          <span className="font-mono text-[11px] text-[#64748b]">
-            Continuous institutional synchronization
-          </span>
+          <h2 className="landing-display text-3xl sm:text-4xl md:text-5xl font-bold text-white tracking-tight text-balance mb-4">
+            Data entered once powers every downstream workflow.
+          </h2>
+          <p className="text-base sm:text-lg text-[#94a3b8] leading-relaxed">
+            Follow how a student record moves seamlessly from initial admission to graduation transcripts without manual re-entry.
+          </p>
+        </div>
+
+        {/* Interactive 7-Stage Pipeline */}
+        <div className="rounded-2xl bg-[#0a0d16] border border-white/[0.08] p-6 md:p-8">
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 mb-8">
+            {workflowStages.map((stage, idx) => {
+              const Icon = stage.icon;
+              const isSelected = idx === activeStageIndex;
+              return (
+                <button
+                  key={stage.index}
+                  type="button"
+                  onClick={() => setActiveStageIndex(idx)}
+                  className={`p-3.5 rounded-xl text-left transition-all duration-150 cursor-pointer border ${
+                    isSelected
+                      ? 'bg-[#101626] border-[#6366f1] shadow-md'
+                      : 'bg-[#0d111c] border-white/[0.05] hover:border-white/[0.15]'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-mono text-[11px] text-[#64748b] tabular-nums">
+                      {stage.index}
+                    </span>
+                    <Icon
+                      className={`w-4 h-4 ${
+                        isSelected ? 'text-[#818cf8]' : 'text-[#64748b]'
+                      }`}
+                    />
+                  </div>
+                  <div className="text-xs font-semibold text-white mb-0.5 truncate">
+                    {stage.name}
+                  </div>
+                  <div className="text-[11px] text-[#94a3b8] truncate">
+                    {stage.short}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Active Stage Detail Bar */}
+          <div className="p-5 rounded-xl bg-[#0d111c] border border-white/[0.06] flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="space-y-1 max-w-3xl">
+              <div className="text-xs font-mono text-[#a5b4fc]">
+                Stage {activeStage.index} of 07 · {activeStage.name}
+              </div>
+              <p className="text-sm text-[#f8fafc] leading-relaxed">
+                {activeStage.detail}
+              </p>
+            </div>
+            <div className="text-xs font-mono text-emerald-400 shrink-0">
+              Synchronized Automatically
+            </div>
+          </div>
         </div>
       </div>
-
     </section>
   );
 }
