@@ -2,13 +2,12 @@ import express from "express";
 import path from "path";
 import fs from "fs";
 import crypto from "crypto";
-import { createServer as createViteServer } from "vite";
 import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
 import { withSupabase, createSupabaseContext } from "@supabase/server";
-import { registerModernRoutes } from "./server/modernRoutes";
-import { registerFinanceRoutes } from "./server/financeRoutes";
-import { getAuthenticatedUser, createSessionToken } from "./server/authSession";
+import { registerModernRoutes } from "./server/modernRoutes.ts";
+import { registerFinanceRoutes } from "./server/financeRoutes.ts";
+import { getAuthenticatedUser, createSessionToken } from "./server/authSession.ts";
 
 // Load environment variables
 dotenv.config({ override: true });
@@ -70,9 +69,9 @@ function parseSupabaseUrl(url: string | undefined): string {
 }
 
 const app = express();
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
 
-app.use(express.json());
+app.use(express.json({ limit: "10mb" }));
 
 // Initialize Supabase Client with resilient key resolution
 function deriveSupabaseKey(): string {
@@ -140,8 +139,10 @@ try {
 
 // ✅ NO EMAIL VERIFICATION - Auto verified
 
-// Local database fallback
-const LOCAL_DB_PATH = path.join(process.cwd(), "database.json");
+// Local database fallback with read-only filesystem resilience for Cloud Run
+const PRIMARY_DB_PATH = path.join(process.cwd(), "database.json");
+const TMP_DB_PATH = path.join("/tmp", "dugsi_database.json");
+let inMemoryDB: LocalDB | null = null;
 
 interface LocalDB {
   users: Array<{ email: string; password_hash: string; verified: boolean; verification_code?: string; role?: string }>;
@@ -212,25 +213,42 @@ function loadLocalDB(): LocalDB {
     return db;
   };
 
-  if (!fs.existsSync(LOCAL_DB_PATH)) {
-    const initial = ensureArrays({ settings: defaultSettings });
-    fs.writeFileSync(LOCAL_DB_PATH, JSON.stringify(initial, null, 2));
-    return initial;
+  const candidatePaths = [PRIMARY_DB_PATH, TMP_DB_PATH];
+  for (const dbPath of candidatePaths) {
+    try {
+      if (fs.existsSync(dbPath)) {
+        const content = fs.readFileSync(dbPath, "utf-8");
+        const parsed = JSON.parse(content);
+        inMemoryDB = ensureArrays(parsed);
+        return inMemoryDB;
+      }
+    } catch (e) {
+      console.warn(`Failed to read local DB at ${dbPath}:`, e);
+    }
   }
-  try {
-    const content = fs.readFileSync(LOCAL_DB_PATH, "utf-8");
-    const parsed = JSON.parse(content);
-    return ensureArrays(parsed);
-  } catch (e) {
-    console.error("Failed to parse local DB, recreating...", e);
-    const initial = ensureArrays({ settings: defaultSettings });
-    fs.writeFileSync(LOCAL_DB_PATH, JSON.stringify(initial, null, 2));
-    return initial;
+
+  if (inMemoryDB) {
+    return ensureArrays(inMemoryDB);
   }
+
+  const initial = ensureArrays({ settings: defaultSettings });
+  inMemoryDB = initial;
+  saveLocalDB(initial);
+  return initial;
 }
 
 function saveLocalDB(data: LocalDB) {
-  fs.writeFileSync(LOCAL_DB_PATH, JSON.stringify(data, null, 2));
+  inMemoryDB = data;
+  try {
+    fs.writeFileSync(PRIMARY_DB_PATH, JSON.stringify(data, null, 2));
+    return;
+  } catch {
+    try {
+      fs.writeFileSync(TMP_DB_PATH, JSON.stringify(data, null, 2));
+    } catch (tmpErr) {
+      console.warn("Notice: operating with in-memory DB storage:", tmpErr);
+    }
+  }
 }
 
 function getSchoolId(req: express.Request): string {
@@ -1935,17 +1953,28 @@ if (process.env.DISABLE_HMR !== "true") {
 async function startServer() {
   app.use(express.static(path.join(process.cwd(), "public")));
 
-  if (process.env.NODE_ENV !== "production") {
+  const distPath = path.join(process.cwd(), "dist");
+  const distIndexHtml = path.join(distPath, "index.html");
+  const isDevLifecycle =
+    process.env.npm_lifecycle_event === "dev" ||
+    process.env.NODE_ENV === "development";
+  const useStaticDist = !isDevLifecycle && fs.existsSync(distIndexHtml);
+
+  if (!useStaticDist) {
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
     app.get("*", (req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
+      if (fs.existsSync(distIndexHtml)) {
+        res.sendFile(distIndexHtml);
+      } else {
+        res.status(404).send("Application build not found.");
+      }
     });
   }
   app.listen(PORT, "0.0.0.0", () => {
@@ -1953,4 +1982,7 @@ async function startServer() {
   });
 }
 
-startServer();
+startServer().catch((err) => {
+  console.error("Fatal error starting server:", err);
+  process.exit(1);
+});

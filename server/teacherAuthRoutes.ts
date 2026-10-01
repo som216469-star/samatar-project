@@ -1,7 +1,7 @@
 import express from "express";
 import crypto from "crypto";
-import { sendTeacherInvitationEmail } from "./emailService.js";
-import { generateSecureToken, validatePassword, getAuthenticatedUser } from "./authSession.js";
+import { sendTeacherInvitationEmail } from "./emailService.ts";
+import { generateSecureToken, validatePassword, getAuthenticatedUser } from "./authSession.ts";
 
 function simpleHash(str: string): string {
   let hash = 0;

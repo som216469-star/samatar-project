@@ -1,7 +1,7 @@
 import type express from "express";
-import { generateSecureToken } from "./authSession.js";
-import { sendTeacherInvitationEmail } from "./emailService.js";
-import { registerTeacherAuthRoutes } from "./teacherAuthRoutes.js";
+import { generateSecureToken } from "./authSession.ts";
+import { sendTeacherInvitationEmail } from "./emailService.ts";
+import { registerTeacherAuthRoutes } from "./teacherAuthRoutes.ts";
 
 interface ModernRouteHelpers {
   getSchoolId: (req: express.Request) => string;

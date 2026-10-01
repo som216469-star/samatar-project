@@ -46,6 +46,18 @@ import StudentProfileModal from './components/StudentProfileModal';
 import StudentAddView from './components/StudentAddView';
 import StudentImportView from './components/StudentImportView';
 import StudentExportView from './components/StudentExportView';
+import { StudentsRosterTable } from './components/StudentsRosterTable';
+import { StudentFormModal } from './components/StudentFormModal';
+import { StudentsActionModals } from './components/StudentsActionModals';
+import { StudentsStatsOverview } from './components/StudentsStatsOverview';
+import { StudentsFilterToolbar } from './components/StudentsFilterToolbar';
+import {
+  compressImage,
+  exportStudentsToExcel,
+  exportStudentsToCSV,
+  exportStudentsToPDF,
+  downloadStudentsExcelTemplate
+} from './components/studentsExportUtils';
 
 export type { StudentSubSection };
 
@@ -73,45 +85,6 @@ interface StudentsViewProps {
   theme?: 'light' | 'dark';
   subSection?: StudentSubSection;
   onNavigateSubSection?: (sub: StudentSubSection) => void;
-}
-
-// Compress image helper (Canvas-based, keeps payload lightweight)
-function compressImage(file: File, maxDim = 400, quality = 0.85): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        let width = img.width;
-        let height = img.height;
-        if (width > height) {
-          if (width > maxDim) {
-            height = Math.round((height * maxDim) / width);
-            width = maxDim;
-          }
-        } else {
-          if (height > maxDim) {
-            width = Math.round((width * maxDim) / height);
-            height = maxDim;
-          }
-        }
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          resolve(e.target?.result as string);
-          return;
-        }
-        ctx.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', quality));
-      };
-      img.onerror = () => reject(new Error('Image decode error'));
-      img.src = e.target?.result as string;
-    };
-    reader.onerror = (err) => reject(err);
-    reader.readAsDataURL(file);
-  });
 }
 
 export default function StudentsView({
@@ -656,176 +629,29 @@ export default function StudentsView({
   };
 
   // --- Export Functions ---
-  const exportToExcel = (targetStudents = filteredStudents, filename = "DugsiPro_Students_Roster.xlsx") => {
-    if (targetStudents.length === 0) {
-      showToast("Wax xog arday ah oo la dhoofiyo ma jiraan", "warning");
-      return;
-    }
-
-    const exportData = targetStudents.map((s, idx) => {
-      const fee = getStudentFeeStatus(s.id);
-      return {
-        "No": idx + 1,
-        "Student ID": s.id,
-        "Full Name": s.fullName,
-        "Class": s.class,
-        "Section": s.section || "-",
-        "Roll Number": s.rollNumber || "-",
-        "Gender": s.gender,
-        "Status": s.status || "active",
-        "Guardian Phone": s.guardianPhone || "-",
-        "Guardian Name": s.guardianName || "-",
-        "Address": s.address || "-",
-        "Fee Status": fee.status,
-        "Paid Amount": `${settings.currency} ${fee.paid}`,
-        "Balance": `${settings.currency} ${fee.balance}`,
-        "Registration Date": s.createdAt || "-"
-      };
-    });
-
-    const ws = XLSX.utils.json_to_sheet(exportData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Ardayda");
-    XLSX.writeFile(wb, filename);
-    showToast(`Faylka Excel waa la diyaariyey (${targetStudents.length} arday)`, "success");
+  const exportToExcel = (
+    targetStudents = filteredStudents,
+    filename = 'DugsiPro_Students_Roster.xlsx'
+  ) => {
+    exportStudentsToExcel(
+      targetStudents,
+      getStudentFeeStatus,
+      settings.currency,
+      showToast,
+      filename
+    );
   };
 
   const exportToCSV = (targetStudents = filteredStudents) => {
-    if (targetStudents.length === 0) {
-      showToast("Wax xog ah oo la dhoofiyo ma jiraan", "warning");
-      return;
-    }
-    const exportData = targetStudents.map((s, idx) => ({
-      "No": idx + 1,
-      "Student ID": s.id,
-      "Full Name": s.fullName,
-      "Class": s.class,
-      "Gender": s.gender,
-      "Status": s.status || "active",
-      "Guardian Phone": s.guardianPhone || "-",
-      "Registration Date": s.createdAt || "-"
-    }));
-    const ws = XLSX.utils.json_to_sheet(exportData);
-    const csv = XLSX.utils.sheet_to_csv(ws);
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', 'DugsiPro_Students.csv');
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    showToast("Faylka CSV waa la soo dejiyey", "success");
+    exportStudentsToCSV(targetStudents, showToast);
   };
 
   const exportToPDF = (targetStudents = filteredStudents) => {
-    if (targetStudents.length === 0) {
-      showToast("Wax xog ah oo la daabaco ma jiraan", "warning");
-      return;
-    }
-
-    try {
-      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-      
-      // Header Banner
-      doc.setFillColor(15, 15, 15);
-      doc.rect(0, 0, 210, 30, 'F');
-      
-      doc.setTextColor(245, 245, 245);
-      doc.setFontSize(16);
-      doc.setFont('helvetica', 'bold');
-      doc.text(settings.schoolName || "DUGSI PRO SCHOOL", 14, 14);
-
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(167, 139, 250);
-      doc.text("STUDENT MANAGEMENT DIRECTORY / DIIWAANKA ARDAYDA", 14, 22);
-
-      doc.setFontSize(8);
-      doc.setTextColor(180, 180, 180);
-      doc.text(`Date: ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })} | Total: ${targetStudents.length} Students`, 140, 22);
-
-      // Table
-      const tableData = targetStudents.map((s, idx) => [
-        idx + 1,
-        s.id,
-        s.fullName,
-        s.class,
-        s.gender,
-        s.guardianPhone || "-",
-        (s.status || "active").toUpperCase()
-      ]);
-
-      autoTable(doc, {
-        head: [['#', 'ID', 'FULL NAME', 'CLASS', 'GENDER', 'GUARDIAN PHONE', 'STATUS']],
-        body: tableData,
-        startY: 36,
-        theme: 'striped',
-        headStyles: {
-          fillColor: [124, 58, 237],
-          textColor: [255, 255, 255],
-          fontStyle: 'bold',
-          fontSize: 8,
-          cellPadding: 2.5
-        },
-        styles: {
-          fontSize: 8,
-          cellPadding: 2,
-          overflow: 'linebreak'
-        },
-        columnStyles: {
-          0: { cellWidth: 10, halign: 'center' },
-          1: { cellWidth: 26 },
-          2: { cellWidth: 62 },
-          3: { cellWidth: 28 },
-          4: { cellWidth: 20 },
-          5: { cellWidth: 32 },
-          6: { cellWidth: 22, halign: 'center' }
-        },
-        alternateRowStyles: {
-          fillColor: [248, 248, 250]
-        }
-      });
-
-      doc.save(`DugsiPro_Students_${new Date().toISOString().split('T')[0]}.pdf`);
-      showToast("Faylka PDF waa la daabacay", "success");
-    } catch (e) {
-      console.error(e);
-      showToast("Khalad ayaa dhacay abuurista PDF", "error");
-    }
+    exportStudentsToPDF(targetStudents, settings.schoolName, showToast);
   };
 
   const downloadTemplate = () => {
-    const templateRows = [
-      {
-        "Student ID (Optional)": "STD-1001",
-        "Magaca Ardayga (Full Name) *": "Maxamed Cali Jaamac",
-        "Fasalka (Class) *": classes[0]?.className || "Fasalka 1aad",
-        "Section": "A",
-        "Roll Number": "01",
-        "Lab/Dhedig (Gender - Male/Female)": "Male",
-        "Telefoonka Waalidka (Guardian Phone)": "+252615123456",
-        "Magaca Waalidka (Guardian Name)": "Cali Jaamac",
-        "Status (active/inactive/archived)": "active"
-      },
-      {
-        "Student ID (Optional)": "STD-1002",
-        "Magaca Ardayga (Full Name) *": "Caasho Axmed Nuur",
-        "Fasalka (Class) *": classes[0]?.className || "Fasalka 1aad",
-        "Section": "A",
-        "Roll Number": "02",
-        "Lab/Dhedig (Gender - Male/Female)": "Female",
-        "Telefoonka Waalidka (Guardian Phone)": "+252615654321",
-        "Magaca Waalidka (Guardian Name)": "Axmed Nuur",
-        "Status (active/inactive/archived)": "active"
-      }
-    ];
-
-    const ws = XLSX.utils.json_to_sheet(templateRows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Ardayda_Template");
-    XLSX.writeFile(wb, "DugsiPro_Students_Template.xlsx");
-    showToast("Template-ka Excel waa la soo dejiyey", "success");
+    downloadStudentsExcelTemplate(classes, showToast);
   };
 
   // --- Excel Import Parsing & Validation ---
@@ -1234,1074 +1060,104 @@ export default function StudentsView({
       )}
 
       {/* 2. STATS & ANALYTICS OVERVIEW CARDS */}
-      <div className="space-y-3">
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
-          {/* Card 1: Total */}
-          <div
-            onClick={() => onNavigateSubSection ? onNavigateSubSection('all') : setSelectedStatusFilter('all')}
-            className="bg-[#0f0f0f] border border-[#ffffff10] hover:border-[#7c3aed]/40 rounded-sm p-4 space-y-1 cursor-pointer transition-colors"
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] uppercase tracking-widest text-[#888888] font-bold">Wadar Guud</span>
-              <Users className="w-4 h-4 text-[#c4b5fd]" />
-            </div>
-            <p className="text-2xl font-bold font-mono text-white">{stats.total}</p>
-            <p className="text-[9px] text-[#737373] uppercase tracking-wider">Total Enrolled</p>
-          </div>
+      <StudentsStatsOverview
+        stats={stats}
+        onNavigateSubSection={onNavigateSubSection}
+        setSelectedStatusFilter={setSelectedStatusFilter}
+        selectedRegDateFilter={selectedRegDateFilter}
+        setSelectedRegDateFilter={setSelectedRegDateFilter}
+        selectedFeeFilter={selectedFeeFilter}
+        setSelectedFeeFilter={setSelectedFeeFilter}
+        selectedClassFilter={selectedClassFilter}
+        setSelectedClassFilter={setSelectedClassFilter}
+        showDashboardDetails={showDashboardDetails}
+        setShowDashboardDetails={setShowDashboardDetails}
+        onOpenProfile={handleOpenProfile}
+      />
 
-          {/* Card 2: Active */}
-          <div
-            onClick={() => onNavigateSubSection ? onNavigateSubSection('active') : setSelectedStatusFilter('active')}
-            className="bg-[#0f0f0f] border border-[#ffffff10] hover:border-emerald-500/40 rounded-sm p-4 space-y-1 cursor-pointer transition-colors"
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] uppercase tracking-widest text-emerald-400 font-bold">Firfircoon</span>
-              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-            </div>
-            <p className="text-2xl font-bold font-mono text-emerald-400">{stats.active}</p>
-            <p className="text-[9px] text-[#737373] uppercase tracking-wider">Active Students</p>
-          </div>
+      {/* 3 & 4. ADVANCED SEARCH, FILTER, COLUMN VISIBILITY & BULK ACTIONS TOOLBAR */}
+      <StudentsFilterToolbar
+        subSection={subSection}
+        classes={classes}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        selectedClassFilter={selectedClassFilter}
+        setSelectedClassFilter={setSelectedClassFilter}
+        selectedStatusFilter={selectedStatusFilter}
+        setSelectedStatusFilter={setSelectedStatusFilter}
+        selectedGenderFilter={selectedGenderFilter}
+        setSelectedGenderFilter={setSelectedGenderFilter}
+        selectedRegDateFilter={selectedRegDateFilter}
+        setSelectedRegDateFilter={setSelectedRegDateFilter}
+        selectedFeeFilter={selectedFeeFilter}
+        setSelectedFeeFilter={setSelectedFeeFilter}
+        sortBy={sortBy}
+        setSortBy={setSortBy}
+        activeFilterCount={activeFilterCount}
+        onOpenFiltersDrawer={() => setShowFiltersDrawer(true)}
+        showColumnConfig={showColumnConfig}
+        setShowColumnConfig={setShowColumnConfig}
+        visibleColumns={visibleColumns}
+        setVisibleColumns={setVisibleColumns}
+        onResetAllFilters={() => {
+          setSearchQuery('');
+          setSelectedClassFilter('all');
+          setSelectedStatusFilter('all');
+          setSelectedGenderFilter('all');
+          setSelectedFeeFilter('all');
+          setSelectedRegDateFilter('all');
+          setSortBy('name_asc');
+        }}
+        filteredStudentsCount={filteredStudents.length}
+        selectedStudentIds={selectedStudentIds}
+        onClearSelection={() => setSelectedStudentIds([])}
+        pageSize={pageSize}
+        setPageSize={setPageSize}
+        onOpenBulkChangeClass={() => {
+          setBulkTargetClass(classes[0]?.className || '');
+          setBulkActionModal({ isOpen: true, action: 'change_class' });
+        }}
+        onOpenBulkChangeStatus={() => {
+          setBulkTargetStatus('active');
+          setBulkActionModal({ isOpen: true, action: 'change_status' });
+        }}
+        onBulkExportSelected={() => {
+          const selectedStudents = students.filter((s) => selectedStudentIds.includes(s.id));
+          exportToExcel(
+            selectedStudents,
+            `DugsiPro_Selected_${selectedStudents.length}_Students.xlsx`
+          );
+        }}
+        onOpenBulkArchive={() => setBulkActionModal({ isOpen: true, action: 'archive' })}
+        onOpenBulkDelete={() => setBulkActionModal({ isOpen: true, action: 'delete' })}
+      />
 
-          {/* Card 3: Inactive */}
-          <div
-            onClick={() => onNavigateSubSection ? onNavigateSubSection('inactive') : setSelectedStatusFilter('inactive')}
-            className="bg-[#0f0f0f] border border-[#ffffff10] hover:border-amber-500/40 rounded-sm p-4 space-y-1 cursor-pointer transition-colors"
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] uppercase tracking-widest text-amber-400 font-bold">Joojiyey</span>
-              <AlertCircle className="w-4 h-4 text-amber-400" />
-            </div>
-            <p className="text-2xl font-bold font-mono text-amber-400">{stats.inactive}</p>
-            <p className="text-[9px] text-[#737373] uppercase tracking-wider">Inactive Roster</p>
-          </div>
-
-          {/* Card 4: Newly Registered This Month */}
-          <div
-            onClick={() => setSelectedRegDateFilter(selectedRegDateFilter === 'this_month' ? 'all' : 'this_month')}
-            className={`bg-[#0f0f0f] border rounded-sm p-4 space-y-1 cursor-pointer transition-colors ${
-              selectedRegDateFilter === 'this_month' ? 'border-[#7c3aed]' : 'border-[#ffffff10] hover:border-[#7c3aed]/40'
-            }`}
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] uppercase tracking-widest text-[#c4b5fd] font-bold">Cusub Bishan</span>
-              <Calendar className="w-4 h-4 text-[#c4b5fd]" />
-            </div>
-            <p className="text-2xl font-bold font-mono text-white">{stats.newlyRegistered}</p>
-            <p className="text-[9px] text-[#737373] uppercase tracking-wider">Newly Registered</p>
-          </div>
-
-          {/* Card 5: Requiring Attention */}
-          <div
-            onClick={() => setSelectedFeeFilter(selectedFeeFilter === 'attention' ? 'all' : 'attention')}
-            className={`bg-[#0f0f0f] border rounded-sm p-4 space-y-1 cursor-pointer transition-colors ${
-              selectedFeeFilter === 'attention' ? 'border-rose-500' : 'border-[#ffffff10] hover:border-rose-500/40'
-            }`}
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] uppercase tracking-widest text-rose-400 font-bold">U Baahan Fiiro</span>
-              <AlertTriangle className="w-4 h-4 text-rose-400" />
-            </div>
-            <p className="text-2xl font-bold font-mono text-rose-400">{stats.needsAttention}</p>
-            <p className="text-[9px] text-[#737373] uppercase tracking-wider">Needs Attention</p>
-          </div>
-
-          {/* Card 6: Male / Female Ratio */}
-          <div className="bg-[#0f0f0f] border border-[#ffffff10] rounded-sm p-4 space-y-1.5">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] uppercase tracking-widest text-[#888888] font-bold">Lab & Dhedig</span>
-              <div className="flex items-center gap-1.5 text-[10px] font-mono">
-                <span className="text-[#60a5fa] font-bold">M:{stats.male}</span>
-                <span className="text-[#737373]">·</span>
-                <span className="text-[#f472b6] font-bold">F:{stats.female}</span>
-              </div>
-            </div>
-            <div className="h-2 w-full bg-[#1e1e1e] rounded-full overflow-hidden flex">
-              <div 
-                style={{ width: `${stats.malePercent}%` }} 
-                className="bg-[#3b82f6] h-full transition-all duration-500" 
-                title={`Male: ${stats.malePercent}%`}
-              />
-              <div 
-                style={{ width: `${stats.femalePercent}%` }} 
-                className="bg-[#ec4899] h-full transition-all duration-500" 
-                title={`Female: ${stats.femalePercent}%`}
-              />
-            </div>
-            <div className="flex justify-between text-[9px] text-[#737373] font-mono">
-              <span>{stats.malePercent}% M</span>
-              <button
-                type="button"
-                onClick={() => setShowDashboardDetails(!showDashboardDetails)}
-                className="text-[#c4b5fd] hover:underline font-sans font-semibold"
-              >
-                {showDashboardDetails ? 'Qari Faahfaahinta' : 'Faahfaahin +'}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Progressive Analytics Drawer: Students by Class, Recently Added & Recently Updated */}
-        {showDashboardDetails && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 bg-[#0f0f0f] border border-[#ffffff10] rounded-sm p-4 animate-fade-in">
-            {/* Students by Class */}
-            <div className="space-y-2">
-              <h4 className="text-[10px] font-mono uppercase tracking-widest text-[#a3a3a3] font-bold border-b border-[#ffffff08] pb-1.5">
-                Ardayda Fasallada (Students by Class)
-              </h4>
-              <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
-                {stats.byClass.length === 0 ? (
-                  <p className="text-xs text-[#555555]">Ma jiraan fasallo</p>
-                ) : (
-                  stats.byClass.map(item => (
-                    <div
-                      key={item.className}
-                      onClick={() => setSelectedClassFilter(selectedClassFilter === item.className ? 'all' : item.className)}
-                      className="flex items-center justify-between text-xs py-1 px-2 rounded-sm hover:bg-[#ffffff05] cursor-pointer"
-                    >
-                      <span className="text-[#e5e5e5] font-medium">{item.className}</span>
-                      <span className="font-mono text-[#c4b5fd] font-bold">{item.count} arday</span>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-
-            {/* Recently Added Students */}
-            <div className="space-y-2">
-              <h4 className="text-[10px] font-mono uppercase tracking-widest text-[#a3a3a3] font-bold border-b border-[#ffffff08] pb-1.5">
-                Dhawaan La Diiwaangeliyey (Recently Added)
-              </h4>
-              <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
-                {stats.recentlyAdded.map(st => (
-                  <div
-                    key={st.id}
-                    onClick={() => handleOpenProfile(st)}
-                    className="flex items-center justify-between text-xs py-1 px-2 rounded-sm hover:bg-[#ffffff05] cursor-pointer"
-                  >
-                    <span className="text-[#e5e5e5] truncate max-w-[160px]">{st.fullName}</span>
-                    <span className="font-mono text-[10px] text-[#737373]">{st.class} · {st.createdAt || '-'}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Recently Updated Students */}
-            <div className="space-y-2">
-              <h4 className="text-[10px] font-mono uppercase tracking-widest text-[#a3a3a3] font-bold border-b border-[#ffffff08] pb-1.5">
-                Dhawaan La Cusbooneysiiyey (Recently Updated)
-              </h4>
-              <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
-                {stats.recentlyUpdated.map(st => (
-                  <div
-                    key={st.id}
-                    onClick={() => handleOpenProfile(st)}
-                    className="flex items-center justify-between text-xs py-1 px-2 rounded-sm hover:bg-[#ffffff05] cursor-pointer"
-                  >
-                    <span className="text-[#e5e5e5] truncate max-w-[160px]">{st.fullName}</span>
-                    <span className="font-mono text-[10px] text-[#737373]">{st.updatedAt || st.createdAt || '-'}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* 3. ADVANCED SEARCH, FILTER & ACTION BAR */}
-      <div className="bg-[#0f0f0f] border border-[#ffffff15] rounded-sm p-3.5 space-y-3">
-        <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
-          {/* Live Search Input */}
-          <div className="relative flex-1">
-            <Search className="absolute left-3.5 top-3 w-4 h-4 text-[#737373]" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Ku raadi Magac, ID, Fasal, Taleefanka waalidka, Roll Number..."
-              className="w-full pl-10 pr-9 py-2 bg-[#0a0a0a] text-xs text-[#e5e5e5] border border-[#ffffff10] rounded-sm focus:outline-none focus:border-[#7c3aed] placeholder-[#555555]"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-2.5 p-1 text-[#737373] hover:text-white"
-                title="Clear Search"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-
-          {/* Mobile Filter Drawer Trigger + Quick Filters */}
-          <div className="flex items-center gap-2 md:hidden">
-            <button
-              type="button"
-              onClick={() => setShowFiltersDrawer(true)}
-              className="flex-1 px-3 py-2 bg-[#0a0a0a] border border-[#ffffff15] rounded-sm text-xs text-[#e5e5e5] flex items-center justify-center gap-2 font-semibold"
-            >
-              <Filter className="w-3.5 h-3.5 text-[#7c3aed]" />
-              <span>Filter & Sort</span>
-              {activeFilterCount > 0 && (
-                <span className="px-1.5 py-0.2 bg-[#7c3aed] text-white text-[10px] font-mono rounded-xs">
-                  {activeFilterCount}
-                </span>
-              )}
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowColumnConfig(!showColumnConfig)}
-              className="px-3 py-2 bg-[#0a0a0a] border border-[#ffffff15] rounded-sm text-xs text-[#cccccc] flex items-center gap-1.5"
-            >
-              <Layers className="w-3.5 h-3.5 text-[#c4b5fd]" />
-              <span>Cols</span>
-            </button>
-          </div>
-
-          {/* Desktop Quick Filters */}
-          <div className="hidden md:flex items-center gap-2 flex-wrap">
-            {/* Class Filter */}
-            <select
-              value={selectedClassFilter}
-              onChange={(e) => setSelectedClassFilter(e.target.value)}
-              className="px-3 py-2 bg-[#0a0a0a] text-xs text-[#cccccc] border border-[#ffffff10] rounded-sm focus:outline-none focus:border-[#7c3aed]"
-            >
-              <option value="all">Dhammaan Fasallada (All Classes)</option>
-              {classes.map(c => (
-                <option key={c.id} value={c.className}>{c.className}</option>
-              ))}
-            </select>
-
-            {/* Status Filter (Only shown on 'all' subsection) */}
-            {subSection === 'all' && (
-              <select
-                value={selectedStatusFilter}
-                onChange={(e) => setSelectedStatusFilter(e.target.value)}
-                className="px-3 py-2 bg-[#0a0a0a] text-xs text-[#cccccc] border border-[#ffffff10] rounded-sm focus:outline-none focus:border-[#7c3aed]"
-              >
-                <option value="all">Dhammaan Xaaladaha (All Status)</option>
-                <option value="active">Active (Firfircoon)</option>
-                <option value="inactive">Inactive (Aan Firfircoonayn)</option>
-                <option value="archived">Archived (La Kaydiyey)</option>
-              </select>
-            )}
-
-            {/* Gender Filter */}
-            <select
-              value={selectedGenderFilter}
-              onChange={(e) => setSelectedGenderFilter(e.target.value)}
-              className="px-3 py-2 bg-[#0a0a0a] text-xs text-[#cccccc] border border-[#ffffff10] rounded-sm focus:outline-none focus:border-[#7c3aed]"
-            >
-              <option value="all">Lab & Dhedig (All Genders)</option>
-              <option value="Male">Wiilal (Male)</option>
-              <option value="Female">Gabdho (Female)</option>
-            </select>
-
-            {/* Registration Date Filter */}
-            <select
-              value={selectedRegDateFilter}
-              onChange={(e) => setSelectedRegDateFilter(e.target.value)}
-              className="px-3 py-2 bg-[#0a0a0a] text-xs text-[#cccccc] border border-[#ffffff10] rounded-sm focus:outline-none focus:border-[#7c3aed]"
-            >
-              <option value="all">Taariikhda Qorista (All Dates)</option>
-              <option value="today">Maanta La Qoray (Today)</option>
-              <option value="this_month">Bishan La Qoray (This Month)</option>
-              <option value="this_year">Sanadkan (This Year)</option>
-            </select>
-
-            {/* Fee / Attention Filter */}
-            <select
-              value={selectedFeeFilter}
-              onChange={(e) => setSelectedFeeFilter(e.target.value)}
-              className="px-3 py-2 bg-[#0a0a0a] text-xs text-[#cccccc] border border-[#ffffff10] rounded-sm focus:outline-none focus:border-[#7c3aed]"
-            >
-              <option value="all">Biilka Bisha (All Fee Status)</option>
-              <option value="paid">Lacagta La Bixiyey (Paid)</option>
-              <option value="partial">Qabyo (Partial)</option>
-              <option value="unpaid">Aan La Bixin (Unpaid)</option>
-              <option value="attention">U Baahan Fiiro (Needs Attention)</option>
-            </select>
-
-            {/* Sort Filter */}
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
-              className="px-3 py-2 bg-[#0a0a0a] text-xs text-[#cccccc] border border-[#ffffff10] rounded-sm focus:outline-none focus:border-[#7c3aed]"
-            >
-              <option value="name_asc">Magaca (A - Z)</option>
-              <option value="name_desc">Magaca (Z - A)</option>
-              <option value="id_asc">Student ID (A - Z)</option>
-              <option value="date_desc">Taariikhda Qorista (Newest)</option>
-              <option value="date_asc">Taariikhda Qorista (Oldest)</option>
-              <option value="updated_desc">Ugu Dambeeyey Cusbooneysiin</option>
-              <option value="class">Fasalka (Class)</option>
-            </select>
-
-            {/* Column Visibility Control */}
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setShowColumnConfig(!showColumnConfig)}
-                className="px-3 py-2 bg-[#0a0a0a] hover:bg-[#ffffff08] text-xs text-[#cccccc] border border-[#ffffff10] rounded-sm flex items-center gap-1.5"
-                title="Customize Table Columns"
-              >
-                <Layers className="w-3.5 h-3.5 text-[#c4b5fd]" />
-                <span className="hidden sm:inline">Tiirarka (Columns)</span>
-              </button>
-              {showColumnConfig && (
-                <div className="absolute right-0 top-full mt-1 w-48 bg-[#141414] border border-[#ffffff15] rounded-sm shadow-2xl p-3 z-40 space-y-2 text-xs">
-                  <div className="flex items-center justify-between border-b border-[#ffffff10] pb-1.5">
-                    <span className="text-[10px] font-mono uppercase text-[#888888] font-bold">Muujinta Tiirarka</span>
-                    <button onClick={() => setShowColumnConfig(false)} className="text-[#737373] hover:text-white">
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                  {[
-                    { key: 'id', label: 'Student ID & Roll' },
-                    { key: 'class', label: 'Fasalka (Class)' },
-                    { key: 'gender', label: 'Jinsiga (Gender)' },
-                    { key: 'guardian', label: 'Waalidka (Guardian)' },
-                    { key: 'fees', label: 'Biilka Bisha (Fees)' },
-                    { key: 'status', label: 'Xaaladda (Status)' },
-                    { key: 'regDate', label: 'Registration Date' },
-                    { key: 'updated', label: 'Last Updated' },
-                  ].map(col => (
-                    <label key={col.key} className="flex items-center gap-2 cursor-pointer text-[#d4d4d4] hover:text-white">
-                      <input
-                        type="checkbox"
-                        checked={visibleColumns[col.key] !== false}
-                        onChange={(e) => setVisibleColumns((prev: any) => ({ ...prev, [col.key]: e.target.checked }))}
-                        className="rounded-xs accent-[#7c3aed]"
-                      />
-                      <span>{col.label}</span>
-                    </label>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Reset Filters */}
-            {(searchQuery || selectedClassFilter !== 'all' || selectedStatusFilter !== 'all' || selectedGenderFilter !== 'all' || selectedFeeFilter !== 'all' || selectedRegDateFilter !== 'all') && (
-              <button
-                onClick={() => {
-                  setSearchQuery('');
-                  setSelectedClassFilter('all');
-                  setSelectedStatusFilter('all');
-                  setSelectedGenderFilter('all');
-                  setSelectedFeeFilter('all');
-                  setSelectedRegDateFilter('all');
-                  setSortBy('name_asc');
-                }}
-                className="px-2.5 py-2 text-xs text-rose-400 hover:text-rose-300 border border-rose-500/20 bg-rose-500/10 rounded-sm flex items-center gap-1"
-                title="Reset All Filters"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                <span className="text-[10px] uppercase font-bold tracking-wider">Reset</span>
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Active Results Summary & Page Size */}
-        <div className="flex items-center justify-between text-[11px] text-[#737373] pt-2 border-t border-[#ffffff08]">
-          <div className="flex items-center gap-2">
-            <span>
-              Waxaa la helay <strong className="text-white font-mono">{filteredStudents.length}</strong> arday
-            </span>
-            {selectedStudentIds.length > 0 && (
-              <span className="text-[#c4b5fd] font-bold">
-                ({selectedStudentIds.length} la doortay)
-              </span>
-            )}
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5">
-              <span>Boggii:</span>
-              <select
-                value={pageSize}
-                onChange={(e) => setPageSize(Number(e.target.value))}
-                className="bg-[#0a0a0a] text-[11px] text-[#cccccc] border border-[#ffffff15] px-1.5 py-0.5 rounded-sm"
-              >
-                <option value={10}>10</option>
-                <option value={25}>25</option>
-                <option value={50}>50</option>
-                <option value={100}>100</option>
-              </select>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 4. BULK ACTIONS TOOLBAR (Appears when items are selected) */}
-      <AnimatePresence>
-        {selectedStudentIds.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="bg-[#1e1435] border border-[#7c3aed]/40 rounded-sm p-3.5 flex flex-wrap items-center justify-between gap-3 shadow-xl"
-          >
-            <div className="flex items-center gap-3">
-              <span className="w-7 h-7 rounded-full bg-[#7c3aed] text-white flex items-center justify-center font-bold text-xs font-mono">
-                {selectedStudentIds.length}
-              </span>
-              <div>
-                <p className="text-xs font-bold text-white">Arday ayaa la doortay (Students Selected)</p>
-                <p className="text-[10px] text-[#c4b5fd]">Dooro hawsha aad rabto inaad wadajir ugu fuliso</p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 flex-wrap">
-              {/* Bulk Change Class */}
-              <button
-                onClick={() => {
-                  setBulkTargetClass(classes[0]?.className || '');
-                  setBulkActionModal({ isOpen: true, action: 'change_class' });
-                }}
-                className="px-3 py-1.5 rounded-sm bg-[#ffffff10] hover:bg-[#ffffff20] text-xs font-semibold text-white transition-colors"
-              >
-                U wareeji Fasal Cusub
-              </button>
-
-              {/* Bulk Change Status */}
-              <button
-                onClick={() => {
-                  setBulkTargetStatus('active');
-                  setBulkActionModal({ isOpen: true, action: 'change_status' });
-                }}
-                className="px-3 py-1.5 rounded-sm bg-[#ffffff10] hover:bg-[#ffffff20] text-xs font-semibold text-white transition-colors"
-              >
-                Beddel Status
-              </button>
-
-              {/* Bulk Export Selected */}
-              <button
-                onClick={() => {
-                  const selectedStudents = students.filter(s => selectedStudentIds.includes(s.id));
-                  exportToExcel(selectedStudents, `DugsiPro_Selected_${selectedStudents.length}_Students.xlsx`);
-                }}
-                className="px-3 py-1.5 rounded-sm bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-xs font-semibold transition-colors flex items-center gap-1"
-              >
-                <Download className="w-3.5 h-3.5" />
-                Dhoofi kuwa la doortay
-              </button>
-
-              {/* Bulk Archive */}
-              <button
-                onClick={() => setBulkActionModal({ isOpen: true, action: 'archive' })}
-                className="px-3 py-1.5 rounded-sm bg-slate-700/50 hover:bg-slate-700 text-slate-200 border border-slate-600 text-xs font-semibold transition-colors flex items-center gap-1"
-              >
-                <Archive className="w-3.5 h-3.5" />
-                Kaydi (Archive)
-              </button>
-
-              {/* Bulk Delete */}
-              <button
-                onClick={() => setBulkActionModal({ isOpen: true, action: 'delete' })}
-                className="px-3 py-1.5 rounded-sm bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 text-xs font-semibold transition-colors flex items-center gap-1"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                Tirtir (Delete)
-              </button>
-
-              {/* Clear Selection */}
-              <button
-                onClick={() => setSelectedStudentIds([])}
-                className="p-1.5 text-[#a3a3a3] hover:text-white"
-                title="Clear Selection"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* 5. STUDENTS CONTENT VIEW (TABLE OR CARDS) */}
-      {viewMode === 'table' ? (
-        /* TABLE VIEW */
-        <div className="bg-[#0f0f0f] border border-[#ffffff10] rounded-sm overflow-hidden shadow-2xl">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-[#0a0a0a] border-b border-[#ffffff10] text-[10px] uppercase font-bold tracking-widest text-[#737373]">
-                  {/* Select All Checkbox */}
-                  <th className="px-4 py-3.5 w-10 text-center">
-                    <button
-                      onClick={handleToggleSelectAll}
-                      className="p-1 text-[#888888] hover:text-white transition-colors"
-                      title={isAllSelected ? "Deselect All" : "Select All on this Page"}
-                    >
-                      {isAllSelected ? (
-                        <CheckSquare className="w-4 h-4 text-[#7c3aed]" />
-                      ) : (
-                        <Square className="w-4 h-4" />
-                      )}
-                    </button>
-                  </th>
-                  <th className="px-4 py-3.5">Ardayga / Student</th>
-                  {visibleColumns.id !== false && <th className="px-4 py-3.5">ID / Roll No</th>}
-                  {visibleColumns.class !== false && <th className="px-4 py-3.5">Fasalka / Class</th>}
-                  {visibleColumns.gender !== false && <th className="px-4 py-3.5">Lab/Dhedig</th>}
-                  {visibleColumns.guardian !== false && <th className="px-4 py-3.5">Waalidka / Guardian</th>}
-                  {visibleColumns.fees !== false && <th className="px-4 py-3.5">Biilka Bisha</th>}
-                  {visibleColumns.status !== false && <th className="px-4 py-3.5">Status</th>}
-                  {visibleColumns.regDate !== false && <th className="px-4 py-3.5">Reg. Date</th>}
-                  {visibleColumns.updated !== false && <th className="px-4 py-3.5">Last Updated</th>}
-                  <th className="px-4 py-3.5 text-right">Hawlaha / Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#ffffff08] text-xs">
-                {paginatedStudents.length === 0 ? (
-                  <tr>
-                    <td colSpan={10} className="px-6 py-16 text-center">
-                      <div className="flex flex-col items-center justify-center gap-3">
-                        <Users className="w-10 h-10 text-[#333333]" />
-                        <p className="text-sm font-semibold text-[#888888]">Wax arday ah oo buuxiyey shuruudaha lama helin</p>
-                        <p className="text-xs text-[#555555]">Isku day inaad beddesho erayada raadinta ama filter-yada aad dooratay.</p>
-                      </div>
-                    </td>
-                  </tr>
-                ) : (
-                  paginatedStudents.map((student) => {
-                    const isSelected = selectedStudentIds.includes(student.id);
-                    const feeInfo = getStudentFeeStatus(student.id);
-
-                    return (
-                      <tr 
-                        key={student.id} 
-                        className={`transition-colors ${
-                          isSelected ? 'bg-[#7c3aed]/10' : 'hover:bg-[#ffffff02]'
-                        }`}
-                      >
-                        {/* Checkbox */}
-                        <td className="px-4 py-3 text-center">
-                          <button
-                            onClick={() => handleToggleSelectOne(student.id)}
-                            className="p-1 text-[#888888] hover:text-white transition-colors"
-                          >
-                            {isSelected ? (
-                              <CheckSquare className="w-4 h-4 text-[#7c3aed]" />
-                            ) : (
-                              <Square className="w-4 h-4" />
-                            )}
-                          </button>
-                        </td>
-
-                        {/* Student Name & Avatar */}
-                        <td className="px-4 py-3">
-                          <div 
-                            className="flex items-center gap-3 cursor-pointer group"
-                            onClick={() => handleOpenProfile(student)}
-                            title="Fiiri 360° Profile-ka Ardayga"
-                          >
-                            {student.photo ? (
-                              <img
-                                src={student.photo}
-                                alt={student.fullName}
-                                className="w-9 h-9 rounded-full object-cover border border-[#ffffff15] group-hover:border-[#7c3aed] transition-colors"
-                              />
-                            ) : (
-                              <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs uppercase border ${
-                                student.gender === 'Female' 
-                                  ? 'bg-[#ec4899]/15 border-[#ec4899]/30 text-[#f472b6]' 
-                                  : 'bg-[#3b82f6]/15 border-[#3b82f6]/30 text-[#60a5fa]'
-                              }`}>
-                                {student.fullName.trim() ? student.fullName.trim().charAt(0) : '?'}
-                              </div>
-                            )}
-
-                            <div>
-                              <p className="font-bold text-[#f0f0f0] group-hover:text-[#c4b5fd] transition-colors flex items-center gap-1.5">
-                                <span>{student.fullName}</span>
-                              </p>
-                              <p className="text-[10px] text-[#737373] font-mono">
-                                {student.guardianName ? `Waalid: ${student.guardianName}` : `ID: ${student.id}`}
-                              </p>
-                            </div>
-                          </div>
-                        </td>
-
-                        {/* Student ID & Roll No */}
-                        {visibleColumns.id !== false && (
-                          <td className="px-4 py-3 font-mono text-[11px] text-[#a3a3a3]">
-                            <div>
-                              <span className="text-white font-semibold">
-                                {student.id}
-                              </span>
-                              {student.rollNumber && (
-                                <p className="text-[9px] text-[#737373] mt-0.5">
-                                  Roll: {student.rollNumber}
-                                </p>
-                              )}
-                            </div>
-                          </td>
-                        )}
-
-                        {/* Class & Section */}
-                        {visibleColumns.class !== false && (
-                          <td className="px-4 py-3">
-                            <span className="font-semibold text-[#e5e5e5]">
-                              {student.class}
-                            </span>
-                            {student.section && (
-                              <span className="ml-1.5 text-[10px] text-[#888888] font-mono">
-                                · Sec {student.section}
-                              </span>
-                            )}
-                          </td>
-                        )}
-
-                        {/* Gender */}
-                        {visibleColumns.gender !== false && (
-                          <td className="px-4 py-3">
-                            <span className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider ${
-                              student.gender === 'Female' ? 'text-[#f472b6]' : 'text-[#60a5fa]'
-                            }`}>
-                              <span className={`w-1.5 h-1.5 rounded-full ${student.gender === 'Female' ? 'bg-[#ec4899]' : 'bg-[#3b82f6]'}`} />
-                              {student.gender}
-                            </span>
-                          </td>
-                        )}
-
-                        {/* Guardian Contact */}
-                        {visibleColumns.guardian !== false && (
-                          <td className="px-4 py-3">
-                            {student.guardianPhone ? (
-                              <a
-                                href={`tel:${student.guardianPhone}`}
-                                className="inline-flex items-center gap-1.5 text-[11px] font-mono text-[#c4b5fd] hover:text-white hover:underline transition-colors"
-                                title="Wac Telefoonka Waalidka"
-                              >
-                                <Phone className="w-3 h-3 text-[#7c3aed]" />
-                                <span>{student.guardianPhone}</span>
-                              </a>
-                            ) : (
-                              <span className="text-rose-400/80 font-mono text-[10px]">Lama gelin</span>
-                            )}
-                            {student.guardianName && (
-                              <p className="text-[10px] text-[#737373] mt-0.5">
-                                {student.guardianName}
-                              </p>
-                            )}
-                          </td>
-                        )}
-
-                        {/* Fee Status */}
-                        {visibleColumns.fees !== false && (
-                          <td className="px-4 py-3">
-                            <span className={`text-[10px] font-mono font-bold uppercase tracking-wider ${
-                              feeInfo.status === 'paid'
-                                ? 'text-emerald-400'
-                                : feeInfo.status === 'partial'
-                                ? 'text-amber-400'
-                                : 'text-rose-400'
-                            }`}>
-                              {feeInfo.status}
-                            </span>
-                            {feeInfo.status !== 'paid' && feeInfo.balance > 0 && (
-                              <p className="text-[9px] text-[#888888] font-mono mt-0.5">
-                                Bal: {settings.currency} {feeInfo.balance}
-                              </p>
-                            )}
-                          </td>
-                        )}
-
-                        {/* Lifecycle Status */}
-                        {visibleColumns.status !== false && (
-                          <td className="px-4 py-3">
-                            <span className={`text-[10px] font-mono font-bold uppercase tracking-wider ${
-                              student.status === 'active'
-                                ? 'text-emerald-400'
-                                : student.status === 'archived'
-                                ? 'text-slate-400'
-                                : 'text-amber-400'
-                            }`}>
-                              {student.status || 'active'}
-                            </span>
-                          </td>
-                        )}
-
-                        {/* Registration Date */}
-                        {visibleColumns.regDate !== false && (
-                          <td className="px-4 py-3 font-mono text-[10px] text-[#a3a3a3]">
-                            {student.createdAt || '-'}
-                          </td>
-                        )}
-
-                        {/* Last Updated */}
-                        {visibleColumns.updated !== false && (
-                          <td className="px-4 py-3 font-mono text-[10px] text-[#888888]">
-                            {student.updatedAt ? student.updatedAt.split('T')[0] : (student.createdAt || '-')}
-                          </td>
-                        )}
-
-                        {/* Row Actions */}
-                        <td className="px-4 py-3 text-right">
-                          <div className="flex items-center justify-end gap-1.5">
-                            {/* Profile 360 */}
-                            <button
-                              onClick={() => handleOpenProfile(student)}
-                              className="p-1.5 rounded-sm border border-[#ffffff10] text-[#737373] hover:text-[#c4b5fd] hover:bg-[#7c3aed]/15 hover:border-[#7c3aed]/30 transition-colors"
-                              title="360° Profile-ka Ardayga"
-                            >
-                              <Eye className="w-3.5 h-3.5" />
-                            </button>
-
-                            {/* Edit */}
-                            <button
-                              onClick={() => handleOpenEditModal(student)}
-                              className="p-1.5 rounded-sm border border-[#ffffff10] text-[#737373] hover:text-white hover:bg-[#ffffff10] transition-colors"
-                              title="Tafatir (Edit Student)"
-                            >
-                              <Edit2 className="w-3.5 h-3.5" />
-                            </button>
-
-                            {/* Quick Activate / Archive */}
-                            {student.status === 'archived' || student.status === 'inactive' ? (
-                              <button
-                                onClick={() => handleQuickStatusChange(student, 'active')}
-                                className="p-1.5 rounded-sm border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/10 transition-colors"
-                                title="Ka dhig Active (Restore to Active)"
-                              >
-                                <RotateCcw className="w-3.5 h-3.5" />
-                              </button>
-                            ) : (
-                              <button
-                                onClick={() => handleQuickStatusChange(student, 'archived')}
-                                className="p-1.5 rounded-sm border border-[#ffffff10] text-[#737373] hover:text-amber-400 hover:bg-amber-500/10 transition-colors"
-                                title="Kaydi Ardayga (Archive Student)"
-                              >
-                                <Archive className="w-3.5 h-3.5" />
-                              </button>
-                            )}
-
-                            {/* Delete */}
-                            <button
-                              onClick={() => setDeleteConfirmStudent(student)}
-                              className="p-1.5 rounded-sm border border-[#ffffff10] text-[#737373] hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
-                              title="Tirtir (Delete Student)"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      ) : (
-        /* CARDS GRID VIEW (Responsive / Mobile-First) */
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {paginatedStudents.map((student) => {
-            const isSelected = selectedStudentIds.includes(student.id);
-            const feeInfo = getStudentFeeStatus(student.id);
-
-            return (
-              <div
-                key={student.id}
-                className={`bg-[#0f0f0f] border rounded-sm p-4.5 space-y-3 transition-all relative ${
-                  isSelected 
-                    ? 'border-[#7c3aed] bg-[#7c3aed]/5' 
-                    : 'border-[#ffffff10] hover:border-[#ffffff25]'
-                }`}
-              >
-                {/* Top card header */}
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={() => handleToggleSelectOne(student.id)}
-                      className="p-1 text-[#888888] hover:text-white"
-                    >
-                      {isSelected ? <CheckSquare className="w-4 h-4 text-[#7c3aed]" /> : <Square className="w-4 h-4" />}
-                    </button>
-                    {student.photo ? (
-                      <img src={student.photo} alt={student.fullName} className="w-12 h-12 rounded-full object-cover border border-[#ffffff15]" />
-                    ) : (
-                      <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-sm uppercase border ${
-                        student.gender === 'Female' ? 'bg-[#ec4899]/15 border-[#ec4899]/30 text-[#f472b6]' : 'bg-[#3b82f6]/15 border-[#3b82f6]/30 text-[#60a5fa]'
-                      }`}>
-                        {student.fullName.trim() ? student.fullName.trim().charAt(0) : '?'}
-                      </div>
-                    )}
-                    <div>
-                      <h4 
-                        onClick={() => handleOpenProfile(student)}
-                        className="font-bold text-white hover:text-[#c4b5fd] cursor-pointer transition-colors"
-                      >
-                        {student.fullName}
-                      </h4>
-                      <p className="text-[10px] text-[#888888] font-mono">ID: {student.id}</p>
-                    </div>
-                  </div>
-
-                  <span className={`px-2 py-0.5 rounded-sm text-[9px] font-bold uppercase tracking-wider border ${
-                    student.status === 'active' ? 'bg-[#7c3aed]/15 text-[#c4b5fd] border-[#7c3aed]/30' :
-                    student.status === 'archived' ? 'bg-slate-700/30 text-slate-300 border-slate-600/40' :
-                    'bg-rose-500/15 text-rose-400 border-rose-500/30'
-                  }`}>
-                    {student.status || 'active'}
-                  </span>
-                </div>
-
-                {/* Details grid */}
-                <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-[#ffffff08]">
-                  <div>
-                    <span className="text-[9px] uppercase tracking-widest text-[#737373] block">Fasalka:</span>
-                    <span className="font-semibold text-[#e5e5e5]">{student.class} {student.section ? `(${student.section})` : ''}</span>
-                  </div>
-                  <div>
-                    <span className="text-[9px] uppercase tracking-widest text-[#737373] block">Lab/Dhedig:</span>
-                    <span className={student.gender === 'Female' ? 'text-[#f472b6]' : 'text-[#60a5fa]'}>{student.gender}</span>
-                  </div>
-                  <div>
-                    <span className="text-[9px] uppercase tracking-widest text-[#737373] block">Telefoonka:</span>
-                    {student.guardianPhone ? (
-                      <a href={`tel:${student.guardianPhone}`} className="text-[#c4b5fd] hover:underline font-mono text-[11px]">
-                        {student.guardianPhone}
-                      </a>
-                    ) : (
-                      <span className="text-[#555555]">-</span>
-                    )}
-                  </div>
-                  <div>
-                    <span className="text-[9px] uppercase tracking-widest text-[#737373] block">Biilka Bisha:</span>
-                    <span className={`text-[10px] font-bold uppercase ${
-                      feeInfo.status === 'paid' ? 'text-emerald-400' : feeInfo.status === 'partial' ? 'text-amber-400' : 'text-rose-400'
-                    }`}>
-                      {feeInfo.status}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Action buttons */}
-                <div className="flex items-center justify-between pt-2 border-t border-[#ffffff08]">
-                  <button
-                    onClick={() => handleOpenProfile(student)}
-                    className="text-xs text-[#c4b5fd] hover:underline flex items-center gap-1 font-semibold"
-                  >
-                    <Eye className="w-3.5 h-3.5" /> 360° Profile
-                  </button>
-
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => handleOpenEditModal(student)}
-                      className="p-1.5 rounded-sm border border-[#ffffff10] text-[#737373] hover:text-white"
-                      title="Edit"
-                    >
-                      <Edit2 className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={() => setDeleteConfirmStudent(student)}
-                      className="p-1.5 rounded-sm border border-[#ffffff10] text-[#737373] hover:text-rose-400"
-                      title="Delete"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* 6. PAGINATION CONTROLS */}
-      {filteredStudents.length > 0 && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-[#0f0f0f] border border-[#ffffff10] rounded-sm p-3.5">
-          <div className="flex items-center gap-3">
-            <p className="text-xs text-[#737373]">
-              Showing <strong className="text-white font-mono">{((currentPage - 1) * pageSize) + 1}</strong> to{' '}
-              <strong className="text-white font-mono">
-                {Math.min(currentPage * pageSize, filteredStudents.length)}
-              </strong> of <strong className="text-white font-mono">{filteredStudents.length}</strong> students
-            </p>
-            <select
-              value={pageSize}
-              onChange={(e) => setPageSize(Number(e.target.value))}
-              className="bg-[#0a0a0a] text-[11px] font-mono text-[#cccccc] border border-[#ffffff15] px-2 py-1 rounded-sm"
-            >
-              <option value={10}>10 / page</option>
-              <option value={25}>25 / page</option>
-              <option value={50}>50 / page</option>
-              <option value={100}>100 / page</option>
-            </select>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              className="p-2 rounded-sm border border-[#ffffff10] bg-[#0a0a0a] text-[#cccccc] disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[#ffffff05] transition-colors"
-              title="Previous Page"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-
-            <span className="text-xs font-mono text-[#e5e5e5] px-3 py-1 bg-[#ffffff05] border border-[#ffffff10] rounded-sm">
-              Page {currentPage} of {totalPages}
-            </span>
-
-            <button
-              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
-              className="p-2 rounded-sm border border-[#ffffff10] bg-[#0a0a0a] text-[#cccccc] disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[#ffffff05] transition-colors"
-              title="Next Page"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      )}
+      {/* 5. STUDENTS CONTENT VIEW (TABLE OR CARDS) & PAGINATION */}
+      <StudentsRosterTable
+        viewMode={viewMode}
+        paginatedStudents={paginatedStudents}
+        filteredStudentsCount={filteredStudents.length}
+        selectedStudentIds={selectedStudentIds}
+        isAllSelected={isAllSelected}
+        visibleColumns={visibleColumns}
+        currency={settings.currency}
+        currentPage={currentPage}
+        pageSize={pageSize}
+        totalPages={totalPages}
+        onSetCurrentPage={setCurrentPage}
+        onSetPageSize={setPageSize}
+        onToggleSelectAll={handleToggleSelectAll}
+        onToggleSelectOne={handleToggleSelectOne}
+        getStudentFeeStatus={getStudentFeeStatus}
+        onOpenProfile={handleOpenProfile}
+        onOpenEditModal={handleOpenEditModal}
+        onQuickStatusChange={handleQuickStatusChange}
+        onDeleteStudentClick={setDeleteConfirmStudent}
+      />
 
       {/* =========================================================================
           MODALS SECTION
           ========================================================================= */}
-
-      {/* MOBILE FILTER DRAWER */}
-      {showFiltersDrawer && (
-        <div className="fixed inset-0 z-50 md:hidden flex justify-end bg-black/80 backdrop-blur-sm animate-fade-in">
-          <div className="w-full max-w-xs bg-[#0f0f0f] border-l border-[#ffffff15] h-full flex flex-col justify-between p-5 overflow-y-auto shadow-2xl">
-            <div className="space-y-5">
-              <div className="flex items-center justify-between border-b border-[#ffffff10] pb-3">
-                <div className="flex items-center gap-2">
-                  <Filter className="w-4 h-4 text-[#7c3aed]" />
-                  <h3 className="text-sm font-bold text-white uppercase tracking-wider">Filter & Sort Students</h3>
-                </div>
-                <button
-                  onClick={() => setShowFiltersDrawer(false)}
-                  className="p-1.5 text-[#737373] hover:text-white rounded-sm"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              {/* Class Filter */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-widest text-[#888888]">Fasalka (Class)</label>
-                <select
-                  value={selectedClassFilter}
-                  onChange={(e) => setSelectedClassFilter(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-[#0a0a0a] text-xs text-[#e5e5e5] border border-[#ffffff12] rounded-sm focus:outline-none focus:border-[#7c3aed]"
-                >
-                  <option value="all">Dhammaan Fasallada (All Classes)</option>
-                  {classes.map(c => (
-                    <option key={c.id} value={c.className}>{c.className}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Status Filter */}
-              {subSection === 'all' && (
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-[#888888]">Xaaladda (Status)</label>
-                  <select
-                    value={selectedStatusFilter}
-                    onChange={(e) => setSelectedStatusFilter(e.target.value)}
-                    className="w-full px-3 py-2.5 bg-[#0a0a0a] text-xs text-[#e5e5e5] border border-[#ffffff12] rounded-sm focus:outline-none focus:border-[#7c3aed]"
-                  >
-                    <option value="all">Dhammaan Xaaladaha (All Status)</option>
-                    <option value="active">Active (Firfircoon)</option>
-                    <option value="inactive">Inactive (Aan Firfircoonayn)</option>
-                    <option value="archived">Archived (La Kaydiyey)</option>
-                  </select>
-                </div>
-              )}
-
-              {/* Gender Filter */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-widest text-[#888888]">Jinsiga (Gender)</label>
-                <select
-                  value={selectedGenderFilter}
-                  onChange={(e) => setSelectedGenderFilter(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-[#0a0a0a] text-xs text-[#e5e5e5] border border-[#ffffff12] rounded-sm focus:outline-none focus:border-[#7c3aed]"
-                >
-                  <option value="all">Lab & Dhedig (All Genders)</option>
-                  <option value="Male">Wiilal (Male)</option>
-                  <option value="Female">Gabdho (Female)</option>
-                </select>
-              </div>
-
-              {/* Registration Date Filter */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-widest text-[#888888]">Taariikhda Diiwaangelinta (Registration Date)</label>
-                <select
-                  value={selectedRegDateFilter}
-                  onChange={(e) => setSelectedRegDateFilter(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-[#0a0a0a] text-xs text-[#e5e5e5] border border-[#ffffff12] rounded-sm focus:outline-none focus:border-[#7c3aed]"
-                >
-                  <option value="all">Dhammaan Taariikhaha (All Dates)</option>
-                  <option value="today">Maanta La Qoray (Today)</option>
-                  <option value="this_month">Bishan La Qoray (This Month)</option>
-                  <option value="this_year">Sanadkan (This Year)</option>
-                </select>
-              </div>
-
-              {/* Fee Status Filter */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-widest text-[#888888]">Biilka Bisha (Fee Status)</label>
-                <select
-                  value={selectedFeeFilter}
-                  onChange={(e) => setSelectedFeeFilter(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-[#0a0a0a] text-xs text-[#e5e5e5] border border-[#ffffff12] rounded-sm focus:outline-none focus:border-[#7c3aed]"
-                >
-                  <option value="all">Dhammaan (All Fee Status)</option>
-                  <option value="paid">Lacagta La Bixiyey (Paid)</option>
-                  <option value="partial">Qabyo (Partial)</option>
-                  <option value="unpaid">Aan La Bixin (Unpaid)</option>
-                  <option value="attention">U Baahan Fiiro (Needs Attention)</option>
-                </select>
-              </div>
-
-              {/* Sort By */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-widest text-[#888888]">Kala Hormarinta (Sort By)</label>
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as any)}
-                  className="w-full px-3 py-2.5 bg-[#0a0a0a] text-xs text-[#e5e5e5] border border-[#ffffff12] rounded-sm focus:outline-none focus:border-[#7c3aed]"
-                >
-                  <option value="name_asc">Magaca (A - Z)</option>
-                  <option value="name_desc">Magaca (Z - A)</option>
-                  <option value="id_asc">Student ID (A - Z)</option>
-                  <option value="date_desc">Taariikhda Qorista (Newest)</option>
-                  <option value="date_asc">Taariikhda Qorista (Oldest)</option>
-                  <option value="updated_desc">Ugu Dambeeyey Cusbooneysiin</option>
-                  <option value="class">Fasalka (Class)</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="pt-4 border-t border-[#ffffff10] flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setSearchQuery('');
-                  setSelectedClassFilter('all');
-                  setSelectedStatusFilter('all');
-                  setSelectedGenderFilter('all');
-                  setSelectedFeeFilter('all');
-                  setSelectedRegDateFilter('all');
-                  setSortBy('name_asc');
-                }}
-                className="flex-1 py-2.5 bg-[#141414] hover:bg-[#1f1f1f] text-xs font-bold uppercase tracking-wider text-rose-400 border border-rose-500/20 rounded-sm"
-              >
-                Reset
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowFiltersDrawer(false)}
-                className="flex-1 py-2.5 bg-[#7c3aed] hover:bg-[#6d28d9] text-xs font-bold uppercase tracking-wider text-white rounded-sm"
-              >
-                Apply ({filteredStudents.length})
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* A. 360° STUDENT PROFILE MODAL */}
       {selectedProfileStudent && (
@@ -2327,771 +1183,87 @@ export default function StudentsView({
       )}
 
       {/* B. ADD / EDIT STUDENT MULTI-SECTION MODAL */}
-      {showFormModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-fade-in overflow-y-auto">
-          <div className="bg-[#0f0f0f] border border-[#ffffff15] rounded-sm w-full max-w-2xl shadow-2xl relative my-8 overflow-hidden">
-            {/* Modal Header */}
-            <div className="bg-[#141414] border-b border-[#ffffff10] p-5 flex items-center justify-between">
-              <div>
-                <h2 className="text-xl sm:text-2xl font-serif italic text-white">
-                  {editingStudent ? 'Tafatir Ardayga (Edit Student)' : 'Diiwaangeli Arday Cusub (Register New Student)'}
-                </h2>
-                <p className="text-[10px] text-[#888888] uppercase tracking-widest mt-0.5">
-                  Dugsi Pro 2026 — Smart Student Registration Engine
-                </p>
-              </div>
-              <button
-                onClick={() => setShowFormModal(false)}
-                className="p-2 text-[#737373] hover:text-white rounded-sm hover:bg-[#ffffff05]"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+      <StudentFormModal
+        showFormModal={showFormModal}
+        onCloseFormModal={() => setShowFormModal(false)}
+        editingStudent={editingStudent}
+        formStep={formStep}
+        setFormStep={setFormStep}
+        formData={formData}
+        setFormData={setFormData}
+        formErrors={formErrors}
+        setFormErrors={setFormErrors}
+        formSubmitting={formSubmitting}
+        duplicateWarning={duplicateWarning}
+        classes={classes}
+        onPhotoFileChange={handlePhotoFileChange}
+        onSubmitStudentForm={handleSubmitStudentForm}
+      />
 
-            {/* Form Section Navigation Tabs */}
-            <div className="flex border-b border-[#ffffff10] bg-[#0a0a0a]">
-              <button
-                type="button"
-                onClick={() => setFormStep('identity')}
-                className={`flex-1 py-3 text-center text-xs uppercase font-bold tracking-wider transition-colors border-b-2 ${
-                  formStep === 'identity' 
-                    ? 'border-[#7c3aed] text-white bg-[#7c3aed]/5' 
-                    : 'border-transparent text-[#737373] hover:text-white'
-                }`}
-              >
-                1. Macluumaadka Ardayga
-              </button>
-              <button
-                type="button"
-                onClick={() => setFormStep('enrollment')}
-                className={`flex-1 py-3 text-center text-xs uppercase font-bold tracking-wider transition-colors border-b-2 ${
-                  formStep === 'enrollment' 
-                    ? 'border-[#7c3aed] text-white bg-[#7c3aed]/5' 
-                    : 'border-transparent text-[#737373] hover:text-white'
-                }`}
-              >
-                2. Fasalka & Diiwaanka
-              </button>
-              <button
-                type="button"
-                onClick={() => setFormStep('guardian')}
-                className={`flex-1 py-3 text-center text-xs uppercase font-bold tracking-wider transition-colors border-b-2 ${
-                  formStep === 'guardian' 
-                    ? 'border-[#7c3aed] text-white bg-[#7c3aed]/5' 
-                    : 'border-transparent text-[#737373] hover:text-white'
-                }`}
-              >
-                3. Waalidka & Xiriirka
-              </button>
-            </div>
-
-            {/* Real-time Duplicate Alert Banner */}
-            {duplicateWarning.found && (
-              <div className="bg-amber-500/15 border-b border-amber-500/30 p-3 flex items-start gap-3 text-amber-300 text-xs">
-                <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-bold uppercase tracking-wider text-[10px]">⚠️ Digniin: Arday shabbaha ayaa jira (Potential Duplicate)</p>
-                  <p className="text-[11px] text-[#e5e5e5] mt-0.5">
-                    {duplicateWarning.reason}: <strong className="text-amber-300">{duplicateWarning.existingStudent?.fullName}</strong> ({duplicateWarning.existingStudent?.class}).
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Form Body */}
-            <form onSubmit={handleSubmitStudentForm} className="p-6 space-y-6">
-              {/* SECTION 1: IDENTITY */}
-              {formStep === 'identity' && (
-                <div className="space-y-4 animate-fade-in">
-                  {/* Photo Upload & Preview Box */}
-                  <div className="flex flex-col sm:flex-row items-center gap-5 p-4 rounded-sm bg-[#0a0a0a] border border-[#ffffff10]">
-                    <div className="relative group">
-                      {formData.photo ? (
-                        <img
-                          src={formData.photo}
-                          alt="Student Preview"
-                          className="w-20 h-20 rounded-full object-cover border-2 border-[#7c3aed]"
-                        />
-                      ) : (
-                        <div className="w-20 h-20 rounded-full bg-[#1e1e1e] border-2 border-dashed border-[#444444] flex flex-col items-center justify-center text-[#737373]">
-                          <Camera className="w-6 h-6" />
-                          <span className="text-[9px] mt-1 uppercase tracking-wider">Sawir</span>
-                        </div>
-                      )}
-                      {formData.photo && (
-                        <button
-                          type="button"
-                          onClick={() => setFormData(prev => ({ ...prev, photo: '' }))}
-                          className="absolute -top-1 -right-1 p-1 bg-rose-600 text-white rounded-full hover:bg-rose-700"
-                          title="Tirtir Sawirka"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="flex-1 text-center sm:text-left space-y-1.5">
-                      <p className="text-xs font-bold text-white">Sawirka Ardayga (Student Photo)</p>
-                      <p className="text-[10px] text-[#888888]">
-                        Jiid sawirka halkan ama ka dooro kombuyutarka. Xajmiga ugu sarreeya 5MB.
-                      </p>
-                      <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-sm bg-[#ffffff10] hover:bg-[#ffffff15] text-xs font-semibold text-[#c4b5fd] cursor-pointer transition-colors border border-[#ffffff10]">
-                        <Camera className="w-3.5 h-3.5" />
-                        <span>Dooro Sawir (Select Photo)</span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) handlePhotoFileChange(file);
-                          }}
-                          className="hidden"
-                        />
-                      </label>
-                    </div>
-                  </div>
-
-                  {/* Full Name */}
-                  <div className="space-y-1">
-                    <label className="text-[10px] uppercase tracking-widest text-[#888888] font-bold">
-                      Magaca Ardayga oo Buuxa (Full Name) *
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.fullName}
-                      onChange={(e) => {
-                        setFormData({ ...formData, fullName: e.target.value });
-                        if (formErrors.fullName) setFormErrors(prev => ({ ...prev, fullName: '' }));
-                      }}
-                      placeholder="Tusaale: Maxamed Cali Jaamac"
-                      className={`w-full px-4 py-2.5 rounded-sm border bg-[#0a0a0a] text-xs text-white focus:outline-none ${
-                        formErrors.fullName ? 'border-rose-500' : 'border-[#ffffff15] focus:border-[#7c3aed]'
-                      }`}
-                      required
-                    />
-                    {formErrors.fullName && (
-                      <p className="text-[10px] text-rose-400 font-semibold">{formErrors.fullName}</p>
-                    )}
-                  </div>
-
-                  {/* Student ID & Gender Grid */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <label className="text-[10px] uppercase tracking-widest text-[#888888] font-bold">
-                        Student ID / Admission No
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.id}
-                        onChange={(e) => setFormData({ ...formData, id: e.target.value })}
-                        disabled={!!editingStudent}
-                        className="w-full px-4 py-2.5 rounded-sm border border-[#ffffff15] bg-[#0a0a0a] text-xs font-mono text-[#c4b5fd] focus:outline-none focus:border-[#7c3aed] disabled:opacity-60"
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-[10px] uppercase tracking-widest text-[#888888] font-bold">
-                        Lab/Dhedig (Gender) *
-                      </label>
-                      <select
-                        value={formData.gender}
-                        onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
-                        className="w-full px-4 py-2.5 rounded-sm border border-[#ffffff15] bg-[#0a0a0a] text-xs text-white focus:outline-none focus:border-[#7c3aed]"
-                      >
-                        <option value="Male">Lab (Male)</option>
-                        <option value="Female">Dhedig (Female)</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Date of Birth */}
-                  <div className="space-y-1">
-                    <label className="text-[10px] uppercase tracking-widest text-[#888888] font-bold">
-                      Taariikhda Dhalashada (Date of Birth)
-                    </label>
-                    <input
-                      type="date"
-                      value={formData.dateOfBirth}
-                      onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
-                      className="w-full px-4 py-2.5 rounded-sm border border-[#ffffff15] bg-[#0a0a0a] text-xs text-white focus:outline-none focus:border-[#7c3aed]"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* SECTION 2: ENROLLMENT */}
-              {formStep === 'enrollment' && (
-                <div className="space-y-4 animate-fade-in">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* Class */}
-                    <div className="space-y-1">
-                      <label className="text-[10px] uppercase tracking-widest text-[#888888] font-bold">
-                        Fasalka (Class) *
-                      </label>
-                      <select
-                        value={formData.class}
-                        onChange={(e) => {
-                          setFormData({ ...formData, class: e.target.value });
-                          if (formErrors.class) setFormErrors(prev => ({ ...prev, class: '' }));
-                        }}
-                        className={`w-full px-4 py-2.5 rounded-sm border bg-[#0a0a0a] text-xs text-white focus:outline-none ${
-                          formErrors.class ? 'border-rose-500' : 'border-[#ffffff15] focus:border-[#7c3aed]'
-                        }`}
-                        required
-                      >
-                        <option value="">-- Dooro Fasal --</option>
-                        {classes.map(c => (
-                          <option key={c.id} value={c.className}>{c.className}</option>
-                        ))}
-                      </select>
-                      {formErrors.class && (
-                        <p className="text-[10px] text-rose-400 font-semibold">{formErrors.class}</p>
-                      )}
-                    </div>
-
-                    {/* Section */}
-                    <div className="space-y-1">
-                      <label className="text-[10px] uppercase tracking-widest text-[#888888] font-bold">
-                        Qaybta (Section)
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.section}
-                        onChange={(e) => setFormData({ ...formData, section: e.target.value })}
-                        placeholder="Tusaale: A, B, ama C"
-                        className="w-full px-4 py-2.5 rounded-sm border border-[#ffffff15] bg-[#0a0a0a] text-xs text-white focus:outline-none focus:border-[#7c3aed]"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* Roll Number */}
-                    <div className="space-y-1">
-                      <label className="text-[10px] uppercase tracking-widest text-[#888888] font-bold">
-                        Roll Number
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.rollNumber}
-                        onChange={(e) => setFormData({ ...formData, rollNumber: e.target.value })}
-                        placeholder="Tusaale: 01"
-                        className="w-full px-4 py-2.5 rounded-sm border border-[#ffffff15] bg-[#0a0a0a] text-xs text-white focus:outline-none focus:border-[#7c3aed]"
-                      />
-                    </div>
-
-                    {/* Status */}
-                    <div className="space-y-1">
-                      <label className="text-[10px] uppercase tracking-widest text-[#888888] font-bold">
-                        Xaaladda Ardayga (Status) *
-                      </label>
-                      <select
-                        value={formData.status}
-                        onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
-                        className="w-full px-4 py-2.5 rounded-sm border border-[#ffffff15] bg-[#0a0a0a] text-xs text-white focus:outline-none focus:border-[#7c3aed]"
-                      >
-                        <option value="active">Active (Firfircoon)</option>
-                        <option value="inactive">Inactive (Aan Firfircoonayn)</option>
-                        <option value="archived">Archived (La Kaydiyey)</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Registration Date */}
-                  <div className="space-y-1">
-                    <label className="text-[10px] uppercase tracking-widest text-[#888888] font-bold">
-                      Taariikhda Diiwaangelinta (Registration Date)
-                    </label>
-                    <input
-                      type="date"
-                      value={formData.createdAt}
-                      onChange={(e) => setFormData({ ...formData, createdAt: e.target.value })}
-                      className="w-full px-4 py-2.5 rounded-sm border border-[#ffffff15] bg-[#0a0a0a] text-xs text-white focus:outline-none focus:border-[#7c3aed]"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* SECTION 3: GUARDIAN & CONTACT */}
-              {formStep === 'guardian' && (
-                <div className="space-y-4 animate-fade-in">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* Guardian Name */}
-                    <div className="space-y-1">
-                      <label className="text-[10px] uppercase tracking-widest text-[#888888] font-bold">
-                        Magaca Waalidka / Mas'uulka (Guardian Name)
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.guardianName}
-                        onChange={(e) => setFormData({ ...formData, guardianName: e.target.value })}
-                        placeholder="Tusaale: Cali Jaamac"
-                        className="w-full px-4 py-2.5 rounded-sm border border-[#ffffff15] bg-[#0a0a0a] text-xs text-white focus:outline-none focus:border-[#7c3aed]"
-                      />
-                    </div>
-
-                    {/* Guardian Phone */}
-                    <div className="space-y-1">
-                      <label className="text-[10px] uppercase tracking-widest text-[#888888] font-bold">
-                        Telefoonka Waalidka (Guardian Phone)
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.guardianPhone}
-                        onChange={(e) => {
-                          setFormData({ ...formData, guardianPhone: e.target.value });
-                          if (formErrors.guardianPhone) setFormErrors(prev => ({ ...prev, guardianPhone: '' }));
-                        }}
-                        placeholder="+252 61 xxx xxxx"
-                        className={`w-full px-4 py-2.5 rounded-sm border bg-[#0a0a0a] text-xs text-white font-mono focus:outline-none ${
-                          formErrors.guardianPhone ? 'border-rose-500' : 'border-[#ffffff15] focus:border-[#7c3aed]'
-                        }`}
-                      />
-                      {formErrors.guardianPhone && (
-                        <p className="text-[10px] text-rose-400 font-semibold">{formErrors.guardianPhone}</p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Address */}
-                  <div className="space-y-1">
-                    <label className="text-[10px] uppercase tracking-widest text-[#888888] font-bold">
-                      Cinwaanka Guriga / Deegaanka (Home Address)
-                    </label>
-                    <textarea
-                      rows={3}
-                      value={formData.address}
-                      onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                      placeholder="Degmada, Xaafadda, ama Laanta..."
-                      className="w-full px-4 py-2.5 rounded-sm border border-[#ffffff15] bg-[#0a0a0a] text-xs text-white focus:outline-none focus:border-[#7c3aed]"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Modal Footer Controls */}
-              <div className="pt-4 border-t border-[#ffffff10] flex items-center justify-between">
-                <div>
-                  {formStep === 'enrollment' && (
-                    <button
-                      type="button"
-                      onClick={() => setFormStep('identity')}
-                      className="px-4 py-2 rounded-sm bg-[#ffffff08] hover:bg-[#ffffff15] text-xs text-[#cccccc] font-semibold"
-                    >
-                      Dib ugu noqo (Back)
-                    </button>
-                  )}
-                  {formStep === 'guardian' && (
-                    <button
-                      type="button"
-                      onClick={() => setFormStep('enrollment')}
-                      className="px-4 py-2 rounded-sm bg-[#ffffff08] hover:bg-[#ffffff15] text-xs text-[#cccccc] font-semibold"
-                    >
-                      Dib ugu noqo (Back)
-                    </button>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setShowFormModal(false)}
-                    className="px-4 py-2 rounded-sm border border-[#ffffff10] text-xs text-[#888888] hover:text-white"
-                  >
-                    Ka noqo (Cancel)
-                  </button>
-
-                  {formStep !== 'guardian' ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (formStep === 'identity') {
-                          if (!formData.fullName.trim()) {
-                            setFormErrors({ fullName: 'Magaca ardayga waa qasab' });
-                            return;
-                          }
-                          setFormStep('enrollment');
-                        } else if (formStep === 'enrollment') {
-                          if (!formData.class) {
-                            setFormErrors({ class: 'Fasalka waa qasab' });
-                            return;
-                          }
-                          setFormStep('guardian');
-                        }
-                      }}
-                      className="px-5 py-2 rounded-sm bg-[#7c3aed] hover:bg-[#6d28d9] text-white text-xs font-bold uppercase tracking-wider"
-                    >
-                      Xiga (Next Step)
-                    </button>
-                  ) : (
-                    <button
-                      type="submit"
-                      disabled={formSubmitting}
-                      className="px-6 py-2 rounded-sm bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white text-xs font-bold uppercase tracking-wider flex items-center gap-2 shadow-lg shadow-emerald-900/30 disabled:opacity-50"
-                    >
-                      {formSubmitting ? (
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      ) : (
-                        <Check className="w-3.5 h-3.5" />
-                      )}
-                      <span>{editingStudent ? 'Cusbooneysii (Update)' : 'Kaydi Ardayga (Save Student)'}</span>
-                    </button>
-                  )}
-                </div>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* C. ENTERPRISE BULK IMPORT MODAL */}
-      {showImportModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-fade-in overflow-y-auto">
-          <div className="bg-[#0f0f0f] border border-[#ffffff15] rounded-sm w-full max-w-3xl shadow-2xl relative my-8 overflow-hidden">
-            {/* Header */}
-            <div className="bg-[#141414] border-b border-[#ffffff10] p-5 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-sm bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                  <FileSpreadsheet className="w-5 h-5" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-serif italic text-white">Soo Gelinta Ardayda (Bulk Excel Import)</h2>
-                  <p className="text-[10px] text-[#888888] uppercase tracking-widest mt-0.5">
-                    Ku dar boqolaal arday hal mar adigoo isticmaalaya faylka Excel
-                  </p>
-                </div>
-              </div>
-              <button onClick={() => setShowImportModal(false)} className="p-2 text-[#737373] hover:text-white">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Body */}
-            <div className="p-6 space-y-6">
-              {importStep === 'upload' && (
-                <div className="space-y-6">
-                  {/* Step Guide */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                    <div className="p-3 bg-[#0a0a0a] border border-[#ffffff08] rounded-sm space-y-1">
-                      <span className="text-[10px] font-mono text-[#7c3aed] font-bold">TALLAABADA 1</span>
-                      <p className="font-bold text-white">Soo Dejiso Template-ka</p>
-                      <p className="text-[11px] text-[#888888]">Ka bilow template-ka rasmiga ah ee nidaamka ku diyaarsan.</p>
-                      <button
-                        onClick={downloadTemplate}
-                        className="mt-2 text-xs text-[#c4b5fd] hover:underline flex items-center gap-1 font-semibold"
-                      >
-                        <Download className="w-3 h-3" /> Soo Dejiso Hada
-                      </button>
-                    </div>
-
-                    <div className="p-3 bg-[#0a0a0a] border border-[#ffffff08] rounded-sm space-y-1">
-                      <span className="text-[10px] font-mono text-[#7c3aed] font-bold">TALLAABADA 2</span>
-                      <p className="font-bold text-white">Buuxi Macluumaadka</p>
-                      <p className="text-[11px] text-[#888888]">Geli magacyada, fasallada saxda ah, iyo telefoonada waalidiinta.</p>
-                    </div>
-
-                    <div className="p-3 bg-[#0a0a0a] border border-[#ffffff08] rounded-sm space-y-1">
-                      <span className="text-[10px] font-mono text-[#7c3aed] font-bold">TALLAABADA 3</span>
-                      <p className="font-bold text-white">Soo Geli oo Baar</p>
-                      <p className="text-[11px] text-[#888888]">Nidaamku wuxuu xaqiijinayaa khaladaadka ka hor inta uusan kaydin.</p>
-                    </div>
-                  </div>
-
-                  {/* Dropzone */}
-                  <div className="border-2 border-dashed border-[#ffffff20] hover:border-[#7c3aed] rounded-sm p-8 text-center bg-[#0a0a0a] transition-colors flex flex-col items-center justify-center gap-3">
-                    <div className="p-3 rounded-full bg-[#7c3aed]/10 text-[#c4b5fd]">
-                      <Upload className="w-8 h-8" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-bold text-white">Dooro ama ku soo tuur faylka Excel (.xlsx, .xls)</p>
-                      <p className="text-xs text-[#737373] mt-1">Xajmiga ugu sarreeya ee faylku waa 10MB</p>
-                    </div>
-                    <label className="mt-2 px-5 py-2.5 rounded-sm bg-[#7c3aed] hover:bg-[#6d28d9] text-white text-xs font-bold uppercase tracking-wider cursor-pointer shadow-md transition-colors">
-                      Baar Kombuyutarka (Browse File)
-                      <input
-                        type="file"
-                        accept=".xlsx, .xls"
-                        onChange={handleExcelUpload}
-                        className="hidden"
-                      />
-                    </label>
-                  </div>
-                </div>
-              )}
-
-              {importStep === 'preview' && (
-                <div className="space-y-4">
-                  {/* Summary Bar */}
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="p-3 bg-[#0a0a0a] border border-[#ffffff10] rounded-sm">
-                      <span className="text-[9px] uppercase tracking-widest text-[#888888] font-bold block">Wadarta Safafka</span>
-                      <span className="text-xl font-bold font-mono text-white">{importRows.length}</span>
-                    </div>
-                    <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-sm">
-                      <span className="text-[9px] uppercase tracking-widest text-emerald-400 font-bold block">Kuwa Saxda ah</span>
-                      <span className="text-xl font-bold font-mono text-emerald-400">{importValidCount}</span>
-                    </div>
-                    <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-sm">
-                      <span className="text-[9px] uppercase tracking-widest text-rose-400 font-bold block">Kuwa Ciladaysan</span>
-                      <span className="text-xl font-bold font-mono text-rose-400">{importErrorCount}</span>
-                    </div>
-                  </div>
-
-                  {/* Filter tabs */}
-                  <div className="flex items-center gap-2 border-b border-[#ffffff10] pb-2">
-                    <button
-                      onClick={() => setImportFilterTab('all')}
-                      className={`px-3 py-1 rounded-sm text-xs font-bold ${
-                        importFilterTab === 'all' ? 'bg-[#ffffff15] text-white' : 'text-[#888888] hover:text-white'
-                      }`}
-                    >
-                      Dhammaan ({importRows.length})
-                    </button>
-                    <button
-                      onClick={() => setImportFilterTab('valid')}
-                      className={`px-3 py-1 rounded-sm text-xs font-bold ${
-                        importFilterTab === 'valid' ? 'bg-emerald-500/20 text-emerald-300' : 'text-[#888888] hover:text-white'
-                      }`}
-                    >
-                      Sax Kaliya ({importValidCount})
-                    </button>
-                    <button
-                      onClick={() => setImportFilterTab('invalid')}
-                      className={`px-3 py-1 rounded-sm text-xs font-bold ${
-                        importFilterTab === 'invalid' ? 'bg-rose-500/20 text-rose-300' : 'text-[#888888] hover:text-white'
-                      }`}
-                    >
-                      Khaladaad leh ({importErrorCount})
-                    </button>
-                  </div>
-
-                  {/* Preview Table */}
-                  <div className="max-h-64 overflow-y-auto border border-[#ffffff10] rounded-sm">
-                    <table className="w-full text-left text-xs">
-                      <thead className="bg-[#0a0a0a] text-[9px] uppercase tracking-widest text-[#737373] sticky top-0">
-                        <tr>
-                          <th className="px-3 py-2">Row</th>
-                          <th className="px-3 py-2">Magaca</th>
-                          <th className="px-3 py-2">Fasalka</th>
-                          <th className="px-3 py-2">Telefoonka</th>
-                          <th className="px-3 py-2">Natiijada Hubinta</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-[#ffffff08]">
-                        {importRows
-                          .filter(r => importFilterTab === 'all' ? true : importFilterTab === 'valid' ? r.isValid : !r.isValid)
-                          .map((row, idx) => (
-                            <tr key={idx} className={row.isValid ? 'hover:bg-[#ffffff02]' : 'bg-rose-500/5'}>
-                              <td className="px-3 py-2 font-mono text-[10px] text-[#888888]">#{row.rowNum}</td>
-                              <td className="px-3 py-2 font-bold text-white">{row.data.fullName || '-'}</td>
-                              <td className="px-3 py-2 text-[#cccccc]">{row.data.class || '-'}</td>
-                              <td className="px-3 py-2 font-mono text-[#888888]">{row.data.guardianPhone || '-'}</td>
-                              <td className="px-3 py-2">
-                                {row.isValid ? (
-                                  <span className="inline-flex items-center gap-1 text-[10px] text-emerald-400 font-bold">
-                                    <CheckCircle2 className="w-3 h-3" /> Sax (Valid)
-                                  </span>
-                                ) : (
-                                  <span className="text-[10px] text-rose-400 font-medium">
-                                    ⚠️ {row.errors.join(', ')}
-                                  </span>
-                                )}
-                              </td>
-                            </tr>
-                          ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-
-              {importStep === 'importing' && (
-                <div className="py-12 flex flex-col items-center justify-center space-y-4 text-center">
-                  <RefreshCw className="w-10 h-10 text-[#7c3aed] animate-spin" />
-                  <div>
-                    <h3 className="text-lg font-bold text-white">Fadlan sug, ardayda ayaa la gelinayaa...</h3>
-                    <p className="text-xs text-[#888888] mt-1">Ha xirin daaqadda inta hawshu socoto.</p>
-                  </div>
-                  <div className="w-64 bg-[#1e1e1e] h-2 rounded-full overflow-hidden">
-                    <div
-                      style={{ width: `${importProgress}%` }}
-                      className="bg-[#7c3aed] h-full transition-all duration-300"
-                    />
-                  </div>
-                  <span className="text-xs font-mono font-bold text-[#c4b5fd]">{importProgress}%</span>
-                </div>
-              )}
-            </div>
-
-            {/* Footer */}
-            {importStep !== 'importing' && (
-              <div className="bg-[#141414] border-t border-[#ffffff10] p-4 flex items-center justify-between">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (importStep === 'preview') setImportStep('upload');
-                    else setShowImportModal(false);
-                  }}
-                  className="px-4 py-2 rounded-sm border border-[#ffffff10] text-xs text-[#888888] hover:text-white"
-                >
-                  {importStep === 'preview' ? 'Dib u dooro fayl' : 'Xir (Close)'}
-                </button>
-
-                {importStep === 'preview' && (
-                  <button
-                    type="button"
-                    onClick={handleCommitImport}
-                    disabled={importValidCount === 0}
-                    className="px-5 py-2 rounded-sm bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold uppercase tracking-wider flex items-center gap-2 shadow-lg"
-                  >
-                    <Check className="w-4 h-4" />
-                    <span>Soo Geli Kuwa Saxda ah ({importValidCount} Arday)</span>
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* D. BULK ACTION MODAL */}
-      {bulkActionModal.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-          <div className="bg-[#0f0f0f] border border-[#ffffff15] rounded-sm w-full max-w-md p-6 space-y-5 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-[#ffffff10] pb-3">
-              <h3 className="text-lg font-bold text-white">
-                {bulkActionModal.action === 'change_class' && 'U wareeji Fasal Cusub'}
-                {bulkActionModal.action === 'change_status' && 'Beddel Status-ka Ardayda'}
-                {bulkActionModal.action === 'archive' && 'Kaydi Ardayda (Archive)'}
-                {bulkActionModal.action === 'delete' && 'Tirtir Ardayda (Delete)'}
-              </h3>
-              <button
-                onClick={() => setBulkActionModal({ isOpen: false, action: null })}
-                className="p-1 text-[#888888] hover:text-white"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <p className="text-xs text-[#cccccc]">
-              Waxaad dooratay <strong className="text-white font-mono">{selectedStudentIds.length}</strong> arday.
-            </p>
-
-            {bulkActionModal.action === 'change_class' && (
-              <div className="space-y-1.5">
-                <label className="text-[10px] uppercase tracking-widest text-[#888888] font-bold">Dooro Fasalka Cusub</label>
-                <select
-                  value={bulkTargetClass}
-                  onChange={(e) => setBulkTargetClass(e.target.value)}
-                  className="w-full px-3 py-2 bg-[#0a0a0a] text-xs text-white border border-[#ffffff15] rounded-sm focus:outline-none focus:border-[#7c3aed]"
-                >
-                  {classes.map(c => (
-                    <option key={c.id} value={c.className}>{c.className}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {bulkActionModal.action === 'change_status' && (
-              <div className="space-y-1.5">
-                <label className="text-[10px] uppercase tracking-widest text-[#888888] font-bold">Dooro Xaaladda Cusub</label>
-                <select
-                  value={bulkTargetStatus}
-                  onChange={(e) => setBulkTargetStatus(e.target.value as any)}
-                  className="w-full px-3 py-2 bg-[#0a0a0a] text-xs text-white border border-[#ffffff15] rounded-sm focus:outline-none focus:border-[#7c3aed]"
-                >
-                  <option value="active">Active (Firfircoon)</option>
-                  <option value="inactive">Inactive (Aan firfircoonayn)</option>
-                  <option value="archived">Archived (La kaydiyey)</option>
-                </select>
-              </div>
-            )}
-
-            {bulkActionModal.action === 'archive' && (
-              <div className="p-3 bg-slate-800/30 border border-slate-700/50 rounded-sm text-xs text-slate-300">
-                Ardayda la kaydiyo kama muuqan doonaan liisaska firfircoon laakiin taariikhdooda imtixaanaadka iyo lacagaha waa la dhowri doonaa.
-              </div>
-            )}
-
-            {bulkActionModal.action === 'delete' && (
-              <div className="p-3 bg-rose-500/15 border border-rose-500/30 rounded-sm text-xs text-rose-300 space-y-1">
-                <p className="font-bold">⚠️ Digniin Weyn:</p>
-                <p>Hawshani waxay tirtiri doontaa dhammaan xogta {selectedStudentIds.length} arday, biilashooda, iyo xaadirkooda. Tani dib uma noqonayso!</p>
-              </div>
-            )}
-
-            <div className="flex items-center justify-end gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => setBulkActionModal({ isOpen: false, action: null })}
-                className="px-4 py-2 rounded-sm border border-[#ffffff10] text-xs text-[#888888] hover:text-white"
-              >
-                Ka noqo
-              </button>
-              <button
-                type="button"
-                onClick={handleExecuteBulkAction}
-                disabled={bulkOperating}
-                className={`px-5 py-2 rounded-sm text-xs font-bold uppercase tracking-wider text-white flex items-center gap-2 ${
-                  bulkActionModal.action === 'delete'
-                    ? 'bg-rose-600 hover:bg-rose-700'
-                    : 'bg-[#7c3aed] hover:bg-[#6d28d9]'
-                }`}
-              >
-                {bulkOperating && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
-                <span>Xaqiiji Hawsha (Confirm)</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* E. SINGLE STUDENT DELETE CONFIRM MODAL */}
-      {deleteConfirmStudent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-          <div className="bg-[#0f0f0f] border border-rose-500/30 rounded-sm w-full max-w-md p-6 space-y-4 shadow-2xl">
-            <div className="flex items-center gap-3 text-rose-400">
-              <AlertTriangle className="w-6 h-6" />
-              <h3 className="text-lg font-bold">Ma hubtaa inaad tirtirto?</h3>
-            </div>
-            <p className="text-xs text-[#cccccc] leading-relaxed">
-              Ardayga: <strong className="text-white">{deleteConfirmStudent.fullName}</strong> ({deleteConfirmStudent.class})
-            </p>
-            <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-sm text-xs text-amber-300">
-              💡 <strong>Talo:</strong> Halkii aad ardayga tirtiri lahayd, waxaad dooran kartaa inaad <strong>Archive</strong> garayso si xogta lacagaha iyo natiijooyinka imtixaanaadku u badbaadaan.
-            </div>
-
-            <div className="flex items-center justify-end gap-3 pt-2">
-              <button
-                onClick={() => setDeleteConfirmStudent(null)}
-                className="px-4 py-2 rounded-sm border border-[#ffffff10] text-xs text-[#888888] hover:text-white"
-              >
-                Ka noqo
-              </button>
-              <button
-                onClick={async () => {
-                  await handleQuickStatusChange(deleteConfirmStudent, 'archived');
-                  setDeleteConfirmStudent(null);
-                }}
-                className="px-4 py-2 rounded-sm bg-slate-700 hover:bg-slate-600 text-xs font-bold text-white uppercase tracking-wider"
-              >
-                Kaydi Kaliya (Archive)
-              </button>
-              <button
-                onClick={async () => {
-                  const success = await onDeleteStudent(deleteConfirmStudent.id);
-                  if (success) {
-                    showToast("Ardayga waa la tirtiray", "success");
-                    setDeleteConfirmStudent(null);
-                  }
-                }}
-                className="px-4 py-2 rounded-sm bg-rose-600 hover:bg-rose-700 text-xs font-bold text-white uppercase tracking-wider"
-              >
-                Tirtir (Delete)
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* C-E. FILTER DRAWER, BULK IMPORT, BULK ACTIONS & DELETE CONFIRM MODALS */}
+      <StudentsActionModals
+        showFiltersDrawer={showFiltersDrawer}
+        onCloseFiltersDrawer={() => setShowFiltersDrawer(false)}
+        subSection={subSection}
+        classes={classes}
+        selectedClassFilter={selectedClassFilter}
+        setSelectedClassFilter={setSelectedClassFilter}
+        selectedStatusFilter={selectedStatusFilter}
+        setSelectedStatusFilter={setSelectedStatusFilter}
+        selectedGenderFilter={selectedGenderFilter}
+        setSelectedGenderFilter={setSelectedGenderFilter}
+        selectedRegDateFilter={selectedRegDateFilter}
+        setSelectedRegDateFilter={setSelectedRegDateFilter}
+        selectedFeeFilter={selectedFeeFilter}
+        setSelectedFeeFilter={setSelectedFeeFilter}
+        sortBy={sortBy}
+        setSortBy={setSortBy}
+        onResetAllFilters={() => {
+          setSearchQuery('');
+          setSelectedClassFilter('all');
+          setSelectedStatusFilter('all');
+          setSelectedGenderFilter('all');
+          setSelectedFeeFilter('all');
+          setSelectedRegDateFilter('all');
+          setSortBy('name_asc');
+        }}
+        filteredStudentsCount={filteredStudents.length}
+        showImportModal={showImportModal}
+        onCloseImportModal={() => setShowImportModal(false)}
+        importStep={importStep}
+        setImportStep={setImportStep}
+        importRows={importRows}
+        importValidCount={importValidCount}
+        importErrorCount={importErrorCount}
+        importFilterTab={importFilterTab}
+        setImportFilterTab={setImportFilterTab}
+        importProgress={importProgress}
+        onDownloadTemplate={downloadTemplate}
+        onExcelUpload={handleExcelUpload}
+        onCommitImport={handleCommitImport}
+        bulkActionModal={bulkActionModal}
+        onCloseBulkActionModal={() => setBulkActionModal({ isOpen: false, action: null })}
+        selectedStudentIdsCount={selectedStudentIds.length}
+        bulkTargetClass={bulkTargetClass}
+        setBulkTargetClass={setBulkTargetClass}
+        bulkTargetStatus={bulkTargetStatus}
+        setBulkTargetStatus={setBulkTargetStatus}
+        bulkOperating={bulkOperating}
+        onExecuteBulkAction={handleExecuteBulkAction}
+        deleteConfirmStudent={deleteConfirmStudent}
+        onCloseDeleteConfirm={() => setDeleteConfirmStudent(null)}
+        onQuickArchiveFromDelete={async (st) => {
+          await handleQuickStatusChange(st, 'archived');
+          setDeleteConfirmStudent(null);
+        }}
+        onConfirmDeleteStudent={async (st) => {
+          const success = await onDeleteStudent(st.id);
+          if (success) {
+            showToast('Ardayga waa la tirtiray', 'success');
+            setDeleteConfirmStudent(null);
+          }
+        }}
+      />
     </div>
   );
 }
