@@ -33,6 +33,8 @@ interface FinanceViewProps {
   staff?: any[];
   currency?: string;
   schoolName?: string;
+  subSection?: string;
+  onNavigateSubSection?: (sub: any) => void;
 }
 
 export const FinanceView: React.FC<FinanceViewProps> = ({
@@ -41,10 +43,25 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
   teachers = [],
   staff = [],
   currency = "USD",
-  schoolName = "Dugsiga Pro 2026"
+  schoolName = "Dugsiga Pro 2026",
+  subSection,
+  onNavigateSubSection
 }) => {
-  const [activeSubTab, setActiveSubTab] = useState<string>("overview");
+  const [activeSubTab, setActiveSubTabState] = useState<string>(subSection || "overview");
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (subSection && subSection !== activeSubTab) {
+      setActiveSubTabState(subSection);
+    }
+  }, [subSection]);
+
+  const setActiveSubTab = (tab: string) => {
+    setActiveSubTabState(tab);
+    if (onNavigateSubSection) {
+      onNavigateSubSection(tab);
+    }
+  };
 
   // Data States
   const [dashboardStats, setDashboardStats] = useState<any>(null);

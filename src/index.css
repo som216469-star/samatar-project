@@ -1,512 +1,487 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,600;1,600&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Inter", "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Plus Jakarta Sans", "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
-  --font-display: "Plus Jakarta Sans", sans-serif;
 }
 
 /* ==========================================================================
-   THEME CONSTANTS - EXECUTIVE MIDNIGHT & ELECTRIC INDIGO (PREMIUM EYE-SAFE DARK)
+   DUGSI PRO 2026 — ENTERPRISE DESIGN SYSTEM TOKENS
+   Supports Intentional Light Theme & Executive Dark Theme
    ========================================================================== */
-:root {
-  --bg-app: #05070c;            /* Dark mystic void */
-  --bg-content: #080a11;        /* Modern rich midnight canvas */
-  --bg-card: #0e111a;           /* Sophisticated dark slate card */
-  --bg-sub: #161a26;            /* Deep metallic grey nested panel */
-  --bg-sub-active: #22293c;     /* Indigo active alternate container */
-  
-  --border-card: rgba(255, 255, 255, 0.08); /* Precise thin white border opacity */
-  --border-sub: rgba(99, 102, 241, 0.2);     /* Neon indigo outline glow */
-  
-  --text-primary: #f8fafc;      /* Crisp high-contrast silver-white */
-  --text-secondary: #94a3b8;    /* Smooth cool slate-gray text */
-  --text-muted: #64748b;        /* Muted supporting label gray */
-  
-  --accent-primary: #6366f1;    /* Vibrant Royal Electric Indigo */
-  --accent-secondary: #a78bfa;  /* Bright Mystic Lavender */
-  --accent-hover: #4f46e5;      /* Deep rich indigo */
-  --accent-bg-glow: rgba(99, 102, 241, 0.15);
-  
-  --bg-input: #0b0d16;          /* Darker inputs */
-  --border-input: #1e293b;      /* Clean slate border */
-  
-  --shadow-card: 0 10px 30px -10px rgba(0, 0, 0, 0.6);
-  --shadow-dropdown: 0 20px 40px -15px rgba(0, 0, 0, 0.8);
-  
-  /* Status Badge Colors - Eye-safe Neon Highlights */
-  --badge-success-bg: rgba(16, 185, 129, 0.1);
-  --badge-success-text: #34d399;
-  --badge-success-border: rgba(16, 185, 129, 0.25);
-  
-  --badge-warning-bg: rgba(245, 158, 11, 0.1);
-  --badge-warning-text: #fbbf24;
-  --badge-warning-border: rgba(245, 158, 11, 0.25);
-  
-  --badge-danger-bg: rgba(239, 68, 68, 0.1);
-  --badge-danger-text: #f87171;
-  --badge-danger-border: rgba(239, 68, 68, 0.25);
-  
-  --badge-info-bg: rgba(59, 130, 246, 0.1);
-  --badge-info-text: #60a5fa;
-  --badge-info-border: rgba(59, 130, 246, 0.25);
 
-  /* Deep Royal Dark Sidebar */
-  --sidebar-bg: #07090e;        /* Dark metallic edge */
+:root {
+  /* Spacing Scale */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+
+  /* Restrained Enterprise Radius Scale */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+
+  /* Motion Tokens */
+  --motion-fast: 140ms cubic-bezier(0.22, 1, 0.36, 1);
+  --motion-base: 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  --motion-modal: 260ms cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* ========================================================================
+     LIGHT THEME TOKENS (Institutional Daylight Slate & Royal Indigo)
+     ======================================================================== */
+  --color-bg: #f8fafc;
+  --color-bg-subtle: #f1f5f9;
+  --color-surface: #ffffff;
+  --color-surface-elevated: #ffffff;
+  --color-surface-muted: #f8fafc;
+  --color-surface-hover: #f1f5f9;
+  --color-surface-active: #eef2ff;
+
+  --color-border: #e2e8f0;
+  --color-border-subtle: #f1f5f9;
+  --color-border-strong: #cbd5e1;
+
+  --color-input-bg: #ffffff;
+  --color-input-border: #cbd5e1;
+
+  --color-text-primary: #0f172a;
+  --color-text-secondary: #475569;
+  --color-text-muted: #64748b;
+  --color-text-inverse: #ffffff;
+
+  --color-brand: #4f46e5;
+  --color-brand-hover: #4338ca;
+  --color-brand-soft: rgba(79, 70, 229, 0.08);
+  --color-brand-border: rgba(79, 70, 229, 0.25);
+  --color-accent: #6366f1;
+
+  /* Semantic Status Tokens - Light */
+  --color-success: #059669;
+  --color-success-soft: rgba(16, 185, 129, 0.1);
+  --color-success-border: rgba(16, 185, 129, 0.28);
+
+  --color-warning: #d97706;
+  --color-warning-soft: rgba(245, 158, 11, 0.12);
+  --color-warning-border: rgba(245, 158, 11, 0.3);
+
+  --color-danger: #dc2626;
+  --color-danger-soft: rgba(239, 68, 68, 0.1);
+  --color-danger-border: rgba(239, 68, 68, 0.28);
+
+  --color-info: #2563eb;
+  --color-info-soft: rgba(59, 130, 246, 0.1);
+  --color-info-border: rgba(59, 130, 246, 0.28);
+
+  /* Controlled Elevation System - Light */
+  --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-md: 0 4px 12px -2px rgba(15, 23, 42, 0.08), 0 2px 4px -2px rgba(15, 23, 42, 0.04);
+  --shadow-lg: 0 16px 32px -8px rgba(15, 23, 42, 0.14), 0 4px 12px -4px rgba(15, 23, 42, 0.06);
+
+  /* Sidebar Tokens - Light (Clean Institutional Slate Sidebar) */
+  --sidebar-bg: #0f172a;
+  --sidebar-surface: #1e293b;
+  --sidebar-border: rgba(255, 255, 255, 0.08);
+  --sidebar-text: #cbd5e1;
+  --sidebar-text-muted: #64748b;
   --sidebar-text-active: #ffffff;
-  --sidebar-text-inactive: #94a3b8;
-  --sidebar-border: #131722;
+  --sidebar-active-bg: rgba(99, 102, 241, 0.18);
+  --sidebar-hover-bg: rgba(255, 255, 255, 0.05);
+
+  /* Legacy Variable Aliases (for seamless module compatibility) */
+  --bg-app: var(--color-bg);
+  --bg-content: var(--color-bg-subtle);
+  --bg-card: var(--color-surface);
+  --bg-sub: var(--color-surface-muted);
+  --bg-sub-active: var(--color-surface-active);
+  --border-card: var(--color-border);
+  --border-sub: var(--color-brand-border);
+  --text-primary: var(--color-text-primary);
+  --text-secondary: var(--color-text-secondary);
+  --text-muted: var(--color-text-muted);
+  --accent-primary: var(--color-brand);
+  --accent-secondary: var(--color-accent);
+  --accent-hover: var(--color-brand-hover);
+  --accent-bg-glow: var(--color-brand-soft);
+  --bg-input: var(--color-input-bg);
+  --border-input: var(--color-input-border);
+  --shadow-card: var(--shadow-sm);
+  --shadow-dropdown: var(--shadow-lg);
+  --badge-success-bg: var(--color-success-soft);
+  --badge-success-text: var(--color-success);
+  --badge-success-border: var(--color-success-border);
+  --badge-warning-bg: var(--color-warning-soft);
+  --badge-warning-text: var(--color-warning);
+  --badge-warning-border: var(--color-warning-border);
+  --badge-danger-bg: var(--color-danger-soft);
+  --badge-danger-text: var(--color-danger);
+  --badge-danger-border: var(--color-danger-border);
+  --badge-info-bg: var(--color-info-soft);
+  --badge-info-text: var(--color-info);
+  --badge-info-border: var(--color-info-border);
 }
 
-/* Force dark mode behavior always to make the user comfortable */
+/* ==========================================================================
+   DARK THEME TOKENS (Executive Obsidian & Royal Electric Indigo)
+   ========================================================================== */
+html.dark {
+  --color-bg: #07090e;
+  --color-bg-subtle: #0a0d14;
+  --color-surface: #0f131d;
+  --color-surface-elevated: #151a28;
+  --color-surface-muted: #131824;
+  --color-surface-hover: #1a2030;
+  --color-surface-active: rgba(99, 102, 241, 0.16);
+
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-border-subtle: rgba(255, 255, 255, 0.05);
+  --color-border-strong: rgba(255, 255, 255, 0.14);
+
+  --color-input-bg: #0b0e17;
+  --color-input-border: rgba(255, 255, 255, 0.12);
+
+  --color-text-primary: #f8fafc;
+  --color-text-secondary: #94a3b8;
+  --color-text-muted: #64748b;
+  --color-text-inverse: #090d16;
+
+  --color-brand: #6366f1;
+  --color-brand-hover: #4f46e5;
+  --color-brand-soft: rgba(99, 102, 241, 0.14);
+  --color-brand-border: rgba(99, 102, 241, 0.3);
+  --color-accent: #818cf8;
+
+  /* Semantic Status Tokens - Dark */
+  --color-success: #34d399;
+  --color-success-soft: rgba(16, 185, 129, 0.12);
+  --color-success-border: rgba(16, 185, 129, 0.25);
+
+  --color-warning: #fbbf24;
+  --color-warning-soft: rgba(245, 158, 11, 0.12);
+  --color-warning-border: rgba(245, 158, 11, 0.25);
+
+  --color-danger: #f87171;
+  --color-danger-soft: rgba(239, 68, 68, 0.12);
+  --color-danger-border: rgba(239, 68, 68, 0.25);
+
+  --color-info: #60a5fa;
+  --color-info-soft: rgba(59, 130, 246, 0.12);
+  --color-info-border: rgba(59, 130, 246, 0.25);
+
+  /* Controlled Elevation System - Dark */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.45);
+  --shadow-md: 0 8px 24px -4px rgba(0, 0, 0, 0.55);
+  --shadow-lg: 0 20px 40px -12px rgba(0, 0, 0, 0.75);
+
+  /* Sidebar Tokens - Dark */
+  --sidebar-bg: #05070b;
+  --sidebar-surface: #0c1018;
+  --sidebar-border: rgba(255, 255, 255, 0.07);
+  --sidebar-text: #94a3b8;
+  --sidebar-text-muted: #64748b;
+  --sidebar-text-active: #ffffff;
+  --sidebar-active-bg: rgba(99, 102, 241, 0.18);
+  --sidebar-hover-bg: rgba(255, 255, 255, 0.04);
+}
+
+/* ==========================================================================
+   BASE DOCUMENT & TYPOGRAPHY SYSTEM
+   ========================================================================== */
 html, body {
   font-family: var(--font-sans);
-  background-color: var(--bg-app) !important;
-  color: var(--text-primary) !important;
+  background-color: var(--color-bg);
+  color: var(--color-text-primary);
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background-color var(--motion-base), color var(--motion-base);
 }
 
-/* Typography styles */
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-display);
-  letter-spacing: -0.025em;
-  color: var(--text-primary) !important;
+  letter-spacing: -0.02em;
+  color: var(--color-text-primary);
 }
 
-/* Scrollbar customization */
+.font-serif {
+  font-family: var(--font-display) !important;
+  font-style: normal !important;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Accessible Focus Ring */
+:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+}
+
+/* Scrollbar Customization */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: var(--bg-app);
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #1e293b;
+  background: var(--color-border-strong);
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #334155;
+  background: var(--color-text-muted);
 }
 
 /* ==========================================================================
-   FORCE HIGH QUALITY DARK COLOR OVERRIDES OVER MOCKED STYLES
+   SEMANTIC UTILITY CLASSES FOR NEW & REFACTORED COMPONENTS
    ========================================================================== */
-
-/* Main Layout Grid Resets */
-div.min-h-screen,
-div.bg-\[\#0a0a0a\],
-.bg-\[\#0a0a0a\] {
-  background-color: var(--bg-app) !important;
-  color: var(--text-primary) !important;
+.ds-surface {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xs);
+  color: var(--color-text-primary);
 }
 
-/* Header bar integration */
-header.bg-\[\#0a0a0a\]\/80,
-header {
-  background-color: var(--bg-card) !important;
-  border-bottom: 1px solid var(--sidebar-border) !important;
-  backdrop-filter: blur(16px) !important;
+.ds-surface-elevated {
+  background-color: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  color: var(--color-text-primary);
 }
 
-/* Card Panel Containers (Map original gray panels to deep rich indigo-tint cards) */
-div[class*="bg-[#0f0f0f]"],
-div[class*="bg-[#121212]"],
-div[class*="bg-[#101010]"],
-div[class*="bg-[#111111]"],
-div[class*="bg-[#1a1a1a]"],
-div[class*="bg-[#0d0d0d]"],
-div[class*="bg-[#050505]"],
-div[class*="bg-[#161616]"],
-.bg-\[\#0f0f0f\],
-.bg-\[\#121212\],
-.bg-\[\#101010\],
-.bg-\[\#111111\],
-.bg-\[\#1a1a1a\],
-.bg-\[\#0d0d0d\],
-.bg-\[\#050505\],
-.bg-\[\#161616\] {
-  background-color: var(--bg-card) !important;
-  border: 1px solid var(--border-card) !important;
-  border-radius: 12px !important;
-  box-shadow: var(--shadow-card) !important;
-  color: var(--text-primary) !important;
+.ds-surface-muted {
+  background-color: var(--color-surface-muted);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
 }
 
-/* Nested elements (subtle gray background divs inside panels) */
-.bg-\[\#121212\]\/80,
-.bg-\[\#121212\]\/40,
-.bg-\[\#121212\]\/60,
-.bg-black\/10,
-.bg-black\/20,
-.bg-black\/40 {
-  background-color: var(--bg-sub) !important;
-  border: 1px solid var(--border-card) !important;
-  color: var(--text-primary) !important;
-  border-radius: 8px !important;
+.ds-input {
+  background-color: var(--color-input-bg);
+  border: 1px solid var(--color-input-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  padding: 0.5rem 0.75rem;
+  transition: border-color var(--motion-fast), box-shadow var(--motion-fast);
 }
 
-/* Inner nested sub-boxes in cards */
-div[class*="bg-[#0a0a0a]"] div[class*="bg-[#0a0a0a]"],
-.bg-\[\#0f0f0f\] .bg-\[\#0a0a0a\],
-.bg-\[\#121212\] .bg-\[\#0a0a0a\],
-.bg-\[\#0f0f0f\] .bg-\[\#121212\],
-.bg-\[\#121212\] .bg-\[\#121212\] {
-  background-color: var(--bg-sub) !important;
-  border: 1px solid var(--border-card) !important;
-  border-radius: 8px !important;
-}
-
-/* Text Colors Resolution */
-.text-\[\#e5e5e5\],
-.text-\[\#f5f5f5\],
-.text-slate-100,
-.text-gray-100,
-.text-neutral-200 {
-  color: var(--text-primary) !important;
-}
-
-.text-\[\#a3a3a3\],
-.text-slate-400,
-.text-gray-400 {
-  color: var(--text-secondary) !important;
-}
-
-.text-\[\#737373\],
-.text-slate-500,
-.text-gray-500 {
-  color: var(--text-muted) !important;
-}
-
-/* Border Color Mapping */
-.border-\[\#ffffff10\],
-.border-\[\#ffffff05\],
-.border-\[\#ffffff08\],
-.border-white\/10,
-.border-slate-800,
-.border-zinc-800,
-div[class*="border-[#ffffff10]"] {
-  border-color: var(--border-card) !important;
+.ds-input:focus {
+  border-color: var(--color-brand);
+  box-shadow: 0 0 0 3px var(--color-brand-soft);
+  outline: none;
 }
 
 /* ==========================================================================
-   FORM INPUTS & SELECTION CONTROLS (DEEP obsidan STYLE)
+   THEME-AWARE BRIDGE FOR EXISTING MODULE CLASSES
+   Maps legacy hardcoded dark classes inside feature views to semantic tokens
+   so BOTH Light Mode and Dark Mode render with high contrast and clarity.
    ========================================================================== */
-input, select, textarea,
-input.bg-\[\#0a0a0a\],
-select.bg-\[\#0a0a0a\],
-textarea.bg-\[\#0a0a0a\],
-input.bg-\[\#121212\]\/80,
-select.bg-\[\#121212\]\/80 {
-  background-color: var(--bg-input) !important;
-  color: var(--text-primary) !important;
-  border: 1.5px solid var(--border-input) !important;
-  border-radius: 8px !important;
-  padding: 0.65rem 0.9rem !important;
-  font-size: 0.85rem !important;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+
+/* Page & Container Surfaces */
+.app-workspace .bg-\[\#0a0a0a\],
+.app-workspace .bg-\[\#050505\],
+.app-workspace .bg-\[\#07090e\] {
+  background-color: var(--color-bg-subtle) !important;
+  color: var(--color-text-primary) !important;
 }
 
-input:focus, select:focus, textarea:focus {
-  border-color: var(--accent-primary) !important;
-  box-shadow: 0 0 0 3px var(--accent-bg-glow) !important;
+.app-workspace .bg-\[\#0f0f0f\],
+.app-workspace .bg-\[\#121212\],
+.app-workspace .bg-\[\#101010\],
+.app-workspace .bg-\[\#111111\],
+.app-workspace .bg-\[\#141414\],
+.app-workspace .bg-\[\#161616\],
+.app-workspace .bg-\[\#1a1a1a\],
+.app-workspace .bg-\[\#0d0d0d\],
+.app-workspace .bg-\[\#0e111a\] {
+  background-color: var(--color-surface) !important;
+  border-color: var(--color-border) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: var(--shadow-xs) !important;
+  color: var(--color-text-primary) !important;
+}
+
+/* Nested subtle containers inside cards */
+.app-workspace .bg-\[\#0f0f0f\] .bg-\[\#0a0a0a\],
+.app-workspace .bg-\[\#121212\] .bg-\[\#0a0a0a\],
+.app-workspace .bg-\[\#141414\] .bg-\[\#0a0a0a\],
+.app-workspace .bg-black\/20,
+.app-workspace .bg-black\/30,
+.app-workspace .bg-black\/40 {
+  background-color: var(--color-surface-muted) !important;
+  border-color: var(--color-border) !important;
+  color: var(--color-text-primary) !important;
+}
+
+/* Text Hierarchy Adaptation */
+.app-workspace .text-white,
+.app-workspace .text-\[\#f5f5f5\],
+.app-workspace .text-\[\#f0f0f0\],
+.app-workspace .text-\[\#e5e5e5\],
+.app-workspace .text-slate-100,
+.app-workspace .text-gray-100 {
+  color: var(--color-text-primary) !important;
+}
+
+/* Keep white text on solid brand/colored buttons & badges */
+.app-workspace button.bg-\[\#7c3aed\],
+.app-workspace button.bg-\[\#6366f1\],
+.app-workspace button.bg-indigo-600,
+.app-workspace button.bg-emerald-600,
+.app-workspace button.bg-rose-600,
+.app-workspace button.bg-red-600,
+.app-workspace button.bg-amber-600,
+.app-workspace button.bg-blue-600,
+.app-workspace .bg-\[\#7c3aed\] .text-white,
+.app-workspace .bg-emerald-600 .text-white,
+.app-workspace .bg-rose-600 .text-white {
+  color: #ffffff !important;
+}
+
+.app-workspace .text-\[\#cccccc\],
+.app-workspace .text-\[\#d4d4d4\],
+.app-workspace .text-\[\#a3a3a3\],
+.app-workspace .text-\[\#94a3b8\],
+.app-workspace .text-slate-300,
+.app-workspace .text-slate-400,
+.app-workspace .text-gray-400 {
+  color: var(--color-text-secondary) !important;
+}
+
+.app-workspace .text-\[\#888888\],
+.app-workspace .text-\[\#737373\],
+.app-workspace .text-\[\#666666\],
+.app-workspace .text-\[\#555555\],
+.app-workspace .text-\[\#525252\],
+.app-workspace .text-slate-500,
+.app-workspace .text-gray-500 {
+  color: var(--color-text-muted) !important;
+}
+
+/* Brand Accent Adaptation in Light Mode */
+html:not(.dark) .app-workspace .text-\[\#c4b5fd\],
+html:not(.dark) .app-workspace .text-\[\#a78bfa\] {
+  color: var(--color-brand) !important;
+}
+
+/* Borders */
+.app-workspace .border-\[\#ffffff10\],
+.app-workspace .border-\[\#ffffff12\],
+.app-workspace .border-\[\#ffffff15\],
+.app-workspace .border-\[\#ffffff20\],
+.app-workspace .border-\[\#ffffff08\],
+.app-workspace .border-\[\#ffffff05\],
+.app-workspace .border-\[\#ffffff0a\],
+.app-workspace .border-white\/10,
+.app-workspace .border-white\/5,
+.app-workspace .border-slate-800,
+.app-workspace .divide-\[\#ffffff10\] > :not([hidden]) ~ :not([hidden]),
+.app-workspace .divide-\[\#ffffff08\] > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--color-border) !important;
+}
+
+/* Form Controls inside Workspace */
+.app-workspace input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+.app-workspace select,
+.app-workspace textarea {
+  background-color: var(--color-input-bg) !important;
+  color: var(--color-text-primary) !important;
+  border: 1px solid var(--color-input-border) !important;
+  border-radius: var(--radius-sm) !important;
+  font-size: 0.8125rem !important;
+  transition: border-color var(--motion-fast), box-shadow var(--motion-fast) !important;
+}
+
+.app-workspace input:not([type="checkbox"]):not([type="radio"]):focus,
+.app-workspace select:focus,
+.app-workspace textarea:focus {
+  border-color: var(--color-brand) !important;
+  box-shadow: 0 0 0 3px var(--color-brand-soft) !important;
   outline: none !important;
 }
 
-input::placeholder {
-  color: var(--text-muted) !important;
-  opacity: 0.8;
+.app-workspace input::placeholder,
+.app-workspace textarea::placeholder {
+  color: var(--color-text-muted) !important;
 }
 
-/* ==========================================================================
-   BUTTONS: EXECUTIVE MODERN GLOW
-   ========================================================================== */
-
-/* Primary Command Buttons (Transformed to Electric Purple-Indigo Accent) */
-button.bg-\[\#e5e5e5\],
-button.bg-white,
-.bg-\[\#e5e5e5\],
-button.bg-white\/90 {
-  background-color: var(--accent-primary) !important;
+/* Primary Legacy Buttons (`bg-[#e5e5e5]`, `bg-white`) */
+.app-workspace button.bg-\[\#e5e5e5\],
+.app-workspace button.bg-white {
+  background-color: var(--color-brand) !important;
   color: #ffffff !important;
-  border-radius: 8px !important;
+  border-radius: var(--radius-sm) !important;
   font-weight: 600 !important;
-  letter-spacing: 0.05em !important;
-  text-transform: uppercase !important;
-  font-size: 0.75rem !important;
-  padding: 0.7rem 1.25rem !important;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
-  border: 1.5px solid transparent !important;
-  box-shadow: 0 4px 14px var(--accent-bg-glow) !important;
+  border: 1px solid transparent !important;
+  box-shadow: var(--shadow-xs) !important;
+  transition: background-color var(--motion-fast), transform var(--motion-fast) !important;
 }
 
-button.bg-\[\#e5e5e5\]:hover,
-button.bg-white:hover,
-button.bg-white\/90:hover {
-  background-color: var(--accent-hover) !important;
+.app-workspace button.bg-\[\#e5e5e5\]:hover,
+.app-workspace button.bg-white:hover {
+  background-color: var(--color-brand-hover) !important;
   color: #ffffff !important;
-  transform: translateY(-1.5px);
-  box-shadow: 0 6px 18px rgba(99, 102, 241, 0.3) !important;
 }
 
-button.bg-\[\#e5e5e5\]:active,
-button.bg-white:active {
-  transform: translateY(0);
+/* Enterprise Data Tables */
+.app-workspace table {
+  width: 100%;
+  border-collapse: collapse;
 }
 
-button.bg-\[\#e5e5e5\]:disabled,
-button:disabled {
-  opacity: 0.4 !important;
-  transform: none !important;
-  box-shadow: none !important;
-  cursor: not-allowed !important;
+.app-workspace thead tr {
+  background-color: var(--color-surface-muted) !important;
+  border-bottom: 1px solid var(--color-border) !important;
 }
 
-/* Secondary outline action buttons */
-button.border-white\/10,
-button[class*="border-[#ffffff10]"],
-button.border-zinc-800,
-button[class*="border-white"] {
-  background-color: var(--bg-card) !important;
-  color: var(--text-secondary) !important;
-  border: 1.5px solid var(--border-card) !important;
-  border-radius: 8px !important;
+.app-workspace thead th {
+  color: var(--color-text-secondary) !important;
   font-weight: 600 !important;
-  transition: all 0.2s ease !important;
-}
-
-button.border-white\/10:hover,
-button[class*="border-[#ffffff10]"]:hover,
-button.border-zinc-800:hover {
-  background-color: var(--bg-sub) !important;
-  color: var(--text-primary) !important;
-  border-color: var(--border-sub) !important;
-}
-
-/* ==========================================================================
-   TABLE DESIGN (HI-CONTRAST NEON MATRIX ROW LAYOUT)
-   ========================================================================== */
-table {
-  width: 100% !important;
-  border-collapse: collapse !important;
-  border-radius: 10px !important;
-  overflow: hidden !important;
-}
-
-/* Table header styling */
-thead tr,
-tr.bg-\[\#000000\]\/10,
-tr.bg-black\/10,
-tr.bg-black\/20 {
-  background-color: var(--bg-sub) !important;
-  border-bottom: 2px solid var(--border-card) !important;
-}
-
-thead th {
-  color: var(--text-primary) !important;
-  font-weight: 700 !important;
-  font-size: 0.725rem !important;
+  font-size: 0.7rem !important;
   text-transform: uppercase !important;
   letter-spacing: 0.05em !important;
-  padding: 1rem 1.25rem !important;
-  text-align: left !important;
-}
-
-/* Table body rows */
-tbody tr {
-  background-color: var(--bg-card) !important;
-  border-bottom: 1px solid var(--border-card) !important;
-  transition: background-color 0.15s ease !important;
-}
-
-tbody tr:hover,
-tr.hover\:bg-\[\#ffffff01\]:hover,
-tr.hover\:bg-white\/5:hover {
-  background-color: var(--bg-sub) !important;
-}
-
-td {
-  padding: 1rem 1.25rem !important;
-  color: var(--text-secondary) !important;
-  font-size: 0.825rem !important;
-}
-
-/* ==========================================================================
-   EXECUTIVE SIDEBAR NAVIGATION STYLING (ANCHORED ELITE DARK)
-   ========================================================================== */
-aside {
-  background-color: var(--sidebar-bg) !important;
-  border-right: 1px solid var(--sidebar-border) !important;
-}
-
-/* Ensure all labels, titles, details are beautifully silver-white & visible */
-aside h2,
-aside h3,
-aside p,
-aside span,
-aside strong,
-aside h1 {
-  color: #ffffff !important;
-}
-
-aside .text-\[\#737373\],
-aside .text-slate-400 {
-  color: #94a3b8 !important;
-}
-
-/* Unselected navigation tabs */
-aside nav button,
-aside nav a {
-  color: var(--sidebar-text-inactive) !important;
-  font-weight: 500 !important;
-  font-size: 0.825rem !important;
-  border-radius: 6px !important;
   padding: 0.75rem 1rem !important;
-  margin-bottom: 0.3rem !important;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
-  border-left: 3px solid transparent !important;
-  display: flex !important;
-  align-items: center !important;
-  gap: 0.75rem !important;
 }
 
-/* Hover sidebar elements */
-aside nav button:hover,
-aside nav a:hover {
-  background-color: rgba(255, 255, 255, 0.05) !important;
-  color: #ffffff !important;
-  padding-left: 1.15rem !important;
+.app-workspace tbody tr {
+  background-color: var(--color-surface) !important;
+  border-bottom: 1px solid var(--color-border) !important;
+  transition: background-color var(--motion-fast) !important;
 }
 
-/* Selected active tab (Vibrant Royal Electric Indigo & Border highlight) */
-aside nav button.bg-\[\#ffffff05\],
-aside nav a.bg-\[\#ffffff05\],
-aside nav .bg-\[\#ffffff05\] {
-  background-color: rgba(99, 102, 241, 0.18) !important;
-  border-left: 3px solid var(--accent-primary) !important;
-  color: #ffffff !important;
-  font-weight: 700 !important;
+.app-workspace tbody tr:hover {
+  background-color: var(--color-surface-hover) !important;
 }
 
-aside nav button.bg-\[\#ffffff05\] svg,
-aside nav a.bg-\[\#ffffff05\] svg {
-  color: var(--accent-secondary) !important;
-}
-
-/* Sidebar lower footer panel block */
-aside div.bg-\[\#0f0f0f\],
-aside div.border-t,
-aside footer {
-  background-color: rgba(0, 0, 0, 0.35) !important;
-  border-top: 1px solid var(--sidebar-border) !important;
-}
-
-/* ==========================================================================
-   STATUS INDICATORS, BADGES & NEON STATS
-   ========================================================================== */
-
-/* Present / Paid / Active badges */
-span[class*="bg-[#10b981]/10"],
-span[class*="bg-emerald-500/10"],
-span[class*="bg-green-500/10"],
-span[class*="text-emerald-400"] {
-  background-color: var(--badge-success-bg) !important;
-  color: var(--badge-success-text) !important;
-  border: 1px solid var(--badge-success-border) !important;
-  border-radius: 9999px !important;
-  font-weight: 600 !important;
-  font-size: 0.75rem !important;
-  padding: 0.2rem 0.65rem !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  gap: 0.35rem !important;
-}
-
-/* Late / Partial / Warning badges */
-span[class*="bg-amber-500/10"],
-span[class*="bg-yellow-500/10"],
-span[class*="text-amber-400"] {
-  background-color: var(--badge-warning-bg) !important;
-  color: var(--badge-warning-text) !important;
-  border: 1px solid var(--badge-warning-border) !important;
-  border-radius: 9999px !important;
-  font-weight: 600 !important;
-  font-size: 0.75rem !important;
-  padding: 0.2rem 0.65rem !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  gap: 0.35rem !important;
-}
-
-/* Absent / Unpaid / Danger badges */
-span[class*="bg-rose-500/10"],
-span[class*="bg-red-500/10"],
-span[class*="text-rose-400"] {
-  background-color: var(--badge-danger-bg) !important;
-  color: var(--badge-danger-text) !important;
-  border: 1px solid var(--badge-danger-border) !important;
-  border-radius: 9999px !important;
-  font-weight: 600 !important;
-  font-size: 0.75rem !important;
-  padding: 0.2rem 0.65rem !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  gap: 0.35rem !important;
-}
-
-/* Excused / General info badges */
-span[class*="bg-blue-500/10"],
-span[class*="bg-sky-500/10"],
-span[class*="text-blue-400"] {
-  background-color: var(--badge-info-bg) !important;
-  color: var(--badge-info-text) !important;
-  border: 1px solid var(--badge-info-border) !important;
-  border-radius: 9999px !important;
-  font-weight: 600 !important;
-  font-size: 0.75rem !important;
-  padding: 0.2rem 0.65rem !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  gap: 0.35rem !important;
-}
-
-/* ==========================================================================
-   MODALS, POPUPS & GLASS OVERLAYS
-   ========================================================================== */
-.fixed.inset-0.z-50.bg-black\/80 {
-  background-color: rgba(5, 7, 12, 0.8) !important; /* Rich obsidian filter blur */
-  backdrop-filter: blur(8px) !important;
-}
-
-/* Modal dialogue container */
-div.fixed.inset-0.z-50.bg-black\/80 > div {
-  background-color: var(--bg-card) !important;
-  border: 1px solid var(--border-card) !important;
-  border-radius: 14px !important;
-  box-shadow: var(--shadow-dropdown) !important;
-}
-
-/* TOAST overlays */
-.fixed.top-4.right-4.z-50 > div {
-  background-color: var(--bg-card) !important;
-  border: 1.5px solid var(--border-card) !important;
-  border-radius: 10px !important;
-  box-shadow: var(--shadow-dropdown) !important;
-  color: var(--text-primary) !important;
-}
-
-/* Glowing design features */
-div[class*="bg-[#7c3aed]"][class*="blur-"] {
-  background-color: var(--accent-primary) !important;
-  opacity: 0.15 !important;
-}
-
-/* Elegant serif playfair italic labels */
-.font-serif {
-  font-family: 'Playfair Display', Georgia, serif !important;
-  font-style: italic;
-  font-weight: 600;
+.app-workspace td {
+  padding: 0.75rem 1rem !important;
+  color: var(--color-text-primary) !important;
+  font-size: 0.8125rem !important;
 }

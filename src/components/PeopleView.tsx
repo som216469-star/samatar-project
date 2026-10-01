@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Users, 
   UserCheck, 
@@ -50,6 +50,8 @@ interface PeopleViewProps {
   currency?: string;
   theme: 'light' | 'dark';
   showToast?: (msg: string, type?: 'success' | 'error' | 'info' | 'warning') => void;
+  subSection?: 'teachers' | 'staff' | 'guardians';
+  onNavigateSubSection?: (sub: 'teachers' | 'staff' | 'guardians') => void;
 }
 
 export default function PeopleView({
@@ -69,10 +71,27 @@ export default function PeopleView({
   onUpdateGuardian,
   onDeleteGuardian,
   currency = '$',
-  showToast = () => {}
+  showToast = () => {},
+  subSection,
+  onNavigateSubSection
 }: PeopleViewProps) {
-  const [activeSubTab, setActiveSubTab] = useState<'teachers' | 'staff' | 'guardians'>('teachers');
+  const [activeSubTab, setActiveSubTabState] = useState<'teachers' | 'staff' | 'guardians'>(
+    subSection || 'teachers'
+  );
   const [searchQuery, setSearchQuery] = useState('');
+
+  useEffect(() => {
+    if (subSection && subSection !== activeSubTab) {
+      setActiveSubTabState(subSection);
+    }
+  }, [subSection]);
+
+  const setActiveSubTab = (tab: 'teachers' | 'staff' | 'guardians') => {
+    setActiveSubTabState(tab);
+    if (onNavigateSubSection) {
+      onNavigateSubSection(tab);
+    }
+  };
   const [filterRole, setFilterRole] = useState('All');
   const [loading, setLoading] = useState(false);
   const [resendingId, setResendingId] = useState<string | null>(null);
