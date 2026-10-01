@@ -28,7 +28,15 @@ import {
   Settings,
   LucideIcon
 } from 'lucide-react';
-import { StudentSubSection } from '../components/StudentsView';
+
+export type StudentSubSection =
+  | 'all'
+  | 'add'
+  | 'active'
+  | 'inactive'
+  | 'archived'
+  | 'import'
+  | 'export';
 
 export type AppTabId =
   | 'overview'

@@ -15,7 +15,7 @@ import {
   Filter
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import { Student, SchoolClass } from '../../types';
+import { Student, SchoolClass } from '../../../types';
 
 interface StudentImportViewProps {
   existingStudents: Student[];

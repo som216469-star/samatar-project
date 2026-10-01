@@ -15,7 +15,7 @@ import {
   X,
   Plus
 } from 'lucide-react';
-import { SchoolClass, Student } from '../../types';
+import { SchoolClass, Student } from '../../../types';
 
 interface StudentAddViewProps {
   classes: SchoolClass[];

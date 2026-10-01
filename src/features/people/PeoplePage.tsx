@@ -26,7 +26,8 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Teacher, StaffMember, Guardian, SchoolClass, SchoolSubject } from '../types';
+import { Teacher, StaffMember, Guardian, SchoolClass, SchoolSubject } from '../../types';
+import { ConfirmDialog } from '../../components/ui/primitives';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
@@ -95,6 +96,17 @@ export default function PeopleView({
   const [filterRole, setFilterRole] = useState('All');
   const [loading, setLoading] = useState(false);
   const [resendingId, setResendingId] = useState<string | null>(null);
+  const [confirmState, setConfirmState] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void | Promise<void>;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {}
+  });
 
   const handleResendInvitation = async (teacher: Teacher) => {
     if (!teacher.email || !teacher.email.includes('@')) {
@@ -142,33 +154,40 @@ export default function PeopleView({
         await navigator.clipboard.writeText(link);
         showToast("Link-ga casuumaadda waxaa lagu koobiyeeyay clipboard-kaaga!");
       } else {
-        prompt("Koobi garee link-gan casuumaadda:", link);
+        showToast(`Link: ${link}`, "info");
       }
     } catch (e) {
       showToast("Ma suurtogalin in link-ga la koobiyeeyo.", "error");
     }
   };
 
-  const handleToggleStatus = async (teacher: Teacher) => {
+  const handleToggleStatus = (teacher: Teacher) => {
     const newStatus = teacher.status === 'DEACTIVATED' ? 'ACTIVE' : 'DEACTIVATED';
     const actionLabel = newStatus === 'ACTIVE' ? 'Dib u howlgeli' : 'Haki (Deactivate)';
-    if (!confirm(`Ma hubtaa inaad ${actionLabel} akoonka macallinka ${teacher.name}?`)) return;
-
-    try {
-      const res = await fetch(`/api/teachers/${teacher.id}/toggle-status`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus })
-      });
-      if (res.ok) {
-        teacher.status = newStatus;
-        showToast(`Akoonka macallinka ${teacher.name} waxaa laga dhigay: ${newStatus}`);
-      } else {
-        showToast("Cilad ayaa dhacday beddelidda xaaladda.", "error");
+    setConfirmState({
+      isOpen: true,
+      title: `${actionLabel} Akoonka Macallinka?`,
+      message: `Ma hubtaa inaad ${actionLabel} akoonka macallinka ${teacher.name}?`,
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/teachers/${teacher.id}/toggle-status`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: newStatus })
+          });
+          if (res.ok) {
+            teacher.status = newStatus;
+            showToast(`Akoonka macallinka ${teacher.name} waxaa laga dhigay: ${newStatus}`);
+          } else {
+            showToast("Cilad ayaa dhacday beddelidda xaaladda.", "error");
+          }
+        } catch {
+          showToast("Cilad farsamo ayaa dhacday.", "error");
+        } finally {
+          setConfirmState((prev) => ({ ...prev, isOpen: false }));
+        }
       }
-    } catch (e) {
-      showToast("Cilad farsamo ayaa dhacday.", "error");
-    }
+    });
   };
 
   // Modals
@@ -726,11 +745,17 @@ export default function PeopleView({
                     </button>
                     <button
                       type="button"
-                      onClick={() => {
-                        if (confirm(`Ma hubtaa inaad tirtirto macallinka ${t.name}?`)) {
-                          onDeleteTeacher(t.id);
-                        }
-                      }}
+                      onClick={() =>
+                        setConfirmState({
+                          isOpen: true,
+                          title: 'Tirtir Macallinka?',
+                          message: `Ma hubtaa inaad tirtirto macallinka ${t.name}?`,
+                          onConfirm: async () => {
+                            await onDeleteTeacher(t.id);
+                            setConfirmState((prev) => ({ ...prev, isOpen: false }));
+                          }
+                        })
+                      }
                       className="p-1.5 rounded-sm text-rose-400 hover:text-rose-300 hover:bg-rose-950/20 transition-colors"
                       title="Tirtir"
                     >
@@ -803,11 +828,17 @@ export default function PeopleView({
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
                         <button
-                          onClick={() => {
-                            if (confirm(`Ma hubtaa inaad tirtirto shaqaalaha ${s.name}?`)) {
-                              onDeleteStaff(s.id);
-                            }
-                          }}
+                          onClick={() =>
+                            setConfirmState({
+                              isOpen: true,
+                              title: 'Tirtir Shaqaalaha?',
+                              message: `Ma hubtaa inaad tirtirto shaqaalaha ${s.name}?`,
+                              onConfirm: async () => {
+                                await onDeleteStaff(s.id);
+                                setConfirmState((prev) => ({ ...prev, isOpen: false }));
+                              }
+                            })
+                          }
                           className="p-1 rounded-sm text-rose-400 hover:text-rose-300 hover:bg-rose-950/20"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -883,11 +914,17 @@ export default function PeopleView({
                     <Edit2 className="w-4 h-4" />
                   </button>
                   <button
-                    onClick={() => {
-                      if (confirm(`Ma hubtaa inaad tirtirto waalidka ${g.name}?`)) {
-                        onDeleteGuardian(g.id);
-                      }
-                    }}
+                    onClick={() =>
+                      setConfirmState({
+                        isOpen: true,
+                        title: 'Tirtir Waalidka?',
+                        message: `Ma hubtaa inaad tirtirto waalidka ${g.name}?`,
+                        onConfirm: async () => {
+                          await onDeleteGuardian(g.id);
+                          setConfirmState((prev) => ({ ...prev, isOpen: false }));
+                        }
+                      })
+                    }
                     className="p-1.5 rounded-sm text-rose-400 hover:text-rose-300 hover:bg-rose-950/20 transition-colors"
                     title="Tirtir"
                   >
@@ -1328,6 +1365,14 @@ export default function PeopleView({
           </div>
         )}
       </AnimatePresence>
+
+      <ConfirmDialog
+        isOpen={confirmState.isOpen}
+        title={confirmState.title}
+        message={confirmState.message}
+        onConfirm={confirmState.onConfirm}
+        onCancel={() => setConfirmState((prev) => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 }

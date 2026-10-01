@@ -13,7 +13,7 @@ import {
 import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { Student, SchoolClass, FeeRecord } from '../../types';
+import { Student, SchoolClass, FeeRecord } from '../../../types';
 
 interface StudentExportViewProps {
   students: Student[];

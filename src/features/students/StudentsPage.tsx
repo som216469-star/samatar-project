@@ -40,13 +40,14 @@ import { motion, AnimatePresence } from 'motion/react';
 import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { Student, SchoolClass, FeeRecord, AttendanceRecord, ExamScore } from '../types';
-import StudentProfileModal from './StudentProfileModal';
-import StudentAddView from './students/StudentAddView';
-import StudentImportView from './students/StudentImportView';
-import StudentExportView from './students/StudentExportView';
+import { Student, SchoolClass, FeeRecord, AttendanceRecord, ExamScore } from '../../types';
+import { StudentSubSection } from '../../app/navigationConfig';
+import StudentProfileModal from './components/StudentProfileModal';
+import StudentAddView from './components/StudentAddView';
+import StudentImportView from './components/StudentImportView';
+import StudentExportView from './components/StudentExportView';
 
-export type StudentSubSection = 'all' | 'add' | 'active' | 'inactive' | 'archived' | 'import' | 'export';
+export type { StudentSubSection };
 
 interface StudentsViewProps {
   students: Student[];

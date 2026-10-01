@@ -21,12 +21,12 @@ import {
   NAVIGATION_CONFIG,
   NAVIGATION_GROUPS,
   AppTabId,
+  StudentSubSection,
   PeopleSubSection,
   FinanceSubSection,
   NavItemConfig,
   NavChildItem
 } from './navigationConfig';
-import { StudentSubSection } from '../components/StudentsView';
 import { OfflineSyncBadge } from '../components/OfflineSyncBadge';
 import { PWAInstallButton } from '../components/PWAInstallButton';
 import { DbStatus, Student, SystemSettings, Teacher } from '../types';

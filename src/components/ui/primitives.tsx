@@ -84,6 +84,7 @@ export type BadgeTone = 'success' | 'warning' | 'danger' | 'info' | 'brand' | 'n
 
 export interface StatusBadgeProps {
   tone?: BadgeTone;
+  variant?: BadgeTone;
   children: React.ReactNode;
   dot?: boolean;
   icon?: React.ReactNode;
@@ -91,12 +92,14 @@ export interface StatusBadgeProps {
 }
 
 export const StatusBadge: React.FC<StatusBadgeProps> = ({
-  tone = 'neutral',
+  tone,
+  variant,
   children,
   dot = true,
   icon,
   className = ''
 }) => {
+  const resolvedTone: BadgeTone = tone || variant || 'neutral';
   const toneStyles: Record<BadgeTone, string> = {
     success:
       'bg-[var(--color-success-soft)] text-[var(--color-success)] border-[var(--color-success-border)]',
@@ -123,17 +126,21 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 px-2 py-0.5 text-[11px] font-semibold rounded-[var(--radius-xs)] border ${toneStyles[tone]} ${className}`}
+      className={`inline-flex items-center gap-1.5 px-2 py-0.5 text-[11px] font-semibold rounded-[var(--radius-xs)] border ${toneStyles[resolvedTone]} ${className}`}
     >
       {icon ? (
         icon
       ) : dot ? (
-        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${dotColors[tone]}`} aria-hidden="true" />
+        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${dotColors[resolvedTone]}`} aria-hidden="true" />
       ) : null}
       <span>{children}</span>
     </span>
   );
 };
+
+export const Badge: React.FC<StatusBadgeProps> = ({ dot = false, ...props }) => (
+  <StatusBadge dot={dot} {...props} />
+);
 
 /* ============================================================================
    3. CARD & STAT CARD PRIMITIVES
@@ -181,7 +188,7 @@ export interface StatCardProps {
     tone?: BadgeTone;
   };
   icon?: React.ReactNode;
-  tone?: BadgeTone;
+  tone?: BadgeTone | 'emerald' | 'default';
   onClick?: () => void;
 }
 
@@ -194,6 +201,12 @@ export const StatCard: React.FC<StatCardProps> = ({
   tone = 'brand',
   onClick
 }) => {
+  const normalizedTone: BadgeTone =
+    tone === 'emerald'
+      ? 'success'
+      : tone === 'default'
+      ? 'neutral'
+      : (tone as BadgeTone);
   const iconToneMap: Record<BadgeTone, string> = {
     brand: 'bg-[var(--color-brand-soft)] text-[var(--color-brand)] border-[var(--color-brand-border)]',
     success: 'bg-[var(--color-success-soft)] text-[var(--color-success)] border-[var(--color-success-border)]',
@@ -213,7 +226,7 @@ export const StatCard: React.FC<StatCardProps> = ({
           {label}
         </span>
         {icon && (
-          <div className={`w-8 h-8 rounded-[var(--radius-sm)] border flex items-center justify-center shrink-0 ${iconToneMap[tone]}`}>
+          <div className={`w-8 h-8 rounded-[var(--radius-sm)] border flex items-center justify-center shrink-0 ${iconToneMap[normalizedTone]}`}>
             {icon}
           </div>
         )}
@@ -397,60 +410,77 @@ export const Modal: React.FC<ModalProps> = ({
 };
 
 export interface ConfirmDialogProps {
-  isOpen: boolean;
+  isOpen?: boolean;
+  open?: boolean;
   title: string;
-  message: string;
+  message?: string;
+  description?: string;
   confirmLabel?: string;
   cancelLabel?: string;
-  tone?: 'danger' | 'warning' | 'brand';
+  tone?: 'danger' | 'warning' | 'brand' | 'primary';
+  variant?: 'danger' | 'warning' | 'brand' | 'primary';
+  isLoading?: boolean;
   onConfirm: () => void | Promise<void>;
   onCancel: () => void;
 }
 
 export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   isOpen,
+  open,
   title,
   message,
+  description,
   confirmLabel = 'Confirm',
   cancelLabel = 'Cancel',
-  tone = 'danger',
+  tone,
+  variant,
+  isLoading = false,
   onConfirm,
   onCancel
-}) => (
-  <Modal
-    isOpen={isOpen}
-    onClose={onCancel}
-    title={title}
-    size="sm"
-    footer={
-      <>
-        <Button variant="secondary" size="sm" onClick={onCancel}>
-          {cancelLabel}
-        </Button>
-        <Button
-          variant={tone === 'danger' ? 'danger' : 'primary'}
-          size="sm"
-          onClick={onConfirm}
+}) => {
+  const resolvedOpen = Boolean(isOpen ?? open);
+  const resolvedTone = tone || variant || 'danger';
+  const resolvedMessage = message || description || '';
+
+  return (
+    <Modal
+      isOpen={resolvedOpen}
+      onClose={onCancel}
+      title={title}
+      size="sm"
+      footer={
+        <>
+          <Button variant="secondary" size="sm" onClick={onCancel} disabled={isLoading}>
+            {cancelLabel}
+          </Button>
+          <Button
+            variant={resolvedTone === 'danger' ? 'danger' : 'primary'}
+            size="sm"
+            loading={isLoading}
+            onClick={onConfirm}
+          >
+            {confirmLabel}
+          </Button>
+        </>
+      }
+    >
+      <div className="flex items-start gap-3.5">
+        <div
+          className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
+            resolvedTone === 'danger'
+              ? 'bg-[var(--color-danger-soft)] text-[var(--color-danger)]'
+              : 'bg-[var(--color-warning-soft)] text-[var(--color-warning)]'
+          }`}
         >
-          {confirmLabel}
-        </Button>
-      </>
-    }
-  >
-    <div className="flex items-start gap-3.5">
-      <div
-        className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
-          tone === 'danger'
-            ? 'bg-[var(--color-danger-soft)] text-[var(--color-danger)]'
-            : 'bg-[var(--color-warning-soft)] text-[var(--color-warning)]'
-        }`}
-      >
-        <AlertTriangle className="w-4 h-4" />
+          <AlertTriangle className="w-4 h-4" />
+        </div>
+        <p className="text-xs leading-relaxed text-[var(--color-text-secondary)] pt-1">
+          {resolvedMessage}
+        </p>
       </div>
-      <p className="text-xs leading-relaxed text-[var(--color-text-secondary)] pt-1">{message}</p>
-    </div>
-  </Modal>
-);
+    </Modal>
+  );
+};
 
 /* ============================================================================
    6. LOADING / EMPTY / ERROR STATES & SKELETON

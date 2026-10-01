@@ -38,8 +38,12 @@ import {
   Admission,
   SystemSettings
 } from '../../types';
-import { AppTabId, FinanceSubSection, PeopleSubSection } from '../../app/navigationConfig';
-import { StudentSubSection } from '../../components/StudentsView';
+import {
+  AppTabId,
+  StudentSubSection,
+  FinanceSubSection,
+  PeopleSubSection
+} from '../../app/navigationConfig';
 import { PageContainer, PageHeader, Section } from '../../components/layout/PageLayout';
 import { Button, StatCard, StatusBadge } from '../../components/ui/primitives';
 

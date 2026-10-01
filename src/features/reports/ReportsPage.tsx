@@ -3,7 +3,7 @@ import { FileText, Printer, Search, Download, Calendar, DollarSign, Award, Users
 import { motion } from 'motion/react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { Student, SchoolClass, SchoolSubject, ExamScore, AttendanceRecord, FeeRecord } from '../types';
+import { Student, SchoolClass, SchoolSubject, ExamScore, AttendanceRecord, FeeRecord } from '../../types';
 
 interface ReportsViewProps {
   students: Student[];

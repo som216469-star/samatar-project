@@ -1,5 +1,9 @@
-import { StudentSubSection } from '../components/StudentsView';
-import { AppTabId, FinanceSubSection, PeopleSubSection } from './navigationConfig';
+import {
+  AppTabId,
+  StudentSubSection,
+  FinanceSubSection,
+  PeopleSubSection
+} from './navigationConfig';
 
 export type PublicRouteId = 'landing' | 'login' | 'signup' | 'dashboard' | 'activate-teacher';
 
