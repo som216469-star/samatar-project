@@ -167,6 +167,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
             <form onSubmit={onSubmit} className="space-y-4">
               {authError && (
                 <div
+                  id="auth-error-banner"
                   className="p-3 rounded-[var(--radius-sm)] bg-[var(--color-danger-soft)] border border-[var(--color-danger-border)] text-[var(--color-danger)] text-xs flex items-start gap-2"
                   role="alert"
                 >
@@ -183,11 +184,14 @@ export const AuthView: React.FC<AuthViewProps> = ({
                   Email Address
                 </label>
                 <div className="relative">
-                  <Mail className="w-4 h-4 text-[var(--color-text-muted)] absolute left-3 top-2.5" />
+                  <Mail className="w-4 h-4 text-[var(--color-text-muted)] absolute left-3 top-2.5" aria-hidden="true" />
                   <input
                     id="auth-email"
                     type="email"
                     required
+                    autoComplete="email"
+                    aria-invalid={Boolean(authError)}
+                    aria-describedby={authError ? 'auth-error-banner' : undefined}
                     value={email}
                     onChange={(e) => onChangeEmail(e.target.value)}
                     placeholder="admin@dugsigapro.edu"
@@ -213,11 +217,14 @@ export const AuthView: React.FC<AuthViewProps> = ({
                   </button>
                 </div>
                 <div className="relative">
-                  <Lock className="w-4 h-4 text-[var(--color-text-muted)] absolute left-3 top-2.5" />
+                  <Lock className="w-4 h-4 text-[var(--color-text-muted)] absolute left-3 top-2.5" aria-hidden="true" />
                   <input
                     id="auth-password"
                     type="password"
                     required
+                    autoComplete={authView === 'login' ? 'current-password' : 'new-password'}
+                    aria-invalid={Boolean(authError)}
+                    aria-describedby={authError ? 'auth-error-banner' : undefined}
                     value={password}
                     onChange={(e) => onChangePassword(e.target.value)}
                     placeholder="••••••••"

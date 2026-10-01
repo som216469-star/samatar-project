@@ -10,6 +10,7 @@ import {
   CheckCircle2
 } from "lucide-react";
 import type { BudgetRecord } from "../../types";
+import { ConfirmDialog } from "../../components/ui/primitives";
 import { formatMoney, exportToExcel } from "./financeUtils";
 import { apiFetch } from "../../lib/apiClient";
 
@@ -47,6 +48,17 @@ export const BudgetsModule: React.FC<BudgetsModuleProps> = ({
   const [showModal, setShowModal] = useState(false);
   const [editingBudget, setEditingBudget] = useState<BudgetRecord | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [confirmState, setConfirmState] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void | Promise<void>;
+  }>({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: () => {}
+  });
 
   const [form, setForm] = useState({
     academicYear: "2026-2027",
@@ -109,14 +121,22 @@ export const BudgetsModule: React.FC<BudgetsModuleProps> = ({
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Ma hubtaa inaad tirtirto miisaaniyaddan?")) return;
-    try {
-      const res = await apiFetch(`/api/budgets/${id}`, { method: "DELETE" });
-      if (res.ok) onRefresh();
-    } catch (err) {
-      console.error(err);
-    }
+  const handleDelete = (id: string) => {
+    setConfirmState({
+      isOpen: true,
+      title: "Tirtir Miisaaniyadda?",
+      message: "Ma hubtaa inaad tirtirto miisaaniyaddan?",
+      onConfirm: async () => {
+        try {
+          const res = await apiFetch(`/api/budgets/${id}`, { method: "DELETE" });
+          if (res.ok) onRefresh();
+        } catch (err) {
+          console.error(err);
+        } finally {
+          setConfirmState((prev) => ({ ...prev, isOpen: false }));
+        }
+      }
+    });
   };
 
   const handleExportExcel = () => {
@@ -246,7 +266,12 @@ export const BudgetsModule: React.FC<BudgetsModuleProps> = ({
 
       {/* ADD / EDIT MODAL */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in"
+          role="dialog"
+          aria-modal="true"
+          aria-label={editingBudget ? "Wax ka beddel Miisaaniyadda" : "Deji Miisaaniyad Cusub"}
+        >
           <div className="bg-[#0f0f0f] border border-[#ffffff10] rounded-sm w-full max-w-md shadow-2xl p-6 relative">
             <button
               className="absolute right-4 top-4 p-1.5 rounded-sm text-[#737373] hover:bg-[#ffffff05]"
@@ -351,6 +376,14 @@ export const BudgetsModule: React.FC<BudgetsModuleProps> = ({
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        isOpen={confirmState.isOpen}
+        title={confirmState.title}
+        message={confirmState.message}
+        onConfirm={confirmState.onConfirm}
+        onCancel={() => setConfirmState((prev) => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 };

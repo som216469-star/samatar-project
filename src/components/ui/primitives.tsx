@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef, useId } from 'react';
 import {
   X,
   AlertCircle,
@@ -353,13 +353,88 @@ export const Modal: React.FC<ModalProps> = ({
   footer,
   size = 'md'
 }) => {
+  const uniqueId = useId();
+  const titleId = `modal-title-${uniqueId}`;
+  const descId = `modal-desc-${uniqueId}`;
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const previousActiveElementRef = useRef<HTMLElement | null>(null);
+
   useEffect(() => {
     if (!isOpen) return;
+
+    previousActiveElementRef.current = document.activeElement as HTMLElement | null;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    // Focus initial interactive control inside dialog
+    const focusTimer = window.setTimeout(() => {
+      const dialogEl = dialogRef.current;
+      if (!dialogEl) return;
+      const focusableSelector =
+        'input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])';
+      const focusables = Array.from(
+        dialogEl.querySelectorAll(focusableSelector)
+      ) as HTMLElement[];
+      // Prefer first form control or primary action over the top-right close button when possible
+      const preferred =
+        focusables.find((el) => el.getAttribute('aria-label') !== 'Close dialog') ||
+        focusables[0] ||
+        dialogEl;
+      preferred?.focus();
+    }, 20);
+
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        onClose();
+        return;
+      }
+
+      if (e.key === 'Tab') {
+        const dialogEl = dialogRef.current;
+        if (!dialogEl) return;
+        const focusableSelector =
+          'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+        const focusables = (
+          Array.from(dialogEl.querySelectorAll(focusableSelector)) as HTMLElement[]
+        ).filter((el) => el.offsetParent !== null);
+
+        if (focusables.length === 0) {
+          e.preventDefault();
+          dialogEl.focus();
+          return;
+        }
+
+        const firstEl = focusables[0];
+        const lastEl = focusables[focusables.length - 1];
+        const activeEl = document.activeElement as HTMLElement | null;
+
+        if (e.shiftKey) {
+          if (!activeEl || activeEl === firstEl || !dialogEl.contains(activeEl)) {
+            e.preventDefault();
+            lastEl.focus();
+          }
+        } else {
+          if (!activeEl || activeEl === lastEl || !dialogEl.contains(activeEl)) {
+            e.preventDefault();
+            firstEl.focus();
+          }
+        }
+      }
     };
+
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      window.clearTimeout(focusTimer);
+      window.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = prevOverflow;
+      if (
+        previousActiveElementRef.current &&
+        typeof previousActiveElementRef.current.focus === 'function'
+      ) {
+        previousActiveElementRef.current.focus();
+      }
+    };
   }, [isOpen, onClose]);
 
   const sizeClasses = {
@@ -376,22 +451,30 @@ export const Modal: React.FC<ModalProps> = ({
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs overflow-y-auto"
           role="dialog"
           aria-modal="true"
-          aria-labelledby="modal-title"
+          aria-labelledby={titleId}
+          aria-describedby={subtitle ? descId : undefined}
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) onClose();
+          }}
         >
           <motion.div
+            ref={dialogRef}
+            tabIndex={-1}
             initial={{ opacity: 0, scale: 0.97, y: 8 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.97, y: 8 }}
             transition={{ duration: 0.18 }}
-            className={`ds-surface-elevated w-full ${sizeClasses[size]} overflow-hidden my-8`}
+            className={`ds-surface-elevated w-full ${sizeClasses[size]} overflow-hidden my-8 focus:outline-none`}
           >
             <div className="px-6 py-4 border-b border-[var(--color-border)] flex items-center justify-between gap-4">
               <div>
-                <h2 id="modal-title" className="text-base font-bold text-[var(--color-text-primary)]">
+                <h2 id={titleId} className="text-base font-bold text-[var(--color-text-primary)]">
                   {title}
                 </h2>
                 {subtitle && (
-                  <p className="text-xs text-[var(--color-text-muted)] mt-0.5">{subtitle}</p>
+                  <p id={descId} className="text-xs text-[var(--color-text-muted)] mt-0.5">
+                    {subtitle}
+                  </p>
                 )}
               </div>
               <button

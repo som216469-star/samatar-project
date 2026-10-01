@@ -9,6 +9,7 @@ import {
   CheckCircle2
 } from "lucide-react";
 import type { FeeStructure } from "../../types";
+import { ConfirmDialog } from "../../components/ui/primitives";
 import { formatMoney, exportToExcel } from "./financeUtils";
 import { apiFetch } from "../../lib/apiClient";
 
@@ -41,6 +42,17 @@ export const FeeStructuresModule: React.FC<FeeStructuresModuleProps> = ({
   const [showModal, setShowModal] = useState(false);
   const [editingFee, setEditingFee] = useState<FeeStructure | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [confirmState, setConfirmState] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void | Promise<void>;
+  }>({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: () => {}
+  });
 
   const [form, setForm] = useState({
     name: "Lacagta Bishan",
@@ -106,14 +118,22 @@ export const FeeStructuresModule: React.FC<FeeStructuresModuleProps> = ({
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Ma hubtaa inaad tirtirto qaab-dhismeedkan fiiga?")) return;
-    try {
-      const res = await apiFetch(`/api/fee-structures/${id}`, { method: "DELETE" });
-      if (res.ok) onRefresh();
-    } catch (err) {
-      console.error(err);
-    }
+  const handleDelete = (id: string) => {
+    setConfirmState({
+      isOpen: true,
+      title: "Tirtir Qaab-dhismeedka Fiiga?",
+      message: "Ma hubtaa inaad tirtirto qaab-dhismeedkan fiiga?",
+      onConfirm: async () => {
+        try {
+          const res = await apiFetch(`/api/fee-structures/${id}`, { method: "DELETE" });
+          if (res.ok) onRefresh();
+        } catch (err) {
+          console.error(err);
+        } finally {
+          setConfirmState((prev) => ({ ...prev, isOpen: false }));
+        }
+      }
+    });
   };
 
   const handleExportExcel = () => {
@@ -206,7 +226,12 @@ export const FeeStructuresModule: React.FC<FeeStructuresModuleProps> = ({
       </div>
 
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in"
+          role="dialog"
+          aria-modal="true"
+          aria-label={editingFee ? "Wax ka beddel Fiiga" : "Kudar Qaab-dhismeed Fi Cusub"}
+        >
           <div className="bg-[#0f0f0f] border border-[#ffffff10] rounded-sm w-full max-w-md shadow-2xl p-6 relative">
             <button
               className="absolute right-4 top-4 p-1.5 rounded-sm text-[#737373] hover:bg-[#ffffff05]"
@@ -327,6 +352,14 @@ export const FeeStructuresModule: React.FC<FeeStructuresModuleProps> = ({
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        isOpen={confirmState.isOpen}
+        title={confirmState.title}
+        message={confirmState.message}
+        onConfirm={confirmState.onConfirm}
+        onCancel={() => setConfirmState((prev) => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 };

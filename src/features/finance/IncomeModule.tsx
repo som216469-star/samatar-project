@@ -10,6 +10,7 @@ import {
   Tag
 } from "lucide-react";
 import type { IncomeRecord } from "../../types";
+import { ConfirmDialog } from "../../components/ui/primitives";
 import { formatMoney, exportToExcel } from "./financeUtils";
 import { apiFetch } from "../../lib/apiClient";
 
@@ -43,6 +44,17 @@ export const IncomeModule: React.FC<IncomeModuleProps> = ({
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [showModal, setShowModal] = useState(showCreateModalDefault);
   const [submitting, setSubmitting] = useState(false);
+  const [confirmState, setConfirmState] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void | Promise<void>;
+  }>({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: () => {}
+  });
 
   const [form, setForm] = useState({
     category: "Donations",
@@ -89,14 +101,22 @@ export const IncomeModule: React.FC<IncomeModuleProps> = ({
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Ma hubtaa inaad tirtirto dakhligan? (Delete income)")) return;
-    try {
-      const res = await apiFetch(`/api/income/${id}`, { method: "DELETE" });
-      if (res.ok) onRefresh();
-    } catch (err) {
-      console.error(err);
-    }
+  const handleDelete = (id: string) => {
+    setConfirmState({
+      isOpen: true,
+      title: "Tirtir Dakhliga?",
+      message: "Ma hubtaa inaad tirtirto dakhligan? (Delete income)",
+      onConfirm: async () => {
+        try {
+          const res = await apiFetch(`/api/income/${id}`, { method: "DELETE" });
+          if (res.ok) onRefresh();
+        } catch (err) {
+          console.error(err);
+        } finally {
+          setConfirmState((prev) => ({ ...prev, isOpen: false }));
+        }
+      }
+    });
   };
 
   const handleExportExcel = () => {
@@ -227,7 +247,12 @@ export const IncomeModule: React.FC<IncomeModuleProps> = ({
 
       {/* ADD INCOME MODAL */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Diiwaangeli Dakhli Cusub (Record Income)"
+        >
           <div className="bg-[#0f0f0f] border border-[#ffffff10] rounded-sm w-full max-w-lg shadow-2xl p-6 relative">
             <button
               className="absolute right-4 top-4 p-1.5 rounded-sm text-[#737373] hover:bg-[#ffffff05]"
@@ -362,6 +387,14 @@ export const IncomeModule: React.FC<IncomeModuleProps> = ({
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        isOpen={confirmState.isOpen}
+        title={confirmState.title}
+        message={confirmState.message}
+        onConfirm={confirmState.onConfirm}
+        onCancel={() => setConfirmState((prev) => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 };

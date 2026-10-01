@@ -12,6 +12,7 @@ import {
   Calendar
 } from "lucide-react";
 import type { ExpenseRecord } from "../../types";
+import { ConfirmDialog } from "../../components/ui/primitives";
 import { formatMoney, exportToExcel } from "./financeUtils";
 import { apiFetch } from "../../lib/apiClient";
 
@@ -55,6 +56,17 @@ export const ExpensesModule: React.FC<ExpensesModuleProps> = ({
   const [showModal, setShowModal] = useState(showCreateModalDefault);
   const [editingExpense, setEditingExpense] = useState<ExpenseRecord | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [confirmState, setConfirmState] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void | Promise<void>;
+  }>({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: () => {}
+  });
 
   // Form State
   const [form, setForm] = useState({
@@ -151,14 +163,22 @@ export const ExpensesModule: React.FC<ExpensesModuleProps> = ({
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Ma hubtaa inaad tirtirto kharashkan? (Delete expense)")) return;
-    try {
-      const res = await apiFetch(`/api/expenses/${id}`, { method: "DELETE" });
-      if (res.ok) onRefresh();
-    } catch (err) {
-      console.error(err);
-    }
+  const handleDelete = (id: string) => {
+    setConfirmState({
+      isOpen: true,
+      title: "Tirtir Kharashka?",
+      message: "Ma hubtaa inaad tirtirto kharashkan? (Delete expense)",
+      onConfirm: async () => {
+        try {
+          const res = await apiFetch(`/api/expenses/${id}`, { method: "DELETE" });
+          if (res.ok) onRefresh();
+        } catch (err) {
+          console.error(err);
+        } finally {
+          setConfirmState((prev) => ({ ...prev, isOpen: false }));
+        }
+      }
+    });
   };
 
   const handleExportExcel = () => {
@@ -332,7 +352,12 @@ export const ExpensesModule: React.FC<ExpensesModuleProps> = ({
 
       {/* ADD / EDIT MODAL */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in"
+          role="dialog"
+          aria-modal="true"
+          aria-label={editingExpense ? "Wax ka beddel Kharashka" : "Qor Kharash Cusub (Record Expense)"}
+        >
           <div className="bg-[#0f0f0f] border border-[#ffffff10] rounded-sm w-full max-w-lg shadow-2xl p-6 relative">
             <button
               className="absolute right-4 top-4 p-1.5 rounded-sm text-[#737373] hover:bg-[#ffffff05]"
@@ -482,6 +507,14 @@ export const ExpensesModule: React.FC<ExpensesModuleProps> = ({
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        isOpen={confirmState.isOpen}
+        title={confirmState.title}
+        message={confirmState.message}
+        onConfirm={confirmState.onConfirm}
+        onCancel={() => setConfirmState((prev) => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 };

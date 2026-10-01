@@ -13,6 +13,7 @@ import {
   CheckCircle2
 } from "lucide-react";
 import type { Invoice, FeeStructure } from "../../types";
+import { ConfirmDialog } from "../../components/ui/primitives";
 import { formatMoney, exportToExcel, generateInvoicePDF, openWhatsApp } from "./financeUtils";
 import { apiFetch } from "../../lib/apiClient";
 
@@ -48,6 +49,17 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [confirmState, setConfirmState] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void | Promise<void>;
+  }>({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: () => {}
+  });
 
   // Single Invoice Form state
   const [singleForm, setSingleForm] = useState({
@@ -133,21 +145,34 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
     }
   };
 
-  const handleDeleteInvoice = async (id: string) => {
-    if (!confirm("Ma hubtaa inaad tirtirto biilkan? (Confirm invoice deletion)")) return;
-    try {
-      const res = await apiFetch(`/api/invoices/${id}`, { method: "DELETE" });
-      if (res.ok) onRefresh();
-    } catch (err) {
-      console.error(err);
-    }
+  const handleDeleteInvoice = (id: string) => {
+    setConfirmState({
+      isOpen: true,
+      title: "Tirtir Biilka?",
+      message: "Ma hubtaa inaad tirtirto biilkan? (Confirm invoice deletion)",
+      onConfirm: async () => {
+        try {
+          const res = await apiFetch(`/api/invoices/${id}`, { method: "DELETE" });
+          if (res.ok) onRefresh();
+        } catch (err) {
+          console.error(err);
+        } finally {
+          setConfirmState((prev) => ({ ...prev, isOpen: false }));
+        }
+      }
+    });
   };
 
   const handleSendWhatsApp = (inv: Invoice) => {
     const student = students.find((s) => s.id === inv.studentId);
     const phone = inv.guardianPhone || student?.guardianPhone;
     if (!phone) {
-      alert("Waalidka telefoonkiisa lama hayo (No guardian phone number on record)");
+      setConfirmState({
+        isOpen: true,
+        title: "Telefoon Lama Helin",
+        message: "Waalidka telefoonkiisa lama hayo (No guardian phone number on record).",
+        onConfirm: () => setConfirmState((prev) => ({ ...prev, isOpen: false }))
+      });
       return;
     }
     const message = `Salaamu Calaykum. Waxaan ku ogeysiinaynaa in biilka waxbarashada ee ardayga: ${inv.studentName} uu diyaar yahay.\nBiilka #: ${inv.invoiceNumber}\nCadadka Guud: ${currency} ${inv.total}\nBaaqiga Hada: ${currency} ${inv.balance}\nXilliga Bixinta: ${inv.dueDate}\nMahadsanidin.`;
@@ -342,7 +367,12 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
 
       {/* SINGLE INVOICE MODAL */}
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Abuur Biil Cusub (Create Single Invoice)"
+        >
           <div className="bg-[#0f0f0f] border border-[#ffffff10] rounded-sm w-full max-w-lg shadow-2xl p-6 relative">
             <button
               className="absolute right-4 top-4 p-1.5 rounded-sm text-[#737373] hover:bg-[#ffffff05]"
@@ -465,7 +495,12 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
 
       {/* BULK INVOICE MODAL */}
       {showBulkModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Abuur Biilal Wadajir ah (Bulk Invoice Generation)"
+        >
           <div className="bg-[#0f0f0f] border border-[#ffffff10] rounded-sm w-full max-w-lg shadow-2xl p-6 relative">
             <button
               className="absolute right-4 top-4 p-1.5 rounded-sm text-[#737373] hover:bg-[#ffffff05]"
@@ -572,6 +607,14 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        isOpen={confirmState.isOpen}
+        title={confirmState.title}
+        message={confirmState.message}
+        onConfirm={confirmState.onConfirm}
+        onCancel={() => setConfirmState((prev) => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 };

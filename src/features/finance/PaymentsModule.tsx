@@ -10,6 +10,7 @@ import {
   CreditCard
 } from "lucide-react";
 import type { PaymentTransaction, Invoice } from "../../types";
+import { ConfirmDialog } from "../../components/ui/primitives";
 import { formatMoney, exportToExcel, generateReceiptPDF, openWhatsApp } from "./financeUtils";
 import { apiFetch } from "../../lib/apiClient";
 
@@ -44,6 +45,17 @@ export const PaymentsModule: React.FC<PaymentsModuleProps> = ({
   const [receivedBy, setReceivedBy] = useState("Accountant");
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split("T")[0]);
   const [submitting, setSubmitting] = useState(false);
+  const [confirmState, setConfirmState] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void | Promise<void>;
+  }>({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: () => {}
+  });
 
   // Synced invoice if selected
   const activeInv = invoices.find((inv) => inv.id === (selectedInvoiceId || activeInvoiceForPayment?.id));
@@ -64,11 +76,21 @@ export const PaymentsModule: React.FC<PaymentsModuleProps> = ({
   const handleRecordPaymentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeInv) {
-      alert("Fadlan dooro biilka (Please select an invoice)");
+      setConfirmState({
+        isOpen: true,
+        title: "Dooro Biilka",
+        message: "Fadlan dooro biilka (Please select an invoice)",
+        onConfirm: () => setConfirmState((prev) => ({ ...prev, isOpen: false }))
+      });
       return;
     }
     if (paymentAmount <= 0) {
-      alert("Cadadka lacagtu waa inuu ka bataa 0 (Amount must be > 0)");
+      setConfirmState({
+        isOpen: true,
+        title: "Cadadka Lacagta",
+        message: "Cadadka lacagtu waa inuu ka bataa 0 (Amount must be > 0)",
+        onConfirm: () => setConfirmState((prev) => ({ ...prev, isOpen: false }))
+      });
       return;
     }
 
@@ -93,7 +115,12 @@ export const PaymentsModule: React.FC<PaymentsModuleProps> = ({
         onRefresh();
       } else {
         const data = await res.json();
-        alert(data.error || "Khalad ayaa dhacay intii lacagta la qabanayay");
+        setConfirmState({
+          isOpen: true,
+          title: "Khalad",
+          message: data.error || "Khalad ayaa dhacay intii lacagta la qabanayay",
+          onConfirm: () => setConfirmState((prev) => ({ ...prev, isOpen: false }))
+        });
       }
     } catch (err) {
       console.error(err);
@@ -106,7 +133,12 @@ export const PaymentsModule: React.FC<PaymentsModuleProps> = ({
     const inv = invoices.find((i) => i.id === p.invoiceId);
     const phone = inv?.guardianPhone;
     if (!phone) {
-      alert("Telefoonka waalidka lama hayo (No phone number available)");
+      setConfirmState({
+        isOpen: true,
+        title: "Telefoon Lama Helin",
+        message: "Telefoonka waalidka lama hayo (No phone number available)",
+        onConfirm: () => setConfirmState((prev) => ({ ...prev, isOpen: false }))
+      });
       return;
     }
     const message = `Mahadsanid! Waxaan xaqiijinaynaa in la qabtay lacag bixintaada ee ardayga: ${p.studentName}.\nRasiidka #: ${p.receiptNumber}\nCadadka: ${currency} ${p.amount}\nHabka: ${p.paymentMethod}\nTaariikh: ${p.paymentDate}\nBaaqiga Hada: ${currency} ${p.remainingBalance ?? 0}\nMahadsanidin.`;
@@ -238,7 +270,12 @@ export const PaymentsModule: React.FC<PaymentsModuleProps> = ({
 
       {/* RECORD PAYMENT MODAL */}
       {activeInvoiceForPayment && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Qabo Lacag Bixin (Record Payment)"
+        >
           <div className="bg-[#0f0f0f] border border-[#ffffff10] rounded-sm w-full max-w-lg shadow-2xl p-6 relative">
             <button
               className="absolute right-4 top-4 p-1.5 rounded-sm text-[#737373] hover:bg-[#ffffff05]"
@@ -382,6 +419,14 @@ export const PaymentsModule: React.FC<PaymentsModuleProps> = ({
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        isOpen={confirmState.isOpen}
+        title={confirmState.title}
+        message={confirmState.message}
+        onConfirm={confirmState.onConfirm}
+        onCancel={() => setConfirmState((prev) => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 };

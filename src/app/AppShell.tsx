@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   Menu,
   X,
@@ -25,7 +25,11 @@ import {
   PeopleSubSection,
   FinanceSubSection,
   NavItemConfig,
-  NavChildItem
+  NavChildItem,
+  NormalizedRole,
+  getAuthorizedNavItems,
+  canRoleAccessStudentSubSection,
+  canRoleAccessPeopleSubSection
 } from './navigationConfig';
 import { OfflineSyncBadge } from '../components/OfflineSyncBadge';
 import { PWAInstallButton } from '../components/PWAInstallButton';
@@ -43,7 +47,7 @@ export interface AppShellBadges {
 export interface AppShellProps {
   user: {
     email: string;
-    role?: 'admin' | 'teacher' | 'staff';
+    role?: NormalizedRole | string;
     schoolId?: string;
     name?: string;
   };
@@ -99,6 +103,34 @@ export const AppShell: React.FC<AppShellProps> = ({
   });
   const [commandOpen, setCommandOpen] = useState(false);
   const [commandQuery, setCommandQuery] = useState('');
+  const [selectedCommandIndex, setSelectedCommandIndex] = useState(0);
+
+  const commandTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const commandDialogRef = useRef<HTMLDivElement | null>(null);
+  const commandInputRef = useRef<HTMLInputElement | null>(null);
+
+  const authorizedNavItems = useMemo(() => getAuthorizedNavItems(user.role), [user.role]);
+  const canAddStudent = useMemo(
+    () => canRoleAccessStudentSubSection('add', user.role),
+    [user.role]
+  );
+  const canViewTeachers = useMemo(
+    () => canRoleAccessPeopleSubSection('teachers', user.role),
+    [user.role]
+  );
+
+  const openCommandPalette = useCallback(() => {
+    setCommandOpen(true);
+    setSelectedCommandIndex(0);
+  }, []);
+
+  const closeCommandPalette = useCallback(() => {
+    setCommandOpen(false);
+    setCommandQuery('');
+    requestAnimationFrame(() => {
+      commandTriggerRef.current?.focus();
+    });
+  }, []);
 
   // Auto-expand parent group when activeTab matches
   useEffect(() => {
@@ -114,7 +146,11 @@ export const AppShell: React.FC<AppShellProps> = ({
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
-        setCommandOpen((prev) => !prev);
+        setCommandOpen((prev) => {
+          const next = !prev;
+          if (next) setSelectedCommandIndex(0);
+          return next;
+        });
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -207,39 +243,41 @@ export const AppShell: React.FC<AppShellProps> = ({
     return trail;
   }, [activeTab, studentSubSection, peopleSubSection, financeSubSection, settings.schoolName, onNavigate]);
 
-  // Command palette search results
+  // Command palette search results (strictly filtered by authorized navigation)
   const commandResults = useMemo(() => {
     const q = commandQuery.trim().toLowerCase();
-    const matchedNav = NAVIGATION_CONFIG.flatMap((item) => {
-      if (item.children) {
-        return item.children.map((c) => ({
-          id: c.id,
-          label: `${item.label} → ${c.label}`,
-          category: 'Navigation',
-          action: () => {
-            onNavigate(c.tab, {
-              studentSubSection: c.studentSubSection,
-              financeSubSection: c.financeSubSection
-            });
-            setCommandOpen(false);
-          }
-        }));
-      }
-      return [
-        {
-          id: item.id,
-          label: `${item.label} (${item.subLabel || item.group})`,
-          category: 'Navigation',
-          action: () => {
-            onNavigate(item.tab, {
-              peopleSubSection: item.peopleSubSection,
-              financeSubSection: item.financeSubSection
-            });
-            setCommandOpen(false);
-          }
+    const matchedNav = authorizedNavItems
+      .flatMap((item) => {
+        if (item.children && item.children.length > 0) {
+          return item.children.map((c) => ({
+            id: c.id,
+            label: `${item.label} → ${c.label}`,
+            category: 'Navigation',
+            action: () => {
+              onNavigate(c.tab, {
+                studentSubSection: c.studentSubSection,
+                financeSubSection: c.financeSubSection
+              });
+              closeCommandPalette();
+            }
+          }));
         }
-      ];
-    }).filter((n) => !q || n.label.toLowerCase().includes(q));
+        return [
+          {
+            id: item.id,
+            label: `${item.label} (${item.subLabel || item.group})`,
+            category: 'Navigation',
+            action: () => {
+              onNavigate(item.tab, {
+                peopleSubSection: item.peopleSubSection,
+                financeSubSection: item.financeSubSection
+              });
+              closeCommandPalette();
+            }
+          }
+        ];
+      })
+      .filter((n) => !q || n.label.toLowerCase().includes(q));
 
     const matchedStudents = q
       ? students
@@ -252,18 +290,124 @@ export const AppShell: React.FC<AppShellProps> = ({
           .slice(0, 5)
       : [];
 
-    const matchedTeachers = q
-      ? teachers
-          .filter((t) => t.name.toLowerCase().includes(q) || (t.email && t.email.toLowerCase().includes(q)))
-          .slice(0, 3)
-      : [];
+    const matchedTeachers =
+      q && canViewTeachers
+        ? teachers
+            .filter(
+              (t) =>
+                t.name.toLowerCase().includes(q) ||
+                (t.email && t.email.toLowerCase().includes(q))
+            )
+            .slice(0, 3)
+        : [];
 
     return {
       nav: matchedNav.slice(0, 7),
       students: matchedStudents,
       teachers: matchedTeachers
     };
-  }, [commandQuery, students, teachers, onNavigate]);
+  }, [commandQuery, authorizedNavItems, students, teachers, canViewTeachers, onNavigate, closeCommandPalette]);
+
+  const flatCommandItems = useMemo(() => {
+    const items: Array<{
+      id: string;
+      type: 'nav' | 'student' | 'teacher';
+      primaryLabel: string;
+      secondaryLabel?: string;
+      metaLabel: string;
+      onSelect: () => void;
+    }> = [];
+
+    commandResults.nav.forEach((nav) => {
+      items.push({
+        id: `nav-${nav.id}`,
+        type: 'nav',
+        primaryLabel: nav.label,
+        metaLabel: 'Jump →',
+        onSelect: nav.action
+      });
+    });
+
+    commandResults.students.forEach((student) => {
+      items.push({
+        id: `student-${student.id}`,
+        type: 'student',
+        primaryLabel: student.fullName,
+        secondaryLabel: `(${student.id})`,
+        metaLabel: student.class,
+        onSelect: () => {
+          onOpenStudentProfile(student);
+          closeCommandPalette();
+        }
+      });
+    });
+
+    commandResults.teachers.forEach((teacher) => {
+      items.push({
+        id: `teacher-${teacher.id}`,
+        type: 'teacher',
+        primaryLabel: teacher.name,
+        metaLabel: teacher.specialization || 'Teacher',
+        onSelect: () => {
+          onNavigate('people', { peopleSubSection: 'teachers' });
+          closeCommandPalette();
+        }
+      });
+    });
+
+    return items;
+  }, [commandResults, onOpenStudentProfile, onNavigate, closeCommandPalette]);
+
+  useEffect(() => {
+    setSelectedCommandIndex(0);
+  }, [commandQuery]);
+
+  const handleCommandKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      closeCommandPalette();
+      return;
+    }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (flatCommandItems.length > 0) {
+        setSelectedCommandIndex((prev) => (prev + 1) % flatCommandItems.length);
+      }
+      return;
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (flatCommandItems.length > 0) {
+        setSelectedCommandIndex(
+          (prev) => (prev - 1 + flatCommandItems.length) % flatCommandItems.length
+        );
+      }
+      return;
+    }
+    if (e.key === 'Enter' && flatCommandItems.length > 0) {
+      const target = flatCommandItems[selectedCommandIndex];
+      if (target) {
+        e.preventDefault();
+        target.onSelect();
+      }
+      return;
+    }
+    if (e.key === 'Tab' && commandDialogRef.current) {
+      const focusable = Array.from(
+        commandDialogRef.current.querySelectorAll('input, button:not([disabled])')
+      ) as HTMLElement[];
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+  };
 
   const renderSidebarContent = (isMobile: boolean = false) => {
     const collapsed = !isMobile && sidebarCollapsed;
@@ -328,22 +472,7 @@ export const AppShell: React.FC<AppShellProps> = ({
           className="flex-1 overflow-y-auto px-3 py-4 space-y-5"
         >
           {NAVIGATION_GROUPS.map((group) => {
-            const teacherAllowedTabs: AppTabId[] = [
-              'overview',
-              'students',
-              'attendance',
-              'exams',
-              'timetable',
-              'announcements',
-              'settings'
-            ];
-            const items = NAVIGATION_CONFIG.filter((i) => {
-              if (i.group !== group.id) return false;
-              if (user.role === 'teacher') {
-                return teacherAllowedTabs.includes(i.tab);
-              }
-              return true;
-            });
+            const items = authorizedNavItems.filter((i) => i.group === group.id);
             if (items.length === 0) return null;
 
             return (
@@ -641,8 +770,11 @@ export const AppShell: React.FC<AppShellProps> = ({
           <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
             {/* Global Search / Command Palette Trigger */}
             <button
+              ref={commandTriggerRef}
               type="button"
-              onClick={() => setCommandOpen(true)}
+              onClick={openCommandPalette}
+              aria-haspopup="dialog"
+              aria-expanded={commandOpen}
               className="flex items-center gap-2.5 px-3 py-1.5 rounded-[var(--radius-sm)] bg-[var(--color-surface-muted)] hover:bg-[var(--color-surface-hover)] border border-[var(--color-border)] text-xs text-[var(--color-text-secondary)] transition-colors cursor-pointer"
               title="Quick Search & Command (Ctrl+K)"
             >
@@ -681,15 +813,17 @@ export const AppShell: React.FC<AppShellProps> = ({
               {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4" />}
             </button>
 
-            {/* Primary Quick Action: Add Student */}
-            <button
-              type="button"
-              onClick={() => onNavigate('students', { studentSubSection: 'add' })}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[var(--radius-sm)] bg-[var(--color-brand)] hover:bg-[var(--color-brand-hover)] text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Add Student</span>
-            </button>
+            {/* Primary Quick Action: Add Student (only for authorized roles) */}
+            {canAddStudent && (
+              <button
+                type="button"
+                onClick={() => onNavigate('students', { studentSubSection: 'add' })}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[var(--radius-sm)] bg-[var(--color-brand)] hover:bg-[var(--color-brand-hover)] text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Add Student</span>
+              </button>
+            )}
           </div>
         </header>
 
@@ -707,8 +841,13 @@ export const AppShell: React.FC<AppShellProps> = ({
             role="dialog"
             aria-modal="true"
             aria-label="Global Command Search"
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget) closeCommandPalette();
+            }}
           >
             <motion.div
+              ref={commandDialogRef}
+              onKeyDown={handleCommandKeyDown}
               initial={{ opacity: 0, scale: 0.97, y: -8 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.97, y: -8 }}
@@ -716,9 +855,19 @@ export const AppShell: React.FC<AppShellProps> = ({
               className="ds-surface-elevated w-full max-w-xl overflow-hidden shadow-2xl"
             >
               <div className="px-4 py-3 border-b border-[var(--color-border)] flex items-center gap-3">
-                <Search className="w-4 h-4 text-[var(--color-brand)] shrink-0" />
+                <Search className="w-4 h-4 text-[var(--color-brand)] shrink-0" aria-hidden="true" />
                 <input
+                  ref={commandInputRef}
                   type="text"
+                  role="combobox"
+                  aria-expanded={commandOpen}
+                  aria-controls="command-palette-listbox"
+                  aria-activedescendant={
+                    flatCommandItems[selectedCommandIndex]
+                      ? `command-option-${flatCommandItems[selectedCommandIndex].id}`
+                      : undefined
+                  }
+                  aria-label="Search modules, students, and teachers"
                   autoFocus
                   value={commandQuery}
                   onChange={(e) => setCommandQuery(e.target.value)}
@@ -727,98 +876,70 @@ export const AppShell: React.FC<AppShellProps> = ({
                 />
                 <button
                   type="button"
-                  onClick={() => setCommandOpen(false)}
+                  onClick={closeCommandPalette}
+                  aria-label="Close command search"
                   className="px-1.5 py-0.5 text-[10px] font-mono uppercase rounded-[var(--radius-xs)] border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] cursor-pointer"
                 >
                   ESC
                 </button>
               </div>
 
-              <div className="max-h-96 overflow-y-auto p-3 space-y-4">
-                {commandResults.students.length > 0 && (
-                  <div className="space-y-1">
-                    <div className="px-2 text-[10px] font-bold uppercase tracking-wider text-[var(--color-text-muted)]">
-                      Students
-                    </div>
-                    {commandResults.students.map((st) => (
+              <div
+                id="command-palette-listbox"
+                role="listbox"
+                aria-label="Command search results"
+                className="max-h-96 overflow-y-auto p-3 space-y-2"
+              >
+                {flatCommandItems.length === 0 ? (
+                  <div
+                    role="status"
+                    aria-live="polite"
+                    className="py-8 text-center text-xs text-[var(--color-text-muted)]"
+                  >
+                    No matching modules or records found for "{commandQuery}".
+                  </div>
+                ) : (
+                  flatCommandItems.map((item, idx) => {
+                    const isSelected = idx === selectedCommandIndex;
+                    return (
                       <button
-                        key={st.id}
+                        key={item.id}
+                        id={`command-option-${item.id}`}
                         type="button"
-                        onClick={() => {
-                          setCommandOpen(false);
-                          onOpenStudentProfile(st);
-                        }}
-                        className="w-full flex items-center justify-between px-3 py-2 rounded-[var(--radius-sm)] hover:bg-[var(--color-surface-hover)] text-left text-xs cursor-pointer"
+                        role="option"
+                        aria-selected={isSelected}
+                        onMouseEnter={() => setSelectedCommandIndex(idx)}
+                        onClick={item.onSelect}
+                        className={`w-full flex items-center justify-between px-3 py-2 rounded-[var(--radius-sm)] text-left text-xs transition-colors cursor-pointer ${
+                          isSelected
+                            ? 'bg-[var(--color-brand-soft)] border border-[var(--color-brand-border)] text-[var(--color-text-primary)]'
+                            : 'hover:bg-[var(--color-surface-hover)] border border-transparent'
+                        }`}
                       >
-                        <div className="flex items-center gap-2.5">
-                          <Users className="w-3.5 h-3.5 text-[var(--color-brand)]" />
-                          <span className="font-semibold text-[var(--color-text-primary)]">
-                            {st.fullName}
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          {item.type === 'student' ? (
+                            <Users className="w-3.5 h-3.5 text-[var(--color-brand)] shrink-0" />
+                          ) : item.type === 'teacher' ? (
+                            <GraduationCap className="w-3.5 h-3.5 text-[var(--color-info)] shrink-0" />
+                          ) : (
+                            <ShieldCheck className="w-3.5 h-3.5 text-[var(--color-text-muted)] shrink-0" />
+                          )}
+                          <span className="font-semibold text-[var(--color-text-primary)] truncate">
+                            {item.primaryLabel}
                           </span>
-                          <span className="text-[11px] font-mono text-[var(--color-text-muted)]">
-                            ({st.id})
-                          </span>
+                          {item.secondaryLabel && (
+                            <span className="text-[11px] font-mono text-[var(--color-text-muted)] shrink-0">
+                              {item.secondaryLabel}
+                            </span>
+                          )}
                         </div>
-                        <span className="text-[11px] text-[var(--color-text-secondary)]">
-                          Class {st.class}
+                        <span className="text-[11px] font-mono text-[var(--color-text-secondary)] shrink-0 ml-2">
+                          {item.metaLabel}
                         </span>
                       </button>
-                    ))}
-                  </div>
+                    );
+                  })
                 )}
-
-                {commandResults.teachers.length > 0 && (
-                  <div className="space-y-1">
-                    <div className="px-2 text-[10px] font-bold uppercase tracking-wider text-[var(--color-text-muted)]">
-                      Teachers
-                    </div>
-                    {commandResults.teachers.map((tc) => (
-                      <button
-                        key={tc.id}
-                        type="button"
-                        onClick={() => {
-                          setCommandOpen(false);
-                          onNavigate('people', { peopleSubSection: 'teachers' });
-                        }}
-                        className="w-full flex items-center justify-between px-3 py-2 rounded-[var(--radius-sm)] hover:bg-[var(--color-surface-hover)] text-left text-xs cursor-pointer"
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <GraduationCap className="w-3.5 h-3.5 text-[var(--color-info)]" />
-                          <span className="font-semibold text-[var(--color-text-primary)]">
-                            {tc.name}
-                          </span>
-                        </div>
-                        <span className="text-[11px] text-[var(--color-text-secondary)]">
-                          {tc.specialization || 'Teacher'}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                <div className="space-y-1">
-                  <div className="px-2 text-[10px] font-bold uppercase tracking-wider text-[var(--color-text-muted)]">
-                    Modules & Actions
-                  </div>
-                  {commandResults.nav.map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={item.action}
-                      className="w-full flex items-center justify-between px-3 py-2 rounded-[var(--radius-sm)] hover:bg-[var(--color-surface-hover)] text-left text-xs cursor-pointer"
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <ShieldCheck className="w-3.5 h-3.5 text-[var(--color-text-muted)]" />
-                        <span className="font-medium text-[var(--color-text-primary)]">
-                          {item.label}
-                        </span>
-                      </div>
-                      <span className="text-[10px] font-mono uppercase text-[var(--color-text-muted)]">
-                        Jump →
-                      </span>
-                    </button>
-                  ))}
-                </div>
               </div>
             </motion.div>
           </div>

@@ -1,23 +1,14 @@
 import { enqueueOfflineAction } from '../utils/offlineSync';
+import { getStoredSession, getAuthToken } from './authStorage';
 
 /**
  * Centralized Institutional API Client
- * Automatically attaches tenant X-School-Email and Bearer JWT token from local session.
+ * Automatically attaches tenant X-School-Email and Bearer JWT token from canonical session storage.
  */
 export async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-  const userStr =
-    localStorage.getItem('dugsi_user') || localStorage.getItem('dugsiga_auth');
-  let schoolEmail = '';
-  let token = localStorage.getItem('dugsi_token') || '';
-  if (userStr) {
-    try {
-      const u = JSON.parse(userStr);
-      if (u && (u.schoolId || u.email)) schoolEmail = u.schoolId || u.email;
-      if (u && u.token) token = u.token;
-    } catch {
-      // Ignore malformed JSON in localStorage
-    }
-  }
+  const session = getStoredSession();
+  const schoolEmail = session?.schoolId || session?.email || '';
+  const token = getAuthToken();
 
   const headers = new Headers(init?.headers);
   if (schoolEmail) headers.set('X-School-Email', schoolEmail);
