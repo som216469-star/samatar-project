@@ -15,14 +15,19 @@ import {
   X,
   Plus
 } from 'lucide-react';
-import { SchoolClass } from '../../types';
+import { SchoolClass, Student } from '../../types';
 
 interface StudentAddViewProps {
   classes: SchoolClass[];
+  existingStudents?: Student[];
   onAddStudent: (studentData: any) => Promise<boolean>;
   onCancel: () => void;
   showToast: (msg: string, type: 'success' | 'error' | 'warning' | 'info') => void;
   theme?: 'light' | 'dark';
+}
+
+function generateStudentId(): string {
+  return 'STD-' + Math.floor(1000 + Math.random() * 9000);
 }
 
 function compressImage(file: File, maxDim = 400, quality = 0.85): Promise<string> {
@@ -65,6 +70,7 @@ function compressImage(file: File, maxDim = 400, quality = 0.85): Promise<string
 
 export default function StudentAddView({
   classes,
+  existingStudents = [],
   onAddStudent,
   onCancel,
   showToast,
@@ -72,12 +78,13 @@ export default function StudentAddView({
 }: StudentAddViewProps) {
   // Form Data organized into 5 logical sections
   const [formData, setFormData] = useState({
+    id: generateStudentId(),
     fullName: '',
     dateOfBirth: '',
     gender: 'Male' as 'Male' | 'Female',
     nationalId: '',
     class: classes[0]?.className || '',
-    section: '',
+    section: 'A',
     rollNumber: '',
     enrollmentDate: new Date().toISOString().split('T')[0],
     guardianName: '',
@@ -100,19 +107,60 @@ export default function StudentAddView({
     existingStudent?: any;
   }>({ found: false });
 
-  // Real-time Duplicate Check (Debounced)
+  // Real-time Duplicate Check (Instant Local + Debounced Server Check)
   useEffect(() => {
-    if (!formData.fullName.trim() || !formData.class) {
+    const cleanName = formData.fullName.trim().toLowerCase();
+    const cleanClass = formData.class;
+    const cleanPhone = formData.guardianPhone.trim();
+    const cleanId = formData.id.trim().toLowerCase();
+
+    if (!cleanName && !cleanPhone) {
       setDuplicateWarning({ found: false });
+      return;
+    }
+
+    // 1. Instant local check against existingStudents
+    const localMatch = existingStudents.find(s => {
+      const sameId = cleanId && s.id && s.id.toLowerCase() === cleanId;
+      const sameNameClass = cleanName && cleanClass && s.fullName.trim().toLowerCase() === cleanName && s.class === cleanClass;
+      const samePhone = cleanPhone.length >= 7 && s.guardianPhone && s.guardianPhone.replace(/\D/g, '') === cleanPhone.replace(/\D/g, '') && s.fullName.trim().toLowerCase() === cleanName;
+      return sameId || sameNameClass || samePhone;
+    });
+
+    if (localMatch) {
+      let reason = 'Ardaygan horey ayaa loo diiwaangeliyey';
+      if (cleanId && localMatch.id.toLowerCase() === cleanId) {
+        reason = 'Student ID-gan horey ayaa loo isticmaalay (Duplicate Student ID)';
+      } else if (localMatch.fullName.trim().toLowerCase() === cleanName && localMatch.class === cleanClass) {
+        reason = 'Magacan iyo fasalkan arday hore ayaa loogu diiwaangeliyey (Same Name & Class)';
+      } else {
+        reason = 'Magacan iyo telefoonka waalidka horey ayaa loo diiwaangeliyey';
+      }
+      setDuplicateWarning({
+        found: true,
+        reason,
+        existingStudent: localMatch
+      });
       return;
     }
 
     const timer = setTimeout(async () => {
       try {
+        const userStr = localStorage.getItem('dugsiga_auth');
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (userStr) {
+          try {
+            const u = JSON.parse(userStr);
+            if (u?.email) headers['X-School-Email'] = u.email;
+            if (u?.token) headers['Authorization'] = `Bearer ${u.token}`;
+          } catch {}
+        }
+
         const res = await fetch('/api/students/check-duplicate', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify({
+            studentId: formData.id.trim(),
             fullName: formData.fullName.trim(),
             className: formData.class,
             guardianPhone: formData.guardianPhone.trim()
@@ -120,24 +168,24 @@ export default function StudentAddView({
         });
         if (res.ok) {
           const result = await res.json();
-          if (result.duplicate) {
+          if (result.duplicate || result.hasDuplicate) {
+            const firstDup = result.existingStudent || (result.duplicates && result.duplicates[0]);
             setDuplicateWarning({
               found: true,
-              reason: result.reason,
-              existingStudent: result.existingStudent
+              reason: result.reason || firstDup?.matchReason,
+              existingStudent: firstDup
             });
           } else {
             setDuplicateWarning({ found: false });
           }
         }
       } catch (err) {
-        // Silently fail if offline or check is unavailable
-        console.warn("Duplicate check error:", err);
+        // Silently ignore if offline
       }
-    }, 450);
+    }, 350);
 
     return () => clearTimeout(timer);
-  }, [formData.fullName, formData.class, formData.guardianPhone]);
+  }, [formData.id, formData.fullName, formData.class, formData.guardianPhone, existingStudents]);
 
   // Handle Photo Upload with Auto-compression
   const handlePhotoUpload = async (file: File) => {
@@ -159,13 +207,15 @@ export default function StudentAddView({
     const errs: Record<string, string> = {};
     if (!formData.fullName.trim()) {
       errs.fullName = "Magaca oo buuxa waa qasab (Full Name is required)";
+    } else if (formData.fullName.trim().split(/\s+/).length < 2) {
+      errs.fullName = "Fadlan qor ugu yaraan 2 magac (At least two names)";
     }
     if (!formData.class) {
       errs.class = "Fasalka waa qasab (Class is required)";
     }
     if (!formData.guardianPhone.trim()) {
       errs.guardianPhone = "Telefoonka waalidka waa qasab (Guardian phone is required)";
-    } else if (formData.guardianPhone.length < 6) {
+    } else if (formData.guardianPhone.trim().length < 6) {
       errs.guardianPhone = "Fadlan geli lambar telefoon sax ah";
     }
 
@@ -184,20 +234,28 @@ export default function StudentAddView({
     if (!validate()) return;
 
     setIsSubmitting(true);
+    const nowDate = new Date().toISOString().split('T')[0];
     const newStudent = {
-      id: 'std-' + Math.random().toString(36).substr(2, 9),
+      id: formData.id.trim() || generateStudentId(),
       fullName: formData.fullName.trim(),
       class: formData.class,
       gender: formData.gender,
       guardianPhone: formData.guardianPhone.trim(),
       guardianName: formData.guardianName.trim() || undefined,
+      guardianRelationship: formData.guardianRelationship || undefined,
+      guardianPhoneAlt: formData.guardianPhoneAlt.trim() || undefined,
       status: formData.status,
       photo: formData.photo || undefined,
       dateOfBirth: formData.dateOfBirth || undefined,
-      address: formData.address || undefined,
-      section: formData.section || undefined,
-      rollNumber: formData.rollNumber || undefined,
-      createdAt: formData.enrollmentDate || new Date().toISOString().split('T')[0]
+      address: formData.address.trim() || undefined,
+      section: formData.section.trim() || undefined,
+      rollNumber: formData.rollNumber.trim() || undefined,
+      nationalId: formData.nationalId.trim() || undefined,
+      previousSchool: formData.previousSchool.trim() || undefined,
+      bloodGroup: formData.bloodGroup || undefined,
+      medicalNotes: formData.medicalNotes.trim() || undefined,
+      createdAt: formData.enrollmentDate || nowDate,
+      updatedAt: new Date().toISOString()
     };
 
     try {
@@ -206,6 +264,7 @@ export default function StudentAddView({
         showToast("Arday cusub si guul leh ayaa loo diiwaangeliyey!", "success");
         if (addAnother) {
           setFormData({
+            id: generateStudentId(),
             fullName: '',
             dateOfBirth: '',
             gender: 'Male',
@@ -213,7 +272,7 @@ export default function StudentAddView({
             class: formData.class, // Keep last selected class
             section: formData.section,
             rollNumber: '',
-            enrollmentDate: new Date().toISOString().split('T')[0],
+            enrollmentDate: nowDate,
             guardianName: '',
             guardianRelationship: 'Father',
             guardianPhone: '',
@@ -467,7 +526,27 @@ export default function StudentAddView({
               />
             </div>
 
-            <div className="space-y-1 md:col-span-3">
+            <div className="space-y-1 md:col-span-2">
+              <label className="text-[10px] font-bold uppercase tracking-widest text-[#a3a3a3] flex items-center justify-between">
+                <span>Student ID / Aqoonsiga Ardayga</span>
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, id: generateStudentId() })}
+                  className="text-[10px] text-[#c4b5fd] hover:underline flex items-center gap-1 font-mono"
+                >
+                  <RotateCcw className="w-3 h-3" /> Cusbooneysii ID
+                </button>
+              </label>
+              <input
+                type="text"
+                value={formData.id}
+                onChange={(e) => setFormData({ ...formData, id: e.target.value })}
+                placeholder="STD-1001"
+                className="w-full px-4 py-2.5 rounded-sm bg-[#0a0a0a] border border-[#ffffff10] text-xs text-[#c4b5fd] font-mono uppercase focus:outline-none focus:border-[#7c3aed]"
+              />
+            </div>
+
+            <div className="space-y-1">
               <label className="text-[10px] font-bold uppercase tracking-widest text-[#a3a3a3]">
                 Taariikhda Diiwaangelinta (Enrollment Date)
               </label>
@@ -475,7 +554,7 @@ export default function StudentAddView({
                 type="date"
                 value={formData.enrollmentDate}
                 onChange={(e) => setFormData({ ...formData, enrollmentDate: e.target.value })}
-                className="w-full md:w-1/3 px-4 py-2 rounded-sm bg-[#0a0a0a] border border-[#ffffff10] text-xs text-[#e5e5e5] focus:outline-none focus:border-[#7c3aed]"
+                className="w-full px-4 py-2 rounded-sm bg-[#0a0a0a] border border-[#ffffff10] text-xs text-[#e5e5e5] focus:outline-none focus:border-[#7c3aed]"
               />
             </div>
           </div>

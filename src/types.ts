@@ -19,6 +19,7 @@ export interface Student {
   previousSchool?: string;
   bloodGroup?: string;
   medicalNotes?: string;
+  notes?: string;
 }
 
 export interface AttendanceRecord {

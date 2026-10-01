@@ -1084,12 +1084,19 @@ app.get("/api/students", async (req, res) => {
         guardianPhone: s.guardian_phone,
         status: s.status || "active",
         createdAt: s.created_at,
+        updatedAt: s.updated_at || s.created_at || "",
         photo: s.photo || "",
         dateOfBirth: s.date_of_birth || "",
         address: s.address || "",
         guardianName: s.guardian_name || "",
+        guardianRelationship: s.guardian_relationship || "",
+        guardianPhoneAlt: s.guardian_phone_alt || "",
         section: s.section || "",
-        rollNumber: s.roll_number || ""
+        rollNumber: s.roll_number || "",
+        nationalId: s.national_id || "",
+        previousSchool: s.previous_school || "",
+        bloodGroup: s.blood_group || "",
+        medicalNotes: s.medical_notes || ""
       }));
       return res.json(students);
     } catch (e: any) { return handleSupabaseError(res, e, "Soo qaadista Ardayda (Fetch Students)"); }
@@ -1107,7 +1114,7 @@ app.post("/api/students/check-duplicate", async (req, res) => {
   const schoolId = getSchoolId(req);
   const { fullName, className, studentId, guardianPhone, excludeId } = req.body;
   if (!fullName && !studentId && !guardianPhone) {
-    return res.json({ hasDuplicate: false, duplicates: [] });
+    return res.json({ hasDuplicate: false, duplicate: false, duplicates: [] });
   }
 
   if (!useLocalFallback) {
@@ -1134,13 +1141,24 @@ app.post("/api/students/check-duplicate", async (req, res) => {
             fullName: s.full_name,
             class: s.class,
             guardianPhone: s.guardian_phone,
-            matchReason: sameId ? 'Same Student ID' : sameNameClass ? 'Same Name & Class' : 'Same Guardian Phone'
+            matchReason: sameId
+              ? 'Student ID-gan horey ayaa loo isticmaalay (Same Student ID)'
+              : sameNameClass
+              ? 'Magacan iyo fasalkan arday hore ayaa loogu diiwaangeliyey (Same Name & Class)'
+              : 'Taleefankan waalidka waxaa u diiwaangashan arday kale (Same Guardian Phone)'
           });
         }
       }
-      return res.json({ hasDuplicate: duplicates.length > 0, duplicates });
+      const hasDup = duplicates.length > 0;
+      return res.json({
+        hasDuplicate: hasDup,
+        duplicate: hasDup,
+        reason: hasDup ? duplicates[0].matchReason : undefined,
+        existingStudent: hasDup ? duplicates[0] : undefined,
+        duplicates
+      });
     } catch (e: any) {
-      return res.json({ hasDuplicate: false, duplicates: [] });
+      return res.json({ hasDuplicate: false, duplicate: false, duplicates: [] });
     }
   } else {
     const db = loadLocalDB();
@@ -1160,11 +1178,22 @@ app.post("/api/students/check-duplicate", async (req, res) => {
           fullName: s.fullName,
           class: s.class,
           guardianPhone: s.guardianPhone,
-          matchReason: sameId ? 'Same Student ID' : sameNameClass ? 'Same Name & Class' : 'Same Guardian Phone'
+          matchReason: sameId
+            ? 'Student ID-gan horey ayaa loo isticmaalay (Same Student ID)'
+            : sameNameClass
+            ? 'Magacan iyo fasalkan arday hore ayaa loogu diiwaangeliyey (Same Name & Class)'
+            : 'Taleefankan waalidka waxaa u diiwaangashan arday kale (Same Guardian Phone)'
         });
       }
     }
-    return res.json({ hasDuplicate: duplicates.length > 0, duplicates });
+    const hasDup = duplicates.length > 0;
+    return res.json({
+      hasDuplicate: hasDup,
+      duplicate: hasDup,
+      reason: hasDup ? duplicates[0].matchReason : undefined,
+      existingStudent: hasDup ? duplicates[0] : undefined,
+      duplicates
+    });
   }
 });
 
@@ -1174,6 +1203,7 @@ app.post("/api/students/bulk", async (req, res) => {
   if (!Array.isArray(studentIds) || studentIds.length === 0) {
     return res.status(400).json({ error: "studentIds waa qasab (studentIds array is required)" });
   }
+  const nowIso = new Date().toISOString();
 
   if (!useLocalFallback) {
     try {
@@ -1201,11 +1231,11 @@ app.post("/api/students/bulk", async (req, res) => {
   } else {
     const db = loadLocalDB();
     if (action === 'change_status' && targetStatus) {
-      db.students = db.students.map((s: any) => (studentIds.includes(s.id) && s.schoolId === schoolId) ? { ...s, status: targetStatus } : s);
+      db.students = db.students.map((s: any) => (studentIds.includes(s.id) && s.schoolId === schoolId) ? { ...s, status: targetStatus, updatedAt: nowIso } : s);
     } else if (action === 'change_class' && targetClass) {
-      db.students = db.students.map((s: any) => (studentIds.includes(s.id) && s.schoolId === schoolId) ? { ...s, class: targetClass } : s);
+      db.students = db.students.map((s: any) => (studentIds.includes(s.id) && s.schoolId === schoolId) ? { ...s, class: targetClass, updatedAt: nowIso } : s);
     } else if (action === 'archive') {
-      db.students = db.students.map((s: any) => (studentIds.includes(s.id) && s.schoolId === schoolId) ? { ...s, status: 'archived' } : s);
+      db.students = db.students.map((s: any) => (studentIds.includes(s.id) && s.schoolId === schoolId) ? { ...s, status: 'archived', updatedAt: nowIso } : s);
     } else if (action === 'delete') {
       db.students = db.students.filter((s: any) => !(studentIds.includes(s.id) && s.schoolId === schoolId));
       db.fees = db.fees.filter((f: any) => !(studentIds.includes(f.studentId) && f.schoolId === schoolId));
@@ -1223,17 +1253,25 @@ app.post("/api/students", async (req, res) => {
   
   const studentId = (student.id && String(student.id).trim()) || 'std-' + Math.random().toString(36).substring(2, 11);
   const createdAt = student.createdAt || new Date().toISOString().split('T')[0];
+  const updatedAt = student.updatedAt || new Date().toISOString();
   const fullStudent = { 
     ...student, 
     id: studentId, 
     createdAt,
+    updatedAt,
     status: student.status || "active",
     gender: student.gender || "Male",
     dateOfBirth: student.dateOfBirth || "",
     address: student.address || "",
     guardianName: student.guardianName || "",
+    guardianRelationship: student.guardianRelationship || "",
+    guardianPhoneAlt: student.guardianPhoneAlt || "",
     section: student.section || "",
-    rollNumber: student.rollNumber || ""
+    rollNumber: student.rollNumber || "",
+    nationalId: student.nationalId || "",
+    previousSchool: student.previousSchool || "",
+    bloodGroup: student.bloodGroup || "",
+    medicalNotes: student.medicalNotes || ""
   };
 
   if (!useLocalFallback) {
@@ -1293,7 +1331,7 @@ app.post("/api/students", async (req, res) => {
 app.put("/api/students/:id", async (req, res) => {
   const schoolId = getSchoolId(req);
   const { id } = req.params;
-  const updates = req.body;
+  const updates = { ...req.body, updatedAt: new Date().toISOString() };
   if (!useLocalFallback) {
     try {
       const updateObj: any = {};

@@ -17,6 +17,8 @@ import { Student, SchoolClass, FeeRecord } from '../../types';
 
 interface StudentExportViewProps {
   students: Student[];
+  filteredStudents?: Student[];
+  activeFilterCount?: number;
   classes: SchoolClass[];
   fees: FeeRecord[];
   settings: {
@@ -31,6 +33,8 @@ interface StudentExportViewProps {
 
 export default function StudentExportView({
   students,
+  filteredStudents,
+  activeFilterCount = 0,
   classes,
   fees,
   settings,
@@ -38,9 +42,12 @@ export default function StudentExportView({
   showToast,
   theme = 'dark'
 }: StudentExportViewProps) {
-  // Scope selector
-  const [scope, setScope] = useState<'all' | 'active' | 'inactive' | 'archived' | 'class'>('all');
+  // Scope selector — defaults to 'filtered' when user has active filters in the main list
+  const [scope, setScope] = useState<'filtered' | 'all' | 'active' | 'inactive' | 'archived' | 'class'>(() =>
+    filteredStudents && activeFilterCount > 0 ? 'filtered' : 'all'
+  );
   const [selectedClass, setSelectedClass] = useState<string>(classes[0]?.className || '');
+  const [selectedGender, setSelectedGender] = useState<'all' | 'Male' | 'Female'>('all');
   const [format, setFormat] = useState<'excel' | 'csv' | 'pdf'>('excel');
 
   // Column Selector
@@ -54,17 +61,30 @@ export default function StudentExportView({
     status: true,
     feeStatus: true,
     address: true,
-    registrationDate: true
+    registrationDate: true,
+    lastUpdated: true
   });
 
-  // Calculate filtered students based on scope
+  // Calculate filtered students based on scope + gender refinement
   const targetStudents = useMemo(() => {
-    if (scope === 'active') return students.filter(s => s.status === 'active');
-    if (scope === 'inactive') return students.filter(s => s.status === 'inactive');
-    if (scope === 'archived') return students.filter(s => s.status === 'archived');
-    if (scope === 'class' && selectedClass) return students.filter(s => s.class === selectedClass);
-    return students;
-  }, [students, scope, selectedClass]);
+    let base: Student[] = students;
+    if (scope === 'filtered' && filteredStudents) {
+      base = filteredStudents;
+    } else if (scope === 'active') {
+      base = students.filter(s => (s.status || 'active') === 'active');
+    } else if (scope === 'inactive') {
+      base = students.filter(s => s.status === 'inactive');
+    } else if (scope === 'archived') {
+      base = students.filter(s => s.status === 'archived');
+    } else if (scope === 'class' && selectedClass) {
+      base = students.filter(s => s.class === selectedClass);
+    }
+
+    if (selectedGender !== 'all') {
+      base = base.filter(s => s.gender === selectedGender);
+    }
+    return base;
+  }, [students, filteredStudents, scope, selectedClass, selectedGender]);
 
   const monthsList = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   const currentMonth = monthsList[new Date().getMonth()];
@@ -92,7 +112,8 @@ export default function StudentExportView({
       status: val,
       feeStatus: val,
       address: val,
-      registrationDate: val
+      registrationDate: val,
+      lastUpdated: val
     });
   };
 
@@ -121,6 +142,7 @@ export default function StudentExportView({
         if (selectedColumns.feeStatus) row["Fee Status"] = `${fee.status} (Bal: ${settings.currency} ${fee.balance})`;
         if (selectedColumns.address) row["Address"] = s.address || "-";
         if (selectedColumns.registrationDate) row["Registration Date"] = s.createdAt || "-";
+        if (selectedColumns.lastUpdated) row["Last Updated"] = (s.updatedAt || s.createdAt || "-").split('T')[0];
 
         return row;
       });
@@ -170,6 +192,7 @@ export default function StudentExportView({
         if (selectedColumns.gender) headers.push('GENDER');
         if (selectedColumns.guardianPhone) headers.push('PHONE');
         if (selectedColumns.status) headers.push('STATUS');
+        if (selectedColumns.registrationDate) headers.push('REG DATE');
 
         const tableBody = targetStudents.map((s, idx) => {
           const row: any[] = [idx + 1];
@@ -179,6 +202,7 @@ export default function StudentExportView({
           if (selectedColumns.gender) row.push(s.gender);
           if (selectedColumns.guardianPhone) row.push(s.guardianPhone || '-');
           if (selectedColumns.status) row.push((s.status || 'active').toUpperCase());
+          if (selectedColumns.registrationDate) row.push(s.createdAt || '-');
           return row;
         });
 
@@ -226,7 +250,7 @@ export default function StudentExportView({
             Dhoofinta Xogta Ardayda (Export Center)
           </h1>
           <p className="text-xs text-[#a3a3a3] mt-1">
-            Kala soo bax xogta ardayda qaabab kala duwan sida Excel, CSV, ama PDF adigoo dooranaya qaybaha aad u baahan tahay.
+            Kala soo bax xogta ardayda qaabab kala duwan sida Excel, CSV, ama PDF adigoo ixtiraamaya filter-yada iyo ogolaanshaha.
           </p>
         </div>
 
@@ -257,6 +281,31 @@ export default function StudentExportView({
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Current Filtered Students */}
+              {filteredStudents && (
+                <button
+                  type="button"
+                  onClick={() => setScope('filtered')}
+                  className={`p-4 rounded-sm border text-left transition-all col-span-1 sm:col-span-2 ${
+                    scope === 'filtered'
+                      ? 'bg-[#7c3aed]/15 border-[#7c3aed] text-white'
+                      : 'bg-[#0a0a0a] border-[#ffffff08] text-[#a3a3a3] hover:border-[#ffffff20]'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="text-xs font-bold uppercase tracking-wider text-[#c4b5fd]">
+                      Ardayda Hadda La Shaandheeyey (Current Filtered Students)
+                    </div>
+                    <span className="font-mono text-xs text-white font-bold">
+                      {filteredStudents.length} arday
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-[#737373] mt-1">
+                    Waxay ixtiraamaysaa raadinta iyo filter-yada aad ku dooratay bogga All Students
+                  </div>
+                </button>
+              )}
+
               <button
                 type="button"
                 onClick={() => setScope('all')}
@@ -283,7 +332,7 @@ export default function StudentExportView({
               >
                 <div className="text-xs font-bold uppercase tracking-wider text-emerald-400">Firfircoon Kaliya (Active)</div>
                 <div className="text-[11px] text-[#737373] mt-1">
-                  Ardayda hadda dhigata ({students.filter(s => s.status === 'active').length} arday)
+                  Ardayda hadda dhigata ({students.filter(s => (s.status || 'active') === 'active').length} arday)
                 </div>
               </button>
 
@@ -322,7 +371,7 @@ export default function StudentExportView({
                   ? 'bg-[#7c3aed]/10 border-[#7c3aed]'
                   : 'bg-[#0a0a0a] border-[#ffffff08]'
               }`}>
-                <div className="flex items-center justify-between gap-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="flex items-center gap-2 cursor-pointer" onClick={() => setScope('class')}>
                     <input
                       type="radio"
@@ -344,6 +393,29 @@ export default function StudentExportView({
                     </select>
                   )}
                 </div>
+              </div>
+            </div>
+
+            {/* Optional Gender Filter */}
+            <div className="pt-3 border-t border-[#ffffff08] flex flex-wrap items-center justify-between gap-3">
+              <span className="text-[11px] text-[#a3a3a3] uppercase tracking-wider font-semibold">
+                Shaandhaynta Jinsiga (Gender Filter):
+              </span>
+              <div className="flex items-center gap-1.5">
+                {(['all', 'Male', 'Female'] as const).map(g => (
+                  <button
+                    key={g}
+                    type="button"
+                    onClick={() => setSelectedGender(g)}
+                    className={`px-3 py-1 rounded-sm text-xs font-semibold transition-colors border ${
+                      selectedGender === g
+                        ? 'bg-[#7c3aed]/20 text-[#c4b5fd] border-[#7c3aed]'
+                        : 'bg-[#0a0a0a] text-[#737373] border-[#ffffff10] hover:text-white'
+                    }`}
+                  >
+                    {g === 'all' ? 'Lab & Dhedig (All)' : g === 'Male' ? 'Wiilal (Male)' : 'Gabdho (Female)'}
+                  </button>
+                ))}
               </div>
             </div>
           </div>
@@ -398,6 +470,60 @@ export default function StudentExportView({
                 <FileText className="w-6 h-6" />
                 <span className="text-xs font-bold uppercase tracking-wider">PDF Document</span>
               </button>
+            </div>
+          </div>
+
+          {/* SECTION 3: Live Export Preview */}
+          <div className="bg-[#0f0f0f] border border-[#ffffff10] rounded-sm p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-[#ffffff08] pb-3">
+              <div className="flex items-center gap-3">
+                <div className="w-7 h-7 rounded-sm bg-emerald-500/10 text-emerald-400 flex items-center justify-center font-bold text-xs">
+                  3
+                </div>
+                <h2 className="text-sm font-bold uppercase tracking-wider text-[#f5f5f5]">
+                  Muuqaalka Xogta La Dhoofinayo (Live Preview)
+                </h2>
+              </div>
+              <span className="text-[11px] font-mono text-[#a3a3a3]">
+                {targetStudents.length} records matched
+              </span>
+            </div>
+
+            <div className="overflow-x-auto border border-[#ffffff08] rounded-sm max-h-60">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="bg-[#0a0a0a] text-[10px] uppercase font-mono text-[#737373] border-b border-[#ffffff10] sticky top-0">
+                  <tr>
+                    <th className="py-2 px-3">#</th>
+                    {selectedColumns.id && <th className="py-2 px-3">ID</th>}
+                    {selectedColumns.fullName && <th className="py-2 px-3">Full Name</th>}
+                    {selectedColumns.class && <th className="py-2 px-3">Class</th>}
+                    {selectedColumns.gender && <th className="py-2 px-3">Gender</th>}
+                    {selectedColumns.status && <th className="py-2 px-3">Status</th>}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#ffffff06] text-[#d4d4d4]">
+                  {targetStudents.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-6 text-center text-[#737373]">
+                        Wax arday ah kuma jiraan qaybta la doortay
+                      </td>
+                    </tr>
+                  ) : (
+                    targetStudents.slice(0, 8).map((st, idx) => (
+                      <tr key={st.id} className="hover:bg-[#ffffff03]">
+                        <td className="py-2 px-3 font-mono text-[#737373]">{idx + 1}</td>
+                        {selectedColumns.id && <td className="py-2 px-3 font-mono text-white">{st.id}</td>}
+                        {selectedColumns.fullName && <td className="py-2 px-3 font-semibold text-white">{st.fullName}</td>}
+                        {selectedColumns.class && <td className="py-2 px-3 text-[#c4b5fd]">{st.class}</td>}
+                        {selectedColumns.gender && <td className="py-2 px-3">{st.gender}</td>}
+                        {selectedColumns.status && (
+                          <td className="py-2 px-3 font-mono uppercase text-[10px]">{st.status || 'active'}</td>
+                        )}
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
@@ -516,7 +642,17 @@ export default function StudentExportView({
                   onChange={(e) => setSelectedColumns({ ...selectedColumns, registrationDate: e.target.checked })}
                   className="accent-[#7c3aed]"
                 />
-                <span>Taariikhda Qorista</span>
+                <span>Taariikhda Qorista (Reg Date)</span>
+              </label>
+
+              <label className="flex items-center gap-2 cursor-pointer hover:text-white">
+                <input
+                  type="checkbox"
+                  checked={selectedColumns.lastUpdated}
+                  onChange={(e) => setSelectedColumns({ ...selectedColumns, lastUpdated: e.target.checked })}
+                  className="accent-[#7c3aed]"
+                />
+                <span>Ugu Dambeeyey (Last Updated)</span>
               </label>
             </div>
           </div>

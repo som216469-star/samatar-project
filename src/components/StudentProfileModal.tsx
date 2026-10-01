@@ -353,30 +353,35 @@ export default function StudentProfileModal({
                 </div>
               </div>
 
-              {/* 4. Status, Photo & System Information */}
+              {/* 4. Student Photo & Status */}
               <div className="bg-[#0a0a0a] border border-[#ffffff08] p-4 rounded-sm space-y-3">
-                <div className="flex items-center gap-2 text-amber-400 border-b border-[#ffffff08] pb-2">
-                  <ShieldCheck className="w-3.5 h-3.5" />
+                <div className="flex items-center gap-2 text-purple-400 border-b border-[#ffffff08] pb-2">
+                  <Camera className="w-3.5 h-3.5" />
                   <h4 className="text-[11px] font-bold text-[#f5f5f5] uppercase font-mono tracking-wider">
-                    4. Xaaladda & Xogta Nidaamka (System Info)
+                    4. Sawirka & Xaaladda (Student Photo & Status)
                   </h4>
                 </div>
-                <div className="grid grid-cols-2 gap-3 text-xs">
-                  <div>
-                    <span className="text-[#737373] block text-[10px] uppercase">Arday ID (System Key)</span>
-                    <span className="text-[#e5e5e5] font-mono">{student.id}</span>
-                  </div>
-                  <div>
-                    <span className="text-[#737373] block text-[10px] uppercase">Sawirka Aqoonsiga</span>
-                    <span className="text-[#e5e5e5]">{student.photo ? 'Waa diiwaangashan yahay' : 'Sawir ma jiro'}</span>
-                  </div>
-                  <div>
-                    <span className="text-[#737373] block text-[10px] uppercase">Last Updated</span>
-                    <span className="text-[#e5e5e5] font-mono">{student.updatedAt || student.createdAt || 'N/A'}</span>
-                  </div>
-                  <div>
-                    <span className="text-[#737373] block text-[10px] uppercase">Xaaladda Hadda</span>
-                    <span className="text-[#e5e5e5] font-mono uppercase">{student.status || 'active'}</span>
+                <div className="flex items-center gap-3">
+                  {student.photo ? (
+                    <img
+                      src={student.photo}
+                      alt={student.fullName}
+                      className="w-14 h-14 rounded-sm object-cover border border-[#7c3aed]/40 shrink-0"
+                    />
+                  ) : (
+                    <div className="w-14 h-14 rounded-sm bg-[#7c3aed]/10 border border-[#7c3aed]/30 flex items-center justify-center text-[#c4b5fd] font-bold font-mono text-base shrink-0">
+                      {student.fullName.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
+                    </div>
+                  )}
+                  <div className="space-y-1 text-xs">
+                    <div>
+                      <span className="text-[#737373] text-[10px] uppercase">Sawirka Aqoonsiga: </span>
+                      <span className="text-[#e5e5e5] font-medium">{student.photo ? 'Waa diiwaangashan yahay' : 'Sawir ma jiro'}</span>
+                    </div>
+                    <div>
+                      <span className="text-[#737373] text-[10px] uppercase">Xaaladda Hadda: </span>
+                      <span className="text-[#c4b5fd] font-mono font-bold uppercase">{student.status || 'active'}</span>
+                    </div>
                   </div>
                 </div>
 
@@ -402,6 +407,34 @@ export default function StudentProfileModal({
                     </div>
                   </div>
                 )}
+              </div>
+
+              {/* 5. System Information */}
+              <div className="md:col-span-2 bg-[#0a0a0a] border border-[#ffffff08] p-4 rounded-sm space-y-3">
+                <div className="flex items-center gap-2 text-amber-400 border-b border-[#ffffff08] pb-2">
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <h4 className="text-[11px] font-bold text-[#f5f5f5] uppercase font-mono tracking-wider">
+                    5. Xogta Nidaamka (System Information)
+                  </h4>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                  <div>
+                    <span className="text-[#737373] block text-[10px] uppercase">Student System ID</span>
+                    <span className="text-[#e5e5e5] font-mono font-semibold">{student.id}</span>
+                  </div>
+                  <div>
+                    <span className="text-[#737373] block text-[10px] uppercase">Registration Date</span>
+                    <span className="text-[#e5e5e5] font-mono">{student.createdAt || 'N/A'}</span>
+                  </div>
+                  <div>
+                    <span className="text-[#737373] block text-[10px] uppercase">Last Updated</span>
+                    <span className="text-[#e5e5e5] font-mono">{(student.updatedAt || student.createdAt || 'N/A').split('T')[0]}</span>
+                  </div>
+                  <div>
+                    <span className="text-[#737373] block text-[10px] uppercase">Record Status</span>
+                    <span className="text-emerald-400 font-mono uppercase">{student.status || 'active'}</span>
+                  </div>
+                </div>
               </div>
 
               {student.medicalNotes && (

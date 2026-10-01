@@ -151,20 +151,22 @@ export default function StudentsView({
 
   // --- Column Visibility (with localStorage persistence) ---
   const [visibleColumns, setVisibleColumns] = useState(() => {
-    try {
-      const saved = localStorage.getItem('dugsi_student_cols');
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return {
+    const defaults = {
       id: true,
       class: true,
       gender: true,
       guardian: true,
       status: true,
       fees: true,
+      regDate: true,
       updated: true,
       actions: true
     };
+    try {
+      const saved = localStorage.getItem('dugsi_student_cols');
+      if (saved) return { ...defaults, ...JSON.parse(saved) };
+    } catch {}
+    return defaults;
   });
   const [showColumnConfig, setShowColumnConfig] = useState(false);
 
@@ -968,16 +970,36 @@ export default function StudentsView({
 
   useEffect(() => {
     if (typeof window === 'undefined' || students.length === 0) return;
-    const path = window.location.pathname;
-    if (path.toLowerCase().startsWith('/students/')) {
-      const segment = decodeURIComponent(path.slice('/students/'.length).split('/')[0]);
-      const reserved = ['add', 'active', 'inactive', 'archived', 'import', 'export', 'all'];
-      if (segment && !reserved.includes(segment.toLowerCase())) {
-        const matched = students.find(s => s.id.toLowerCase() === segment.toLowerCase());
-        if (matched) setSelectedProfileStudent(matched);
+
+    const syncProfileFromUrl = () => {
+      const path = window.location.pathname;
+      if (path.toLowerCase().startsWith('/students/')) {
+        const segment = decodeURIComponent(path.slice('/students/'.length).split('/')[0]);
+        const reserved = ['add', 'active', 'inactive', 'archived', 'import', 'export', 'all'];
+        if (segment && !reserved.includes(segment.toLowerCase())) {
+          const matched = students.find(s => s.id.toLowerCase() === segment.toLowerCase());
+          if (matched) {
+            setSelectedProfileStudent(matched);
+            return;
+          }
+        }
       }
-    }
+      setSelectedProfileStudent(null);
+    };
+
+    syncProfileFromUrl();
+    window.addEventListener('popstate', syncProfileFromUrl);
+    return () => window.removeEventListener('popstate', syncProfileFromUrl);
   }, [students]);
+
+  const activeFilterCount = [
+    searchQuery.trim() !== '',
+    selectedClassFilter !== 'all',
+    selectedGenderFilter !== 'all',
+    selectedStatusFilter !== 'all',
+    selectedFeeFilter !== 'all',
+    selectedRegDateFilter !== 'all'
+  ].filter(Boolean).length;
 
   // =========================================================================
   // DEDICATED SUBSECTION PAGES: ADD, IMPORT, EXPORT
@@ -986,7 +1008,14 @@ export default function StudentsView({
     return (
       <StudentAddView
         classes={classes}
-        onAddStudent={onAddStudent}
+        existingStudents={students}
+        onAddStudent={async (studentData) => {
+          const ok = await onAddStudent(studentData);
+          if (ok && onNavigateSubSection) {
+            onNavigateSubSection('all');
+          }
+          return ok;
+        }}
         onCancel={() => onNavigateSubSection ? onNavigateSubSection('all') : undefined}
         showToast={showToast}
         theme={theme}
@@ -1019,6 +1048,8 @@ export default function StudentsView({
     return (
       <StudentExportView
         students={students}
+        filteredStudents={filteredStudents}
+        activeFilterCount={activeFilterCount}
         classes={classes}
         fees={fees}
         settings={settings}
@@ -1399,8 +1430,33 @@ export default function StudentsView({
             )}
           </div>
 
-          {/* Quick Filters */}
-          <div className="flex items-center gap-2 flex-wrap">
+          {/* Mobile Filter Drawer Trigger + Quick Filters */}
+          <div className="flex items-center gap-2 md:hidden">
+            <button
+              type="button"
+              onClick={() => setShowFiltersDrawer(true)}
+              className="flex-1 px-3 py-2 bg-[#0a0a0a] border border-[#ffffff15] rounded-sm text-xs text-[#e5e5e5] flex items-center justify-center gap-2 font-semibold"
+            >
+              <Filter className="w-3.5 h-3.5 text-[#7c3aed]" />
+              <span>Filter & Sort</span>
+              {activeFilterCount > 0 && (
+                <span className="px-1.5 py-0.2 bg-[#7c3aed] text-white text-[10px] font-mono rounded-xs">
+                  {activeFilterCount}
+                </span>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowColumnConfig(!showColumnConfig)}
+              className="px-3 py-2 bg-[#0a0a0a] border border-[#ffffff15] rounded-sm text-xs text-[#cccccc] flex items-center gap-1.5"
+            >
+              <Layers className="w-3.5 h-3.5 text-[#c4b5fd]" />
+              <span>Cols</span>
+            </button>
+          </div>
+
+          {/* Desktop Quick Filters */}
+          <div className="hidden md:flex items-center gap-2 flex-wrap">
             {/* Class Filter */}
             <select
               value={selectedClassFilter}
@@ -1504,6 +1560,7 @@ export default function StudentsView({
                     { key: 'guardian', label: 'Waalidka (Guardian)' },
                     { key: 'fees', label: 'Biilka Bisha (Fees)' },
                     { key: 'status', label: 'Xaaladda (Status)' },
+                    { key: 'regDate', label: 'Registration Date' },
                     { key: 'updated', label: 'Last Updated' },
                   ].map(col => (
                     <label key={col.key} className="flex items-center gap-2 cursor-pointer text-[#d4d4d4] hover:text-white">
@@ -1687,7 +1744,8 @@ export default function StudentsView({
                   {visibleColumns.guardian !== false && <th className="px-4 py-3.5">Waalidka / Guardian</th>}
                   {visibleColumns.fees !== false && <th className="px-4 py-3.5">Biilka Bisha</th>}
                   {visibleColumns.status !== false && <th className="px-4 py-3.5">Status</th>}
-                  {visibleColumns.updated !== false && <th className="px-4 py-3.5">Reg / Updated</th>}
+                  {visibleColumns.regDate !== false && <th className="px-4 py-3.5">Reg. Date</th>}
+                  {visibleColumns.updated !== false && <th className="px-4 py-3.5">Last Updated</th>}
                   <th className="px-4 py-3.5 text-right">Hawlaha / Actions</th>
                 </tr>
               </thead>
@@ -1862,13 +1920,17 @@ export default function StudentsView({
                           </td>
                         )}
 
-                        {/* Registration & Last Updated */}
+                        {/* Registration Date */}
+                        {visibleColumns.regDate !== false && (
+                          <td className="px-4 py-3 font-mono text-[10px] text-[#a3a3a3]">
+                            {student.createdAt || '-'}
+                          </td>
+                        )}
+
+                        {/* Last Updated */}
                         {visibleColumns.updated !== false && (
                           <td className="px-4 py-3 font-mono text-[10px] text-[#888888]">
-                            <div>Reg: {student.createdAt || '-'}</div>
-                            {student.updatedAt && (
-                              <div className="text-[9px] text-[#555555]">Upd: {student.updatedAt.split('T')[0]}</div>
-                            )}
+                            {student.updatedAt ? student.updatedAt.split('T')[0] : (student.createdAt || '-')}
                           </td>
                         )}
 
@@ -2047,14 +2109,26 @@ export default function StudentsView({
       )}
 
       {/* 6. PAGINATION CONTROLS */}
-      {totalPages > 1 && (
+      {filteredStudents.length > 0 && (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-[#0f0f0f] border border-[#ffffff10] rounded-sm p-3.5">
-          <p className="text-xs text-[#737373]">
-            Showing <strong className="text-white font-mono">{((currentPage - 1) * pageSize) + 1}</strong> to{' '}
-            <strong className="text-white font-mono">
-              {Math.min(currentPage * pageSize, filteredStudents.length)}
-            </strong> of <strong className="text-white font-mono">{filteredStudents.length}</strong> students
-          </p>
+          <div className="flex items-center gap-3">
+            <p className="text-xs text-[#737373]">
+              Showing <strong className="text-white font-mono">{((currentPage - 1) * pageSize) + 1}</strong> to{' '}
+              <strong className="text-white font-mono">
+                {Math.min(currentPage * pageSize, filteredStudents.length)}
+              </strong> of <strong className="text-white font-mono">{filteredStudents.length}</strong> students
+            </p>
+            <select
+              value={pageSize}
+              onChange={(e) => setPageSize(Number(e.target.value))}
+              className="bg-[#0a0a0a] text-[11px] font-mono text-[#cccccc] border border-[#ffffff15] px-2 py-1 rounded-sm"
+            >
+              <option value={10}>10 / page</option>
+              <option value={25}>25 / page</option>
+              <option value={50}>50 / page</option>
+              <option value={100}>100 / page</option>
+            </select>
+          </div>
 
           <div className="flex items-center gap-2">
             <button
@@ -2085,6 +2159,148 @@ export default function StudentsView({
       {/* =========================================================================
           MODALS SECTION
           ========================================================================= */}
+
+      {/* MOBILE FILTER DRAWER */}
+      {showFiltersDrawer && (
+        <div className="fixed inset-0 z-50 md:hidden flex justify-end bg-black/80 backdrop-blur-sm animate-fade-in">
+          <div className="w-full max-w-xs bg-[#0f0f0f] border-l border-[#ffffff15] h-full flex flex-col justify-between p-5 overflow-y-auto shadow-2xl">
+            <div className="space-y-5">
+              <div className="flex items-center justify-between border-b border-[#ffffff10] pb-3">
+                <div className="flex items-center gap-2">
+                  <Filter className="w-4 h-4 text-[#7c3aed]" />
+                  <h3 className="text-sm font-bold text-white uppercase tracking-wider">Filter & Sort Students</h3>
+                </div>
+                <button
+                  onClick={() => setShowFiltersDrawer(false)}
+                  className="p-1.5 text-[#737373] hover:text-white rounded-sm"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Class Filter */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-[#888888]">Fasalka (Class)</label>
+                <select
+                  value={selectedClassFilter}
+                  onChange={(e) => setSelectedClassFilter(e.target.value)}
+                  className="w-full px-3 py-2.5 bg-[#0a0a0a] text-xs text-[#e5e5e5] border border-[#ffffff12] rounded-sm focus:outline-none focus:border-[#7c3aed]"
+                >
+                  <option value="all">Dhammaan Fasallada (All Classes)</option>
+                  {classes.map(c => (
+                    <option key={c.id} value={c.className}>{c.className}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Status Filter */}
+              {subSection === 'all' && (
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-[#888888]">Xaaladda (Status)</label>
+                  <select
+                    value={selectedStatusFilter}
+                    onChange={(e) => setSelectedStatusFilter(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-[#0a0a0a] text-xs text-[#e5e5e5] border border-[#ffffff12] rounded-sm focus:outline-none focus:border-[#7c3aed]"
+                  >
+                    <option value="all">Dhammaan Xaaladaha (All Status)</option>
+                    <option value="active">Active (Firfircoon)</option>
+                    <option value="inactive">Inactive (Aan Firfircoonayn)</option>
+                    <option value="archived">Archived (La Kaydiyey)</option>
+                  </select>
+                </div>
+              )}
+
+              {/* Gender Filter */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-[#888888]">Jinsiga (Gender)</label>
+                <select
+                  value={selectedGenderFilter}
+                  onChange={(e) => setSelectedGenderFilter(e.target.value)}
+                  className="w-full px-3 py-2.5 bg-[#0a0a0a] text-xs text-[#e5e5e5] border border-[#ffffff12] rounded-sm focus:outline-none focus:border-[#7c3aed]"
+                >
+                  <option value="all">Lab & Dhedig (All Genders)</option>
+                  <option value="Male">Wiilal (Male)</option>
+                  <option value="Female">Gabdho (Female)</option>
+                </select>
+              </div>
+
+              {/* Registration Date Filter */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-[#888888]">Taariikhda Diiwaangelinta (Registration Date)</label>
+                <select
+                  value={selectedRegDateFilter}
+                  onChange={(e) => setSelectedRegDateFilter(e.target.value)}
+                  className="w-full px-3 py-2.5 bg-[#0a0a0a] text-xs text-[#e5e5e5] border border-[#ffffff12] rounded-sm focus:outline-none focus:border-[#7c3aed]"
+                >
+                  <option value="all">Dhammaan Taariikhaha (All Dates)</option>
+                  <option value="today">Maanta La Qoray (Today)</option>
+                  <option value="this_month">Bishan La Qoray (This Month)</option>
+                  <option value="this_year">Sanadkan (This Year)</option>
+                </select>
+              </div>
+
+              {/* Fee Status Filter */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-[#888888]">Biilka Bisha (Fee Status)</label>
+                <select
+                  value={selectedFeeFilter}
+                  onChange={(e) => setSelectedFeeFilter(e.target.value)}
+                  className="w-full px-3 py-2.5 bg-[#0a0a0a] text-xs text-[#e5e5e5] border border-[#ffffff12] rounded-sm focus:outline-none focus:border-[#7c3aed]"
+                >
+                  <option value="all">Dhammaan (All Fee Status)</option>
+                  <option value="paid">Lacagta La Bixiyey (Paid)</option>
+                  <option value="partial">Qabyo (Partial)</option>
+                  <option value="unpaid">Aan La Bixin (Unpaid)</option>
+                  <option value="attention">U Baahan Fiiro (Needs Attention)</option>
+                </select>
+              </div>
+
+              {/* Sort By */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-[#888888]">Kala Hormarinta (Sort By)</label>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as any)}
+                  className="w-full px-3 py-2.5 bg-[#0a0a0a] text-xs text-[#e5e5e5] border border-[#ffffff12] rounded-sm focus:outline-none focus:border-[#7c3aed]"
+                >
+                  <option value="name_asc">Magaca (A - Z)</option>
+                  <option value="name_desc">Magaca (Z - A)</option>
+                  <option value="id_asc">Student ID (A - Z)</option>
+                  <option value="date_desc">Taariikhda Qorista (Newest)</option>
+                  <option value="date_asc">Taariikhda Qorista (Oldest)</option>
+                  <option value="updated_desc">Ugu Dambeeyey Cusbooneysiin</option>
+                  <option value="class">Fasalka (Class)</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="pt-4 border-t border-[#ffffff10] flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery('');
+                  setSelectedClassFilter('all');
+                  setSelectedStatusFilter('all');
+                  setSelectedGenderFilter('all');
+                  setSelectedFeeFilter('all');
+                  setSelectedRegDateFilter('all');
+                  setSortBy('name_asc');
+                }}
+                className="flex-1 py-2.5 bg-[#141414] hover:bg-[#1f1f1f] text-xs font-bold uppercase tracking-wider text-rose-400 border border-rose-500/20 rounded-sm"
+              >
+                Reset
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowFiltersDrawer(false)}
+                className="flex-1 py-2.5 bg-[#7c3aed] hover:bg-[#6d28d9] text-xs font-bold uppercase tracking-wider text-white rounded-sm"
+              >
+                Apply ({filteredStudents.length})
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* A. 360° STUDENT PROFILE MODAL */}
       {selectedProfileStudent && (
