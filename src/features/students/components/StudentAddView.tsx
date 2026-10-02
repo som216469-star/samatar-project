@@ -116,6 +116,7 @@ export default function StudentAddView({
     const cleanAltPhone = formData.guardianPhoneAlt.trim();
     const cleanId = formData.id.trim().toLowerCase();
     const cleanRoll = formData.rollNumber.trim().toLowerCase();
+    const cleanSection = formData.section.trim().toLowerCase();
     const cleanNationalId = formData.nationalId.trim().toLowerCase();
 
     if (!cleanName && !cleanPhone) {
@@ -142,7 +143,9 @@ export default function StudentAddView({
       const sameRoll =
         cleanRoll &&
         s.rollNumber &&
-        s.rollNumber.trim().toLowerCase() === cleanRoll;
+        s.rollNumber.trim().toLowerCase() === cleanRoll &&
+        String(s.class || '').trim().toLowerCase() === cleanClass &&
+        String(s.section || '').trim().toLowerCase() === cleanSection;
       const sameNationalId =
         cleanNationalId &&
         s.nationalId &&
