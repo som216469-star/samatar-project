@@ -48,7 +48,7 @@ export default function StudentProfileModal({
   onClose,
   onEditStudent,
   onStatusChange,
-  canViewFinance = true,
+  canViewFinance = false,
   canViewAudit = false
 }: StudentProfileModalProps) {
   type ActivityItem = {
