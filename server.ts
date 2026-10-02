@@ -1494,6 +1494,7 @@ function validateStudentPayload(
   if (!readString("guardianName", "Magaca waalidka", 160, false)) return { ok: false, value: {}, error: value.__error };
   if (!readString("guardianRelationship", "Xiriirka waalidka", 60, false)) return { ok: false, value: {}, error: value.__error };
   if (!readString("guardianPhoneAlt", "Telefoonka labaad", 30, false)) return { ok: false, value: {}, error: value.__error };
+  if (!readString("emergencyContact", "Emergency Contact", 60, false)) return { ok: false, value: {}, error: value.__error };
   if (!readString("section", "Section", 50, false)) return { ok: false, value: {}, error: value.__error };
   if (!readString("rollNumber", "Roll Number", 50, false)) return { ok: false, value: {}, error: value.__error };
   if (!readString("nationalId", "National ID", 80, false)) return { ok: false, value: {}, error: value.__error };
@@ -1591,6 +1592,7 @@ function formatStudentRow(
     guardianName: s.guardian_name || "",
     guardianRelationship: s.guardian_relationship || "",
     guardianPhoneAlt: s.guardian_phone_alt || "",
+    emergencyContact: s.emergency_contact || "",
     section: s.section || "",
     rollNumber: s.roll_number || "",
     nationalId: canViewSensitive ? (s.national_id || "") : "",
@@ -2372,6 +2374,7 @@ app.get("/api/students", async (req, res) => {
         guardianName: student.guardianName || "",
         guardianRelationship: student.guardianRelationship || "",
         guardianPhoneAlt: student.guardianPhoneAlt || "",
+        emergencyContact: student.emergencyContact || "",
         section: student.section || "",
         rollNumber: student.rollNumber || "",
         nationalId: canViewSensitiveStudentData(authUser) ? (student.nationalId || "") : "",
@@ -2646,6 +2649,7 @@ app.post("/api/students/import", async (req, res) => {
         guardian_name: student.guardianName || "",
         guardian_relationship: student.guardianRelationship || "",
         guardian_phone_alt: student.guardianPhoneAlt || "",
+        emergency_contact: student.emergencyContact || "",
         section: student.section || "",
         roll_number: student.rollNumber || "",
         national_id: student.nationalId || "",
@@ -2769,6 +2773,7 @@ app.post("/api/students/import", async (req, res) => {
         guardianName: row.guardian_name,
         guardianRelationship: row.guardian_relationship,
         guardianPhoneAlt: row.guardian_phone_alt,
+        emergencyContact: row.emergency_contact,
         section: row.section,
         rollNumber: row.roll_number,
         nationalId: row.national_id,
@@ -3092,7 +3097,7 @@ app.put("/api/students/:id", async (req, res) => {
   if (!validation.ok) return res.status(400).json({ error: validation.error });
 
   const updates = validation.value;
-  const mutableKeys = ["fullName","class","gender","guardianPhone","status","photo","dateOfBirth","address","guardianName","guardianRelationship","guardianPhoneAlt","section","rollNumber","nationalId","previousSchool","bloodGroup","medicalNotes"];
+  const mutableKeys = ["fullName","class","gender","guardianPhone","status","photo","dateOfBirth","address","guardianName","guardianRelationship","guardianPhoneAlt","emergencyContact","section","rollNumber","nationalId","previousSchool","bloodGroup","medicalNotes"];
   const changedKeys = mutableKeys.filter((key) => Object.prototype.hasOwnProperty.call(updates, key));
   if (changedKeys.length === 0) return res.status(400).json({ error: "Wax isbeddel ah lama helin." });
 
@@ -3165,7 +3170,7 @@ app.put("/api/students/:id", async (req, res) => {
       const dbKey: Record<string, string> = {
         fullName:"full_name", class:"class", gender:"gender", guardianPhone:"guardian_phone", status:"status",
         photo:"photo", dateOfBirth:"date_of_birth", address:"address", guardianName:"guardian_name",
-        guardianRelationship:"guardian_relationship", guardianPhoneAlt:"guardian_phone_alt", section:"section",
+        guardianRelationship:"guardian_relationship", guardianPhoneAlt:"guardian_phone_alt", emergencyContact:"emergency_contact", section:"section",
         rollNumber:"roll_number", nationalId:"national_id", previousSchool:"previous_school",
         bloodGroup:"blood_group", medicalNotes:"medical_notes"
       };
