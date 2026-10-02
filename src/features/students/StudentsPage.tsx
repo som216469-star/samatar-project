@@ -116,7 +116,7 @@ export default function StudentsView({
   theme = 'dark',
   subSection = 'all',
   onNavigateSubSection,
-  userRole = 'admin'
+  userRole = 'unknown'
 }: StudentsViewProps) {
   const studentPermissions = useMemo(
     () => getStudentPermissions(userRole),
