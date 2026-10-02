@@ -1588,9 +1588,11 @@ async function studentClassExists(
     if (error) throw error;
     const rows = data || [];
     if (rows.length === 0) return false;
-    if (!cleanSection) return true;
 
     const hasSectionRows = rows.some((row: any) => String(row.section || '').trim() !== '');
+    if (!cleanSection) {
+      return !hasSectionRows;
+    }
     if (!hasSectionRows) return true;
 
     return rows.some(
@@ -1605,9 +1607,11 @@ async function studentClassExists(
       String(item.className || '').trim() === cleanClass
   );
   if (rows.length === 0) return false;
-  if (!cleanSection) return true;
 
   const hasSectionRows = rows.some((row: any) => String(row.section || '').trim() !== '');
+  if (!cleanSection) {
+    return !hasSectionRows;
+  }
   if (!hasSectionRows) return true;
 
   return rows.some(
