@@ -54,6 +54,99 @@ export function generateSecureToken(): string {
   return crypto.randomBytes(32).toString("hex");
 }
 
+// Password security:
+// - New passwords use scrypt with a random 128-bit salt.
+// - Legacy hashes from the old simpleHash() remain readable for one-time migration.
+// - Successful legacy logins are transparently upgraded to scrypt hashes.
+export function legacyPasswordHash(password: string): string {
+  let hash = 0;
+  for (let i = 0; i < password.length; i++) {
+    const char = password.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash = hash & hash;
+  }
+  return hash.toString(16);
+}
+
+function scryptAsync(password: string, salt: Buffer): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    crypto.scrypt(
+      password,
+      salt,
+      64,
+      { N: 16384, r: 8, p: 1, maxmem: 32 * 1024 * 1024 },
+      (error, derivedKey) => {
+        if (error) reject(error);
+        else resolve(derivedKey);
+      }
+    );
+  });
+}
+
+export async function hashPassword(password: string): Promise<string> {
+  const salt = crypto.randomBytes(16);
+  const derivedKey = await scryptAsync(password, salt);
+  return `scrypt${salt.toString("base64url")}${derivedKey.toString("base64url")}`;
+}
+
+export async function verifyPassword(
+  password: string,
+  storedHash: string
+): Promise<{ valid: boolean; needsRehash: boolean }> {
+  if (!storedHash) return { valid: false, needsRehash: false };
+
+  if (storedHash.startsWith("scrypt$")) {
+    const parts = storedHash.split("$");
+    if (parts.length !== 3) return { valid: false, needsRehash: false };
+
+    try {
+      const salt = Buffer.from(parts[1], "base64url");
+      const expected = Buffer.from(parts[2], "base64url");
+      const actual = await scryptAsync(password, salt);
+      const valid =
+        expected.length === actual.length &&
+        crypto.timingSafeEqual(expected, actual);
+      return { valid, needsRehash: false };
+    } catch {
+      return { valid: false, needsRehash: false };
+    }
+  }
+
+  const legacy = legacyPasswordHash(password);
+  const a = Buffer.from(legacy);
+  const b = Buffer.from(storedHash);
+  const valid = a.length === b.length && crypto.timingSafeEqual(a, b);
+  return { valid, needsRehash: valid };
+}
+
+export function getSessionFromRequest(req: express.Request): AuthenticatedUser | null {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    return getSession(authHeader.substring(7).trim());
+  }
+
+  const customToken = req.headers["x-session-token"] || req.headers["x-auth-token"];
+  if (typeof customToken === "string") {
+    return getSession(customToken.trim());
+  }
+
+  return null;
+}
+
+export function requireAuthenticatedRequest(
+  req: express.Request,
+  res: express.Response,
+  next: express.NextFunction
+): void {
+  if (!getSessionFromRequest(req)) {
+    res.status(401).json({
+      error: "Unauthorized. Fadlan marka hore gal akoonkaaga."
+    });
+    return;
+  }
+  next();
+}
+
 export function validatePassword(password: string): { valid: boolean; error?: string } {
   if (!password || typeof password !== "string") {
     return { valid: false, error: "Fadlan geli password sax ah." };
