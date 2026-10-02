@@ -1399,6 +1399,26 @@ function formatStudentRow(s: any): any {
   };
 }
 
+async function studentClassExists(schoolId: string, className: string): Promise<boolean> {
+  const cleanClass = className.trim();
+  if (!cleanClass) return false;
+
+  if (!useLocalFallback) {
+    const { data, error } = await supabase
+      .from("dugsiga_classes")
+      .select("id")
+      .eq("school_id", schoolId)
+      .eq("class_name", cleanClass)
+      .limit(1);
+    if (error) throw error;
+    return (data || []).length > 0;
+  }
+
+  return (loadLocalDB().classes || []).some(
+    (item: any) => item.schoolId === schoolId && String(item.className || "").trim() === cleanClass
+  );
+}
+
 async function findStudentUniquenessConflict(
   schoolId: string,
   candidate: Record<string, any>,
@@ -1966,6 +1986,10 @@ app.post("/api/students/bulk", async (req, res) => {
 
   if (!useLocalFallback) {
     try {
+      if (action === "change_class" && !(await studentClassExists(schoolId, targetClass))) {
+        return res.status(400).json({ error: "Fasalka cusub kama jiro school-kan." });
+      }
+
       const { data: rows, error: rowsError } = await supabase.from("dugsiga_students").select("id,class,status").eq("school_id", schoolId).in("id", studentIds);
       if (rowsError) throw rowsError;
       const found = rows || [];
@@ -2049,6 +2073,10 @@ app.post("/api/students", async (req, res) => {
 
   try {
     if (!useLocalFallback) {
+      if (!(await studentClassExists(schoolId, student.class))) {
+        return res.status(400).json({ error: "Fasalka la doortay kama jiro school-kan." });
+      }
+
       const conflict = await findStudentUniquenessConflict(schoolId, { ...student, id: studentId });
       if (conflict) return res.status(409).json({ error: conflict });
 
@@ -2129,10 +2157,15 @@ app.put("/api/students/:id", async (req, res) => {
       if (currentError) throw currentError;
       if (!current) return res.status(404).json({ error: "Ardayga lama helin." });
 
+      const nextClass = updates.class ?? current.class;
+      if (updates.class !== undefined && !(await studentClassExists(schoolId, String(nextClass)))) {
+        return res.status(400).json({ error: "Fasalka cusub kama jiro school-kan." });
+      }
+
       const candidate = {
         id,
         fullName: updates.fullName ?? current.full_name,
-        class: updates.class ?? current.class,
+        class: nextClass,
         rollNumber: updates.rollNumber ?? current.roll_number,
         nationalId: updates.nationalId ?? current.national_id
       };
