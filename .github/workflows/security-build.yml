@@ -33,5 +33,8 @@ jobs:
       - name: Production build
         run: npm run build
 
+      - name: Runtime smoke test
+        run: node scripts/server-smoke.mjs
+
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high
