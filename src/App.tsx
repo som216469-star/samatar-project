@@ -394,6 +394,7 @@ export default function App() {
             settings={data.settings}
             onAddStudent={data.handleApiAddStudent}
             onImportStudents={data.handleApiImportStudents}
+            userRole={user.systemRole || user.role}
             onUpdateStudent={data.handleApiUpdateStudent}
             onDeleteStudent={data.handleApiDeleteStudent}
             onBulkUpdate={data.handleApiBulkUpdate}
