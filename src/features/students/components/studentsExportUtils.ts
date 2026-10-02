@@ -73,7 +73,13 @@ export function exportStudentsToExcel(
       Status: s.status || 'active',
       'Guardian Phone': s.guardianPhone || '-',
       'Guardian Name': s.guardianName || '-',
+      'Guardian Relationship': s.guardianRelationship || '-',
+      'Guardian Phone Alt': s.guardianPhoneAlt || '-',
       Address: s.address || '-',
+      'National ID': s.nationalId || '-',
+      'Previous School': s.previousSchool || '-',
+      'Blood Group': s.bloodGroup || '-',
+      'Medical Notes': s.medicalNotes || '-',
       'Fee Status': fee.status,
       'Paid Amount': `${currency} ${fee.paid}`,
       Balance: `${currency} ${fee.balance}`,
@@ -104,6 +110,14 @@ export function exportStudentsToCSV(
     Gender: s.gender,
     Status: s.status || 'active',
     'Guardian Phone': s.guardianPhone || '-',
+    'Guardian Name': s.guardianName || '-',
+    'Guardian Relationship': s.guardianRelationship || '-',
+    'Guardian Phone Alt': s.guardianPhoneAlt || '-',
+    Address: s.address || '-',
+    'National ID': s.nationalId || '-',
+    'Previous School': s.previousSchool || '-',
+    'Blood Group': s.bloodGroup || '-',
+    'Medical Notes': s.medicalNotes || '-',
     'Registration Date': s.createdAt || '-'
   }));
   const ws = XLSX.utils.json_to_sheet(exportData);
@@ -220,6 +234,13 @@ export function downloadStudentsExcelTemplate(
       'Lab/Dhedig (Gender - Male/Female)': 'Male',
       'Telefoonka Waalidka (Guardian Phone)': '+252615123456',
       'Magaca Waalidka (Guardian Name)': 'Cali Jaamac',
+      'Xiriirka Waalidka (Relationship)': 'Aabbe',
+      'Telefoon Labaad (Guardian Phone Alt)': '',
+      Address: 'Muqdisho, Hodan',
+      'National ID': '',
+      'Iskuulkii Hore (Previous School)': '',
+      'Blood Group': '',
+      'Medical Notes': '',
       'Status (active/inactive/archived)': 'active'
     },
     {
@@ -231,6 +252,13 @@ export function downloadStudentsExcelTemplate(
       'Lab/Dhedig (Gender - Male/Female)': 'Female',
       'Telefoonka Waalidka (Guardian Phone)': '+252615654321',
       'Magaca Waalidka (Guardian Name)': 'Axmed Nuur',
+      'Xiriirka Waalidka (Relationship)': 'Hooyo',
+      'Telefoon Labaad (Guardian Phone Alt)': '',
+      Address: 'Muqdisho, Howlwadaag',
+      'National ID': '',
+      'Iskuulkii Hore (Previous School)': '',
+      'Blood Group': '',
+      'Medical Notes': '',
       'Status (active/inactive/archived)': 'active'
     }
   ];
