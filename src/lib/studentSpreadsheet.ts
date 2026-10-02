@@ -144,8 +144,9 @@ export async function downloadStudentSpreadsheet(
 }
 
 export function escapeCsvCell(value: unknown): string {
-  const text = String(normalizeCell(value) ?? '');
-  if (/[",\\n\\r]/.test(text)) {
+  const raw = String(normalizeCell(value) ?? '');
+  const text = /^[=+\-@]/.test(raw) ? "'" + raw : raw;
+  if (/[",\n\r]/.test(text)) {
     return '"' + text.replace(/"/g, '""') + '"';
   }
   return text;
