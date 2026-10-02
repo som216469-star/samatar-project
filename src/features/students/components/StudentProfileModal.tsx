@@ -13,6 +13,7 @@ import {
 import { motion } from 'motion/react';
 import { Student, AttendanceRecord, ExamScore, FeeRecord, Guardian } from '../../../types';
 import { Badge, Button } from '../../../components/ui/primitives';
+import { apiFetch } from '../../../lib/apiClient';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -46,9 +47,20 @@ export default function StudentProfileModal({
   onEditStudent,
   onStatusChange
 }: StudentProfileModalProps) {
-  const [activeTab, setActiveTab] = useState<'overview' | 'academic' | 'attendance' | 'fees'>(
-    'overview'
-  );
+  type ActivityItem = {
+    id: string;
+    action: string;
+    actorEmail: string;
+    actorRole: string;
+    changedFields: string[];
+    createdAt: string;
+  };
+
+  const [activeTab, setActiveTab] = useState<
+    'overview' | 'academic' | 'attendance' | 'fees' | 'activity'
+  >('overview');
+  const [activity, setActivity] = useState<ActivityItem[]>([]);
+  const [activityLoading, setActivityLoading] = useState(false);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -57,6 +69,35 @@ export default function StudentProfileModal({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onClose]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (activeTab !== 'activity') return;
+
+    const loadActivity = async () => {
+      setActivityLoading(true);
+      try {
+        const response = await apiFetch(
+          `/api/students/${encodeURIComponent(student.id)}/audit`
+        );
+        if (!response.ok) return;
+
+        const payload = await response.json();
+        if (!cancelled) setActivity(Array.isArray(payload) ? payload : []);
+      } catch {
+        if (!cancelled) setActivity([]);
+      } finally {
+        if (!cancelled) setActivityLoading(false);
+      }
+    };
+
+    void loadActivity();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, student.id]);
 
   const resolvedAttendance = attendance || attendanceRecords || [];
   const resolvedFees = fees || feeRecords || [];
@@ -305,7 +346,9 @@ export default function StudentProfileModal({
                 ? `Natiijada (${studentScores.length})`
                 : tab === 'attendance'
                 ? `Xaadiriska (${totalMarked})`
-                : `Lacagaha (${studentFees.length})`}
+                : tab === 'fees'
+                ? `Lacagaha (${studentFees.length})`
+                : 'Activity'}
             </button>
           ))}
 
@@ -323,6 +366,69 @@ export default function StudentProfileModal({
 
         {/* Tab Content */}
         <div className="p-5 sm:p-6 overflow-y-auto flex-1 text-xs space-y-4">
+          {activeTab === 'activity' && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h3 className="font-bold text-sm text-[var(--color-text-primary)]">
+                    Student Activity
+                  </h3>
+                  <p className="text-[11px] text-[var(--color-text-muted)]">
+                    Diiwaanka isbeddellada muhiimka ah ee ardaygan.
+                  </p>
+                </div>
+                <ShieldCheck className="w-4 h-4 text-[var(--color-brand)]" />
+              </div>
+
+              {activityLoading ? (
+                <div className="py-10 text-center text-[var(--color-text-muted)]">
+                  Loading activity...
+                </div>
+              ) : activity.length === 0 ? (
+                <div className="py-10 text-center text-[var(--color-text-muted)]">
+                  Weli activity audit ah lama hayo.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {activity.map((item) => (
+                    <div
+                      key={item.id}
+                      className="border border-[var(--color-border)] rounded-lg p-3 bg-[var(--color-surface-muted)]"
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                        <div>
+                          <p className="text-xs font-bold text-[var(--color-text-primary)] uppercase">
+                            {item.action}
+                          </p>
+                          <p className="text-[10px] text-[var(--color-text-muted)]">
+                            {item.actorEmail || 'System'}
+                            {item.actorRole ? ` · ${item.actorRole}` : ''}
+                          </p>
+                        </div>
+                        <span className="text-[10px] font-mono text-[var(--color-text-muted)]">
+                          {item.createdAt ? new Date(item.createdAt).toLocaleString() : 'N/A'}
+                        </span>
+                      </div>
+
+                      {item.changedFields.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mt-2">
+                          {item.changedFields.slice(0, 12).map((field) => (
+                            <span
+                              key={field}
+                              className="px-2 py-1 rounded-md border border-[var(--color-border)] text-[10px] text-[var(--color-text-secondary)]"
+                            >
+                              {field}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {activeTab === 'overview' && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* 1. Personal Information */}
@@ -451,7 +557,7 @@ export default function StudentProfileModal({
                       Cinwaanka Guriga
                     </span>
                     <span className="text-[var(--color-text-primary)]">
-                      {student.address || guardian?.address || 'Mogadishu'}
+                      {student.address || guardian?.address || 'Lama hayo'}
                     </span>
                   </div>
                 </div>
