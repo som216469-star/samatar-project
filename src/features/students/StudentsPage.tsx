@@ -269,10 +269,12 @@ export default function StudentsView({
     const female = students.filter(s => s.gender === 'Female').length;
 
     // Students with unpaid fees this month
-    const unpaidFeesCount = students.filter((s) => {
-      const fee = currentMonthFeeByStudent.get(s.id);
-      return !fee || fee.status === 'unpaid' || fee.status === 'partial';
-    }).length;
+    const unpaidFeesCount = studentPermissions.canViewFinance
+      ? students.filter((s) => {
+          const fee = currentMonthFeeByStudent.get(s.id);
+          return !fee || fee.status === 'unpaid' || fee.status === 'partial';
+        }).length
+      : 0;
 
     // Newly registered this month
     const monthPrefix = `${currentYear}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
@@ -283,7 +285,8 @@ export default function StudentsView({
       if (s.status === 'archived') return false;
       const missingPhone = !s.guardianPhone || s.guardianPhone.trim().length < 6;
       const fee = currentMonthFeeByStudent.get(s.id);
-      const hasUnpaid = !fee || fee.status === 'unpaid';
+      const hasUnpaid =
+        studentPermissions.canViewFinance && (!fee || fee.status === 'unpaid');
       return missingPhone || hasUnpaid;
     }).length;
 
@@ -331,7 +334,7 @@ export default function StudentsView({
       recentlyAdded,
       recentlyUpdated
     };
-  }, [students, fees, currentMonthFeeByStudent, currentMonth, currentYear]);
+  }, [students, fees, currentMonthFeeByStudent, currentMonth, currentYear, studentPermissions.canViewFinance]);
 
   // --- Real-time Duplicate Check in Form ---
   useEffect(() => {
@@ -1263,8 +1266,9 @@ export default function StudentsView({
         filteredStudents={filteredStudents}
         activeFilterCount={activeFilterCount}
         classes={classes}
-        fees={fees}
+        fees={studentPermissions.canViewFinance ? fees : []}
         settings={settings}
+        canViewFinance={studentPermissions.canViewFinance}
         onCancel={() => onNavigateSubSection ? onNavigateSubSection('all') : undefined}
         showToast={showToast}
         theme={theme}
@@ -1461,6 +1465,7 @@ export default function StudentsView({
         showDashboardDetails={showDashboardDetails}
         setShowDashboardDetails={setShowDashboardDetails}
         onOpenProfile={handleOpenProfile}
+        canViewFinance={studentPermissions.canViewFinance}
       />
 
       {/* 3 & 4. ADVANCED SEARCH, FILTER, COLUMN VISIBILITY & BULK ACTIONS TOOLBAR */}
@@ -1521,6 +1526,10 @@ export default function StudentsView({
         }}
         onOpenBulkArchive={() => setBulkActionModal({ isOpen: true, action: 'archive' })}
         onOpenBulkDelete={() => setBulkActionModal({ isOpen: true, action: 'delete' })}
+        canBulkManage={studentPermissions.canBulkManage}
+        canDeleteStudents={studentPermissions.canDelete}
+        canUpdateStudents={studentPermissions.canUpdate}
+        canViewFinance={studentPermissions.canViewFinance}
       />
 
       {/* 5. STUDENTS CONTENT VIEW (TABLE OR CARDS) & PAGINATION */}
@@ -1543,7 +1552,12 @@ export default function StudentsView({
         onOpenProfile={handleOpenProfile}
         onOpenEditModal={handleOpenEditModal}
         onQuickStatusChange={handleQuickStatusChange}
-        onDeleteStudentClick={setDeleteConfirmStudent}
+        onDeleteStudentClick={
+          studentPermissions.canDelete ? setDeleteConfirmStudent : () => undefined
+        }
+        canViewFinance={studentPermissions.canViewFinance}
+        canUpdateStudents={studentPermissions.canUpdate}
+        canDeleteStudents={studentPermissions.canDelete}
       />
 
       {/* =========================================================================
@@ -1555,7 +1569,7 @@ export default function StudentsView({
         <StudentProfileModal
           student={selectedProfileStudent}
           classes={classes}
-          fees={fees}
+          fees={studentPermissions.canViewFinance ? fees : []}
           attendance={attendance}
           examScores={examScores}
           subjects={subjects}
