@@ -1726,7 +1726,7 @@ async function studentClassExists(
       .from("dugsiga_classes")
       .select("id,class_name,section")
       .eq("school_id", schoolId)
-      .eq("class_name", cleanClass)
+      .ilike("class_name", escapeIlikePattern(cleanClass))
       .limit(100);
 
     if (error) throw error;
