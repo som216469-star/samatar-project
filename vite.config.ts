@@ -97,7 +97,12 @@ export default defineConfig(() => {
           manualChunks: {
             'vendor-react': ['react', 'react-dom'],
             'vendor-charts': ['recharts'],
-            'vendor-export': ['jspdf', 'jspdf-autotable', 'xlsx'],
+            'vendor-export': [
+              'jspdf',
+              'jspdf-autotable',
+              'read-excel-file',
+              'write-excel-file',
+            ],
             'vendor-ui': ['lucide-react', 'motion'],
           },
         },
