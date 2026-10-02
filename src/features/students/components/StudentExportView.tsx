@@ -55,6 +55,7 @@ export default function StudentExportView({
     section: true,
     rollNumber: true,
     gender: true,
+    dateOfBirth: true,
     guardianPhone: true,
     guardianPhoneAlt: false,
     emergencyContact: false,
@@ -145,6 +146,7 @@ export default function StudentExportView({
       section: val,
       rollNumber: val,
       gender: val,
+      dateOfBirth: val,
       guardianPhone: val,
       guardianPhoneAlt: val,
       emergencyContact: val,
@@ -181,6 +183,7 @@ export default function StudentExportView({
         if (selectedColumns.section) row['Section'] = s.section || '-';
         if (selectedColumns.rollNumber) row['Roll Number'] = s.rollNumber || '-';
         if (selectedColumns.gender) row['Gender'] = s.gender;
+        if (selectedColumns.dateOfBirth) row['Date of Birth'] = s.dateOfBirth || '-';
         if (selectedColumns.guardianPhone) row['Guardian Phone'] = s.guardianPhone || '-';
         if (selectedColumns.guardianPhoneAlt) row['Guardian Phone Alt'] = s.guardianPhoneAlt || '-';
         if (selectedColumns.emergencyContact) row['Emergency Contact'] = s.emergencyContact || '-';
@@ -715,6 +718,7 @@ export default function StudentExportView({
                 { key: 'section', label: 'Section' },
                 { key: 'rollNumber', label: 'Roll Number' },
                 { key: 'gender', label: 'Jinsiga (Gender)' },
+                { key: 'dateOfBirth', label: 'Taariikhda Dhalashada' },
                 { key: 'guardianPhoneAlt', label: 'Telefoonka Labaad' },
                 { key: 'guardianPhone', label: 'Telefoonka Waalidka' },
                 { key: 'guardianName', label: 'Magaca Waalidka' },
