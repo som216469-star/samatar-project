@@ -93,6 +93,7 @@ export default function StudentAddView({
     guardianRelationship: 'Father',
     guardianPhone: '',
     guardianPhoneAlt: '',
+    emergencyContact: '',
     address: '',
     previousSchool: '',
     bloodGroup: '',
@@ -124,6 +125,7 @@ export default function StudentAddView({
     const cleanClass = formData.class.trim().toLowerCase();
     const cleanPhone = formData.guardianPhone.trim();
     const cleanAltPhone = formData.guardianPhoneAlt.trim();
+    const cleanEmergencyContact = formData.emergencyContact.trim();
     const cleanId = formData.id.trim().toLowerCase();
     const cleanRoll = formData.rollNumber.trim().toLowerCase();
     const cleanSection = formData.section.trim().toLowerCase();
@@ -156,6 +158,10 @@ export default function StudentAddView({
         cleanNationalId &&
         s.nationalId &&
         s.nationalId.trim().toLowerCase() === cleanNationalId;
+      const sameEmergencyContact =
+        cleanEmergencyContact &&
+        s.emergencyContact &&
+        s.emergencyContact === cleanEmergencyContact;
       return Boolean(sameId || sameNameClass || samePhone || sameRoll || sameNationalId);
     });
 
@@ -293,6 +299,12 @@ export default function StudentAddView({
     if (guardianPhoneAlt && !/^[+0-9()\s.-]{7,30}$/.test(guardianPhoneAlt)) {
       errs.guardianPhoneAlt = 'Telefoonka labaad ma saxna';
     }
+    if (
+      formData.emergencyContact &&
+      !/^[+0-9()\s.-]{7,60}$/.test(formData.emergencyContact.trim())
+    ) {
+      errs.emergencyContact = 'Emergency Contact ma saxna';
+    }
 
     if (nationalId.length > 80) {
       errs.nationalId = 'National ID kama badnaan karo 80 xaraf';
@@ -380,6 +392,7 @@ export default function StudentAddView({
             guardianRelationship: 'Father',
             guardianPhone: '',
             guardianPhoneAlt: '',
+            emergencyContact: '',
             address: '',
             previousSchool: '',
             bloodGroup: '',
@@ -774,6 +787,28 @@ export default function StudentAddView({
                 placeholder="+252 61 5000000"
                 className="w-full ds-input font-mono"
               />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="font-semibold text-[var(--color-text-secondary)] block">
+                Emergency Contact
+              </label>
+              <input
+                type="tel"
+                value={formData.emergencyContact}
+                onChange={(e) => {
+                  setFormData({ ...formData, emergencyContact: e.target.value });
+                  if (formErrors.emergencyContact)
+                    setFormErrors({ ...formErrors, emergencyContact: '' });
+                }}
+                placeholder="+252 61 xxx xxxx"
+                className="w-full ds-input font-mono"
+              />
+              {formErrors.emergencyContact && (
+                <p className="text-[11px] text-[var(--color-danger)] font-semibold">
+                  {formErrors.emergencyContact}
+                </p>
+              )}
             </div>
 
             <div className="space-y-1.5 md:col-span-2">
