@@ -27,6 +27,7 @@ interface StudentExportViewProps {
   onCancel: () => void;
   showToast: (msg: string, type: 'success' | 'error' | 'warning' | 'info') => void;
   theme?: 'light' | 'dark';
+  canViewFinance?: boolean;
 }
 
 export default function StudentExportView({
@@ -37,7 +38,8 @@ export default function StudentExportView({
   fees,
   settings,
   onCancel,
-  showToast
+  showToast,
+  canViewFinance = true
 }: StudentExportViewProps) {
   const [scope, setScope] = useState<'filtered' | 'all' | 'active' | 'inactive' | 'archived' | 'class'>(() =>
     filteredStudents && activeFilterCount > 0 ? 'filtered' : 'all'
@@ -54,7 +56,7 @@ export default function StudentExportView({
     guardianPhone: true,
     guardianName: true,
     status: true,
-    feeStatus: true,
+    feeStatus: canViewFinance,
     address: true,
     registrationDate: true,
     lastUpdated: true
@@ -118,7 +120,7 @@ export default function StudentExportView({
       guardianPhone: val,
       guardianName: val,
       status: val,
-      feeStatus: val,
+      feeStatus: canViewFinance && val,
       address: val,
       registrationDate: val,
       lastUpdated: val
@@ -145,7 +147,7 @@ export default function StudentExportView({
         if (selectedColumns.guardianPhone) row['Guardian Phone'] = s.guardianPhone || '-';
         if (selectedColumns.guardianName) row['Guardian Name'] = s.guardianName || '-';
         if (selectedColumns.status) row['Status'] = s.status || 'active';
-        if (selectedColumns.feeStatus)
+        if (canViewFinance && selectedColumns.feeStatus)
           row['Fee Status'] = `${fee.status} (Bal: ${settings.currency} ${fee.balance})`;
         if (selectedColumns.address) row['Address'] = s.address || '-';
         if (selectedColumns.registrationDate) row['Registration Date'] = s.createdAt || '-';
