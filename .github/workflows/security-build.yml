@@ -58,6 +58,9 @@ jobs:
           git commit -m "chore: apply production dependency security fixes [skip ci]"
           git push
 
+      - name: Reinstall development dependencies
+        run: npm ci --include=dev
+
       - name: Type-check
         run: npm run lint
 
