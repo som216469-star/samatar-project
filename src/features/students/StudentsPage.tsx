@@ -878,7 +878,7 @@ export default function StudentsView({
           }
           if (onRefreshData) await onRefreshData();
           return {
-            success: okCount > 0 && failedCount === 0,
+            success: okCount > 0,
             imported: okCount,
             failed: failedCount
           };
