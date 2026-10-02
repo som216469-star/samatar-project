@@ -161,8 +161,9 @@ export interface Teacher {
 
 export interface AuthUser {
   email: string;
-  role: 'admin' | 'teacher' | 'staff';
+  role: 'admin' | 'teacher' | 'staff' | 'accountant';
   schoolId: string;
+  systemRole?: string;
   name?: string;
   teacherId?: string;
   assignedClasses?: string[];
