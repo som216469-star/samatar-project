@@ -329,6 +329,31 @@ CREATE TABLE IF NOT EXISTS dugsiga_notifications (
 );
 
 -- ----------------------------------------------------------------------------
+-- STUDENT UPDATED_AT AUTOMATION
+-- ----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.dugsiga_touch_student_updated_at()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = public
+AS $
+BEGIN
+  NEW.updated_at = timezone('utc'::text, now());
+  RETURN NEW;
+END;
+$;
+
+DROP TRIGGER IF EXISTS trg_dugsiga_students_updated_at ON public.dugsiga_students;
+
+CREATE TRIGGER trg_dugsiga_students_updated_at
+BEFORE UPDATE ON public.dugsiga_students
+FOR EACH ROW
+EXECUTE FUNCTION public.dugsiga_touch_student_updated_at();
+
+REVOKE ALL ON FUNCTION public.dugsiga_touch_student_updated_at() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.dugsiga_touch_student_updated_at() TO service_role;
+
+-- ----------------------------------------------------------------------------
 -- STUDENT AUDIT LOG
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS dugsiga_student_audit (
