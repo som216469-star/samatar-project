@@ -468,6 +468,7 @@ export function normalizeUserRole(role?: string | null): NormalizedRole {
 }
 
 export function getAuthorizedNavItems(role?: string | null): NavItemConfig[] {
+  const rawRole = String(role || '').toLowerCase().trim();
   const normalized = normalizeUserRole(role);
   if (normalized === 'admin') {
     return NAVIGATION_CONFIG;
@@ -509,10 +510,11 @@ export function getAuthorizedNavItems(role?: string | null): NavItemConfig[] {
     ];
     return NAVIGATION_CONFIG.filter((item) => allowedTabs.includes(item.tab));
   }
-  // staff
+  // Receptionist and Librarian map to the frontend "staff" role but retain
+  // their documented Students access. A generic Staff account does not.
   const allowedTabs: AppTabId[] = [
     'overview',
-    'students',
+    ...(rawRole === 'staff' ? [] : ['students' as AppTabId]),
     'attendance',
     'classes',
     'subjects',
@@ -564,7 +566,9 @@ export function canRoleAccessStudentSubSection(
   subSection: StudentSubSection,
   role?: string | null
 ): boolean {
+  const rawRole = String(role || '').toLowerCase().trim();
   const normalized = normalizeUserRole(role);
+  if (rawRole === 'staff') return false;
   if (normalized === 'admin' || normalized === 'staff') return true;
   if (normalized === 'teacher') {
     return subSection === 'all' || subSection === 'active' || subSection === 'export';
