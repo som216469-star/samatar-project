@@ -593,7 +593,7 @@ export default function StudentAddView({
                   placeholder="Tusaale: A, B, C"
                   className="w-full ds-input"
                 />
-              )
+              )}
             </div>
 
             <div className="space-y-1.5">
