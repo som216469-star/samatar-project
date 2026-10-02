@@ -409,16 +409,10 @@ function saveLocalDB(data: LocalDB) {
 }
 
 function getSchoolId(req: express.Request): string {
-  // ZERO TRUST CLIENT: Validate tenant from authenticated session or registered database record
+  // ZERO TRUST TENANCY: tenant identity must come only from the verified server session.
+  // Never accept a client-controlled school header or fallback tenant.
   const authUser = getAuthenticatedUser(req, loadLocalDB);
-  if (authUser && authUser.schoolId) {
-    return authUser.schoolId;
-  }
-  const emailHeader = req.headers["x-school-email"] || req.headers["X-School-Email"] || req.headers["x-school-id"] || req.headers["X-School-Id"];
-  if (typeof emailHeader === "string" && emailHeader.trim() !== "") {
-    return emailHeader.trim().toLowerCase();
-  }
-  return "default-school";
+  return authUser?.schoolId?.trim() || "";
 }
 
 function buildAuthResponse(cleanEmail: string, db: any) {
