@@ -1461,11 +1461,13 @@ async function findStudentUniquenessConflict(
     if ((data || []).length > 0) return "National ID-gan hore ayaa loogu isticmaalay arday kale.";
   }
 
-  if (candidate.rollNumber) {
+  if (candidate.rollNumber && candidate.class) {
     let query = supabase
       .from("dugsiga_students")
       .select("id")
       .eq("school_id", schoolId)
+      .eq("class", candidate.class)
+      .eq("section", candidate.section || "")
       .ilike("roll_number", candidate.rollNumber)
       .limit(1);
     if (excludeId) query = query.neq("id", excludeId);
@@ -1902,6 +1904,7 @@ app.post("/api/students/check-duplicate", async (req, res) => {
   const candidate = validateStudentPayload({
     fullName: raw.fullName,
     class: raw.className,
+    section: raw.section,
     guardianPhone: raw.guardianPhone,
     rollNumber: raw.rollNumber,
     nationalId: raw.nationalId,
@@ -1922,8 +1925,15 @@ app.post("/api/students/check-duplicate", async (req, res) => {
         candidate.value.fullName && candidate.value.class
           ? supabase.from("dugsiga_students").select("id,full_name,class,guardian_phone").eq("school_id", schoolId).eq("class", candidate.value.class).ilike("full_name", candidate.value.fullName).limit(5)
           : Promise.resolve({ data: [], error: null }),
-        candidate.value.rollNumber
-          ? supabase.from("dugsiga_students").select("id,full_name,class,guardian_phone,roll_number").eq("school_id", schoolId).ilike("roll_number", candidate.value.rollNumber).limit(5)
+        candidate.value.rollNumber && candidate.value.class
+          ? supabase
+              .from("dugsiga_students")
+              .select("id,full_name,class,section,guardian_phone,roll_number")
+              .eq("school_id", schoolId)
+              .eq("class", candidate.value.class)
+              .eq("section", candidate.value.section || "")
+              .ilike("roll_number", candidate.value.rollNumber)
+              .limit(5)
           : Promise.resolve({ data: [], error: null }),
         candidate.value.nationalId
           ? supabase.from("dugsiga_students").select("id,full_name,class,guardian_phone,national_id").eq("school_id", schoolId).ilike("national_id", candidate.value.nationalId).limit(5)
@@ -2012,7 +2022,7 @@ app.post("/api/students/import", async (req, res) => {
     if (!useLocalFallback) {
       const [{ data: classesData, error: classesError }, { data: existingData, error: existingError }] = await Promise.all([
         supabase.from("dugsiga_classes").select("class_name").eq("school_id", schoolId).limit(5000),
-        supabase.from("dugsiga_students").select("id,full_name,class,roll_number,national_id").eq("school_id", schoolId).limit(50000)
+        supabase.from("dugsiga_students").select("id,full_name,class,section,roll_number,national_id").eq("school_id", schoolId).limit(50000)
       ]);
 
       if (classesError) throw classesError;
@@ -2029,8 +2039,9 @@ app.post("/api/students/import", async (req, res) => {
         const national = String(row.national_id || "").trim().toLowerCase();
         const name = String(row.full_name || "").trim().toLowerCase();
         const cls = String(row.class || "").trim().toLowerCase();
+        const section = String(row.section || "").trim().toLowerCase();
 
-        if (roll) currentRolls.add(roll);
+        if (roll) currentRolls.add(cls + "::" + section + "::" + roll);
         if (national) currentNationalIds.add(national);
         if (name && cls) currentNameClasses.add(name + "::" + cls);
       }
@@ -2049,8 +2060,9 @@ app.post("/api/students/import", async (req, res) => {
         const national = String(row.nationalId || "").trim().toLowerCase();
         const name = String(row.fullName || "").trim().toLowerCase();
         const cls = String(row.class || "").trim().toLowerCase();
+        const section = String(row.section || "").trim().toLowerCase();
 
-        if (roll) currentRolls.add(roll);
+        if (roll) currentRolls.add(cls + "::" + section + "::" + roll);
         if (national) currentNationalIds.add(national);
         if (name && cls) currentNameClasses.add(name + "::" + cls);
       }
@@ -2067,6 +2079,8 @@ app.post("/api/students/import", async (req, res) => {
       const classKey = String(student.class || "").trim().toLowerCase();
       const rollKey = String(student.rollNumber || "").trim().toLowerCase();
       const nationalKey = String(student.nationalId || "").trim().toLowerCase();
+      const sectionKey = String(student.section || "").trim().toLowerCase();
+      const scopedRollKey = classKey + "::" + sectionKey + "::" + rollKey;
       const nameKey = String(student.fullName || "").trim().toLowerCase() + "::" + classKey;
       const studentId = String(student.id || "").trim() || "STD-" + crypto.randomUUID().slice(0, 8).toUpperCase();
       const idKey = studentId.toLowerCase();
@@ -2079,8 +2093,8 @@ app.post("/api/students/import", async (req, res) => {
         errors.push({ row: item.row, error: "Student ID-ga hore ayaa loo isticmaalay." });
         continue;
       }
-      if (rollKey && (currentRolls.has(rollKey) || batchRolls.has(rollKey))) {
-        errors.push({ row: item.row, error: "Roll Number-kan hore ayaa loo isticmaalay." });
+      if (rollKey && (currentRolls.has(scopedRollKey) || batchRolls.has(scopedRollKey))) {
+        errors.push({ row: item.row, error: "Roll Number-kan hore ayaa loo isticmaalay fasalkan iyo section-kan." });
         continue;
       }
       if (nationalKey && (currentNationalIds.has(nationalKey) || batchNationalIds.has(nationalKey))) {
@@ -2118,7 +2132,7 @@ app.post("/api/students/import", async (req, res) => {
       });
 
       batchIds.add(idKey);
-      if (rollKey) batchRolls.add(rollKey);
+      if (rollKey) batchRolls.add(scopedRollKey);
       if (nationalKey) batchNationalIds.add(nationalKey);
       batchNameClasses.add(nameKey);
     }
