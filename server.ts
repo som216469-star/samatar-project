@@ -1664,6 +1664,61 @@ app.use("/api", (req, res, next) => {
     });
   }
 
+app.use("/api", (req, res, next) => {
+  const publicPath = PUBLIC_API_PATHS.some((pattern) => pattern.test(req.path));
+  if (publicPath || !req.path.startsWith("/students")) return next();
+
+  const authUser = getAuthenticatedUser(req, loadLocalDB);
+  if (!authUser) return next();
+
+  const ip = req.ip || "unknown";
+  const routeKey =
+    req.path === "/students/import"
+      ? "import"
+      : req.path === "/students/bulk"
+      ? "bulk"
+      : req.method === "GET"
+      ? "read"
+      : "mutation";
+
+  const limit =
+    routeKey === "import"
+      ? consumeAuthRateLimit(
+          `students:${authUser.email}:${ip}:import`,
+          5,
+          10 * 60 * 1000
+        )
+      : routeKey === "bulk"
+      ? consumeAuthRateLimit(
+          `students:${authUser.email}:${ip}:bulk`,
+          20,
+          10 * 60 * 1000
+        )
+      : routeKey === "read"
+      ? consumeAuthRateLimit(
+          `students:${authUser.email}:${ip}:read`,
+          120,
+          60 * 1000
+        )
+      : consumeAuthRateLimit(
+          `students:${authUser.email}:${ip}:mutation`,
+          60,
+          60 * 1000
+        );
+
+  if (!limit.allowed) {
+    res.setHeader("Retry-After", String(limit.retryAfterSeconds));
+    return res.status(429).json({
+      error:
+        routeKey === "import"
+          ? "Student imports aad bay u badan yihiin. Fadlan sug wax yar."
+          : "Codsiyada Students aad bay u badan yihiin. Fadlan sug wax yar kadibna mar kale isku day."
+    });
+  }
+
+  return next();
+});
+
   next();
 });
 
