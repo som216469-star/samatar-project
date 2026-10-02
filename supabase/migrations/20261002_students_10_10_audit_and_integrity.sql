@@ -9,6 +9,8 @@ create table if not exists public.dugsiga_student_audit (
   actor_email text,
   actor_role text,
   changed_fields jsonb not null default '{}'::jsonb,
+  before_data jsonb,
+  after_data jsonb,
   created_at timestamptz not null default timezone('utc'::text, now())
 );
 
@@ -17,6 +19,9 @@ create index if not exists idx_dugsiga_student_audit_school_student
 
 create index if not exists idx_dugsiga_student_audit_school_action
   on public.dugsiga_student_audit (school_id, action, created_at desc);
+
+create index if not exists idx_dugsiga_student_audit_created
+  on public.dugsiga_student_audit (school_id, created_at desc);
 
 create unique index if not exists uq_dugsiga_students_school_national_id
   on public.dugsiga_students (school_id, lower(btrim(national_id)))
