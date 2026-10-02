@@ -141,6 +141,10 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                       setFormErrors({ class: 'Fasalka waa qasab' });
                       return;
                     }
+                    if (availableSections.length > 0 && !formData.section.trim()) {
+                      setFormErrors({ section: 'Section-ka waa qasab fasalkan.' });
+                      return;
+                    }
                     setFormStep('guardian');
                   }
                 }}
