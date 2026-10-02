@@ -214,15 +214,32 @@ export default function StudentsView({
   const currentMonth = monthsList[new Date().getMonth()];
   const currentYear = new Date().getFullYear();
 
-  // Helper to get fee status for a student
+  // Memoize the current-month fee lookup so large student lists do not repeatedly scan all fees.
+  const currentMonthFeeByStudent = useMemo(() => {
+    const map = new Map<string, FeeRecord>();
+    fees.forEach((fee) => {
+      if (fee.month === currentMonth && fee.year === currentYear && !map.has(fee.studentId)) {
+        map.set(fee.studentId, fee);
+      }
+    });
+    return map;
+  }, [fees, currentMonth, currentYear]);
+
   const getStudentFeeStatus = (studentId: string) => {
-    const studentFee = fees.find(f => f.studentId === studentId && f.month === currentMonth && f.year === currentYear);
-    if (!studentFee) return { status: 'unpaid', amount: settings.feeAmount || 0, paid: 0, balance: settings.feeAmount || 0 };
+    const studentFee = currentMonthFeeByStudent.get(studentId);
+    if (!studentFee) {
+      const defaultAmount = Number(settings.feeAmount) || 0;
+      return { status: 'unpaid', amount: defaultAmount, paid: 0, balance: defaultAmount };
+    }
+
+    const amount = Number(studentFee.amount) || 0;
+    const paid = Number(studentFee.paidAmount) || 0;
+
     return {
       status: studentFee.status,
-      amount: studentFee.amount,
-      paid: studentFee.paidAmount,
-      balance: Math.max(0, studentFee.amount - studentFee.paidAmount)
+      amount,
+      paid,
+      balance: Math.max(0, amount - paid)
     };
   };
 
@@ -236,9 +253,9 @@ export default function StudentsView({
     const female = students.filter(s => s.gender === 'Female').length;
 
     // Students with unpaid fees this month
-    const unpaidFeesCount = students.filter(s => {
-      const f = fees.find(fee => fee.studentId === s.id && fee.month === currentMonth && fee.year === currentYear);
-      return !f || f.status === 'unpaid' || f.status === 'partial';
+    const unpaidFeesCount = students.filter((s) => {
+      const fee = currentMonthFeeByStudent.get(s.id);
+      return !fee || fee.status === 'unpaid' || fee.status === 'partial';
     }).length;
 
     // Newly registered this month
@@ -249,8 +266,8 @@ export default function StudentsView({
     const needsAttention = students.filter(s => {
       if (s.status === 'archived') return false;
       const missingPhone = !s.guardianPhone || s.guardianPhone.trim().length < 6;
-      const f = fees.find(fee => fee.studentId === s.id && fee.month === currentMonth && fee.year === currentYear);
-      const hasUnpaid = !f || f.status === 'unpaid';
+      const fee = currentMonthFeeByStudent.get(s.id);
+      const hasUnpaid = !fee || fee.status === 'unpaid';
       return missingPhone || hasUnpaid;
     }).length;
 
@@ -297,7 +314,7 @@ export default function StudentsView({
       recentlyAdded,
       recentlyUpdated
     };
-  }, [students, fees, currentMonth, currentYear]);
+  }, [students, fees, currentMonthFeeByStudent, currentMonth, currentYear]);
 
   // --- Real-time Duplicate Check in Form ---
   useEffect(() => {
@@ -403,12 +420,12 @@ export default function StudentsView({
       // 1. Text Search
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase().trim();
-        const matchesName = student.fullName.toLowerCase().includes(query);
-        const matchesId = student.id.toLowerCase().includes(query);
-        const matchesClass = student.class.toLowerCase().includes(query);
+        const matchesName = String(student.fullName || '').toLowerCase().includes(query);
+        const matchesId = String(student.id || '').toLowerCase().includes(query);
+        const matchesClass = String(student.class || '').toLowerCase().includes(query);
         const matchesPhone = student.guardianPhone ? student.guardianPhone.includes(query) : false;
-        const matchesGuardian = student.guardianName ? student.guardianName.toLowerCase().includes(query) : false;
-        const matchesRoll = student.rollNumber ? student.rollNumber.toLowerCase().includes(query) : false;
+        const matchesGuardian = student.guardianName ? String(student.guardianName).toLowerCase().includes(query) : false;
+        const matchesRoll = student.rollNumber ? String(student.rollNumber).toLowerCase().includes(query) : false;
 
         if (!matchesName && !matchesId && !matchesClass && !matchesPhone && !matchesGuardian && !matchesRoll) {
           return false;
