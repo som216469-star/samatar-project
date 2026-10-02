@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   User,
   School,
@@ -108,6 +108,7 @@ export default function StudentAddView({
     reason?: string;
     existingStudent?: any;
   }>({ found: false });
+  const duplicateCheckSequence = useRef(0);
 
   const availableSections = Array.from(
     new Set(
@@ -178,6 +179,8 @@ export default function StudentAddView({
       return;
     }
 
+    const sequence = ++duplicateCheckSequence.current;
+
     const timer = setTimeout(async () => {
       try {
         const res = await apiFetch('/api/students/check-duplicate', {
@@ -196,6 +199,7 @@ export default function StudentAddView({
         });
         if (res.ok) {
           const result = await res.json();
+          if (sequence !== duplicateCheckSequence.current) return;
           if (result.duplicate || result.hasDuplicate) {
             const firstDup =
               result.existingStudent || (result.duplicates && result.duplicates[0]);
@@ -213,7 +217,9 @@ export default function StudentAddView({
       }
     }, 350);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+    };
   }, [
     formData.id,
     formData.fullName,
