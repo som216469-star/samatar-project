@@ -2248,7 +2248,7 @@ app.post("/api/students/bulk", async (req, res) => {
   ));
 
   if (!studentIds.length) return res.status(400).json({ error: "studentIds waa qasab." });
-  if (studentIds.length > STUDENT_MAX_BULK) return res.status(400).json({ error: \`Hal mar kama badnaan karaan \${STUDENT_MAX_BULK} arday.\` });
+  if (studentIds.length > STUDENT_MAX_BULK) return res.status(400).json({ error: `Hal mar kama badnaan karaan ${STUDENT_MAX_BULK} arday.` });
   if (!["change_status", "change_class", "archive", "delete"].includes(action)) {
     return res.status(400).json({ error: "Action-ka bulk-ga ma saxna." });
   }
@@ -2342,7 +2342,7 @@ app.post("/api/students", async (req, res) => {
   if (!validation.ok) return res.status(400).json({ error: validation.error });
 
   const student = validation.value;
-  const studentId = student.id || \`STD-\${crypto.randomUUID().slice(0, 8).toUpperCase()}\`;
+  const studentId = student.id || `STD-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
   const createdAt = student.createdAt || new Date().toISOString().slice(0, 10);
   const nowIso = new Date().toISOString();
 
