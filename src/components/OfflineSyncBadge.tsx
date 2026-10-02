@@ -3,7 +3,11 @@ import { Wifi, WifiOff, RefreshCw, CheckCircle2 } from 'lucide-react';
 import { useNetworkSync } from '../utils/offlineSync';
 import { Badge, Button, Modal } from './ui/primitives';
 
-export const OfflineSyncBadge: React.FC = () => {
+interface OfflineSyncBadgeProps {
+  onSyncComplete?: () => void | Promise<void>;
+}
+
+export const OfflineSyncBadge: React.FC<OfflineSyncBadgeProps> = ({ onSyncComplete }) => {
   const { isOnline, isSyncing, pendingCount, queue, lastSyncTime, triggerSync } =
     useNetworkSync();
   const [showModal, setShowModal] = useState(false);
@@ -12,6 +16,7 @@ export const OfflineSyncBadge: React.FC = () => {
   const handleManualSync = async () => {
     setStatusMsg('Isku xirka xogta ayaa socda...');
     const res = await triggerSync();
+    if (onSyncComplete) await onSyncComplete();
     if (res.syncedCount > 0) {
       setStatusMsg(`Si guul leh ayaa loo sync-gareeyay ${res.syncedCount} diiwaan.`);
     } else if (res.errors > 0) {
