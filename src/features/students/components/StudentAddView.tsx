@@ -231,6 +231,10 @@ export default function StudentAddView({
       showToast('Fadlan soo geli sawir sax ah (PNG, JPG)', 'error');
       return;
     }
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('Xajmiga sawirku kama badnaan karo 5MB', 'warning');
+      return;
+    }
     try {
       const compressedDataUrl = await compressImage(file, 400, 0.85);
       setFormData((prev) => ({ ...prev, photo: compressedDataUrl }));
@@ -574,7 +578,12 @@ export default function StudentAddView({
               {availableSections.length > 0 ? (
                 <select
                   value={formData.section}
-                  onChange={(e) => setFormData({ ...formData, section: e.target.value })}
+                  onChange={(e) => {
+                    setFormData({ ...formData, section: e.target.value });
+                    if (formErrors.section) {
+                      setFormErrors({ ...formErrors, section: '' });
+                    }
+                  }}
                   className="w-full ds-input"
                 >
                   <option value="">-- Dooro Section --</option>
