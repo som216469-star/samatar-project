@@ -417,69 +417,66 @@ export const StudentsRosterTable: React.FC<StudentsRosterTableProps> = ({
                         {columns.actions && (
                           <td className="px-4 py-3 text-right">
                             <div className="flex items-center justify-end gap-1">
-                            <button
-                              type="button"
-                              onClick={() => onOpenProfile(student)}
-                              aria-label="360° Profile-ka Ardayga"
-                              className="p-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-muted)] text-[var(--color-text-secondary)] hover:text-[var(--color-brand)] hover:border-[var(--color-brand-border)] transition-colors cursor-pointer"
-                              title="360° Profile-ka Ardayga"
-                            >
-                              <Eye className="w-3.5 h-3.5" />
-                            </button>
-
-                            {canUpdateStudents && (
                               <button
                                 type="button"
-                                onClick={() => onOpenEditModal(student)}
-                                aria-label="Tafatir Ardayga"
-                                className="p-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-muted)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors cursor-pointer"
-                                title="Tafatir (Edit Student)"
+                                onClick={() => onOpenProfile(student)}
+                                aria-label="360° Profile-ka Ardayga"
+                                className="p-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-muted)] text-[var(--color-text-secondary)] hover:text-[var(--color-brand)] hover:border-[var(--color-brand-border)] transition-colors cursor-pointer"
+                                title="360° Profile-ka Ardayga"
                               >
-                                <Edit2 className="w-3.5 h-3.5" />
+                                <Eye className="w-3.5 h-3.5" />
                               </button>
-                            )}
 
-                            {canUpdateStudents && (
-                              {student.status === 'archived' || student.status === 'inactive' ? (
+                              {canUpdateStudents && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => onOpenEditModal(student)}
+                                    aria-label="Tafatir Ardayga"
+                                    className="p-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-muted)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors cursor-pointer"
+                                    title="Tafatir (Edit Student)"
+                                  >
+                                    <Edit2 className="w-3.5 h-3.5" />
+                                  </button>
+
+                                  {student.status === 'archived' || student.status === 'inactive' ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => onQuickStatusChange(student, 'active')}
+                                      aria-label="Ka dhig Active"
+                                      className="p-1.5 rounded-md border border-[var(--color-success-border)] bg-[var(--color-success-soft)] text-[var(--color-success)] transition-colors cursor-pointer"
+                                      title="Ka dhig Active (Restore to Active)"
+                                    >
+                                      <RotateCcw className="w-3.5 h-3.5" />
+                                    </button>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => onQuickStatusChange(student, 'archived')}
+                                      aria-label="Kaydi Ardayga"
+                                      className="p-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-muted)] text-[var(--color-text-secondary)] hover:text-[var(--color-warning)] transition-colors cursor-pointer"
+                                      title="Kaydi Ardayga (Archive Student)"
+                                    >
+                                      <Archive className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                </>
+                              )}
+
+                              {canDeleteStudents && (
                                 <button
                                   type="button"
-                                  onClick={() => onQuickStatusChange(student, 'active')}
-                                  aria-label="Ka dhig Active"
-                                  className="p-1.5 rounded-md border border-[var(--color-success-border)] bg-[var(--color-success-soft)] text-[var(--color-success)] transition-colors cursor-pointer"
-                                  title="Ka dhig Active (Restore to Active)"
+                                  onClick={() => onDeleteStudentClick(student)}
+                                  aria-label="Tirtir Ardayga"
+                                  className="p-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-muted)] text-[var(--color-text-secondary)] hover:text-[var(--color-danger)] transition-colors cursor-pointer"
+                                  title="Tirtir (Delete Student)"
                                 >
-                                  <RotateCcw className="w-3.5 h-3.5" />
+                                  <Trash2 className="w-3.5 h-3.5" />
                                 </button>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => onQuickStatusChange(student, 'archived')}
-                                  aria-label="Kaydi Ardayga"
-                                  className="p-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-muted)] text-[var(--color-text-secondary)] hover:text-[var(--color-warning)] transition-colors cursor-pointer"
-                                  title="Kaydi Ardayga (Archive Student)"
-                                >
-                                  <Archive className="w-3.5 h-3.5" />
-                                </button>
-                              )
-                            )}
-
-}
-
-                            {canDeleteStudents && (
-                              <button
-                                type="button"
-                                onClick={() => onDeleteStudentClick(student)}
-                                aria-label="Tirtir Ardayga"
-                                className="p-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-muted)] text-[var(--color-text-secondary)] hover:text-[var(--color-danger)] transition-colors cursor-pointer"
-                                title="Tirtir (Delete Student)"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            )}
+                              )}
                             </div>
                           </td>
-                        )}
-                      </tr>
+                        )}                      </tr>
                     );
                   })
                 )}
@@ -605,8 +602,8 @@ export const StudentsRosterTable: React.FC<StudentsRosterTableProps> = ({
                       >
                         {feeInfo.status}
                       </Badge>
-                    )}
-                </div>
+                    </div>
+                  )}                </div>
                 </div>
 
                 <div className="flex items-center justify-between pt-2 border-t border-[var(--color-border)]">
@@ -642,8 +639,7 @@ export const StudentsRosterTable: React.FC<StudentsRosterTableProps> = ({
                       </button>
                     )}
                   </div>
-                </div>
-              </Card>
+                </div>              </Card>
             );
           })}
         </div>
