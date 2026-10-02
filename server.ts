@@ -1450,7 +1450,21 @@ function validateStudentPayload(
   return { ok: true, value };
 }
 
-function formatStudentRow(s: any): any {
+function canViewSensitiveStudentData(authUser: ReturnType<typeof getAuthenticatedUser>): boolean {
+  if (!authUser) return false;
+  const normalized = normalizeRole(authUser.role);
+  return normalized === 'Super Admin' ||
+    normalized === 'School Admin' ||
+    normalized === 'Principal' ||
+    normalized === 'Receptionist';
+}
+
+function formatStudentRow(
+  s: any,
+  authUser: ReturnType<typeof getAuthenticatedUser> = null
+): any {
+  const canViewSensitive = canViewSensitiveStudentData(authUser);
+
   return {
     id: s.id,
     fullName: s.full_name,
@@ -1468,10 +1482,20 @@ function formatStudentRow(s: any): any {
     guardianPhoneAlt: s.guardian_phone_alt || "",
     section: s.section || "",
     rollNumber: s.roll_number || "",
-    nationalId: s.national_id || "",
+    nationalId: canViewSensitive ? (s.national_id || "") : "",
     previousSchool: s.previous_school || "",
-    bloodGroup: s.blood_group || "",
-    medicalNotes: s.medical_notes || ""
+    bloodGroup: canViewSensitive ? (s.blood_group || "") : "",
+    medicalNotes: canViewSensitive ? (s.medical_notes || "") : ""
+  };
+}
+
+function formatStudentDuplicateMatch(s: any): Record<string, string> {
+  return {
+    id: String(s.id || ""),
+    fullName: String(s.full_name || s.fullName || ""),
+    class: String(s.class || ""),
+    section: String(s.section || ""),
+    rollNumber: String(s.roll_number || s.rollNumber || "")
   };
 }
 
@@ -2186,7 +2210,7 @@ app.get("/api/students", async (req, res) => {
       }
       const { data, error } = await query;
       if (error) throw error;
-      return res.json((data || []).map(formatStudentRow));
+      return res.json((data || []).map((row: any) => formatStudentRow(row, authUser)));
     } catch (e: any) {
       return handleSupabaseError(res, e, "Soo qaadista Ardayda (Fetch Students)");
     }
@@ -2198,7 +2222,33 @@ app.get("/api/students", async (req, res) => {
     if (teacherClasses.length === 0) return res.json([]);
     list = list.filter((s: any) => teacherClasses.includes(String(s.class || "").trim()));
   }
-  return res.json(list);
+  return res.json(
+    list.map((student: any) => {
+      const base = {
+        id: student.id,
+        fullName: student.fullName,
+        class: student.class,
+        gender: student.gender,
+        guardianPhone: student.guardianPhone || "",
+        status: student.status || "active",
+        createdAt: student.createdAt || "",
+        updatedAt: student.updatedAt || student.createdAt || "",
+        photo: student.photo || "",
+        dateOfBirth: student.dateOfBirth || "",
+        address: student.address || "",
+        guardianName: student.guardianName || "",
+        guardianRelationship: student.guardianRelationship || "",
+        guardianPhoneAlt: student.guardianPhoneAlt || "",
+        section: student.section || "",
+        rollNumber: student.rollNumber || "",
+        nationalId: canViewSensitiveStudentData(authUser) ? (student.nationalId || "") : "",
+        previousSchool: student.previousSchool || "",
+        bloodGroup: canViewSensitiveStudentData(authUser) ? (student.bloodGroup || "") : "",
+        medicalNotes: canViewSensitiveStudentData(authUser) ? (student.medicalNotes || "") : ""
+      };
+      return base;
+    })
+  );
 });
 
 app.post("/api/students/check-duplicate", async (req, res) => {
@@ -2267,13 +2317,14 @@ app.post("/api/students/check-duplicate", async (req, res) => {
     }
 
     const unique = Array.from(new Map(conflicts.map((row) => [row.id, row])).values()).slice(0, 10);
-    const hasDuplicate = unique.length > 0;
+    const safeDuplicates = unique.map(formatStudentDuplicateMatch);
+    const hasDuplicate = safeDuplicates.length > 0;
     return res.json({
       hasDuplicate,
       duplicate: hasDuplicate,
       reason: hasDuplicate ? "Xog arday oo isku mid ah ayaa horey u jiray." : undefined,
-      existingStudent: hasDuplicate ? unique[0] : undefined,
-      duplicates: unique
+      existingStudent: hasDuplicate ? safeDuplicates[0] : undefined,
+      duplicates: safeDuplicates
     });
   } catch (e: any) {
     return handleSupabaseError(res, e, "Hubinta duplicate-ka ardayga");
@@ -2862,7 +2913,7 @@ app.post("/api/students", async (req, res) => {
         null,
         data
       );
-      return res.status(201).json(formatStudentRow(data));
+      return res.status(201).json(formatStudentRow(data, authUser));
     }
 
     const db = loadLocalDB();
@@ -2986,7 +3037,7 @@ app.put("/api/students/:id", async (req, res) => {
         current,
         updated
       );
-      return res.json(formatStudentRow(updated));
+      return res.json(formatStudentRow(updated, authUser));
     }
 
     const db = loadLocalDB();
