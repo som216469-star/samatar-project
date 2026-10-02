@@ -1960,6 +1960,262 @@ app.post("/api/students/check-duplicate", async (req, res) => {
   }
 });
 
+
+app.post("/api/students/import", async (req, res) => {
+  const schoolId = getSchoolId(req);
+  const authUser = getAuthenticatedUser(req, loadLocalDB);
+  if (!schoolId || !authUser) return res.status(401).json({ error: "Session-ka lama xaqiijin." });
+
+  const incoming = Array.isArray(req.body?.students) ? req.body.students : [];
+  if (incoming.length === 0) return res.status(400).json({ error: "students waa qasab." });
+  if (incoming.length > 500) return res.status(400).json({ error: "Hal import kama badnaan karo 500 arday." });
+
+  try {
+    const normalizedRows: Array<{ row: number; student: Record<string, any> }> = [];
+    const errors: Array<{ row: number; error: string }> = [];
+
+    for (let index = 0; index < incoming.length; index += 1) {
+      const validation = validateStudentPayload(incoming[index], {
+        partial: false,
+        allowId: true,
+        allowCreatedAt: true
+      });
+
+      if (!validation.ok) {
+        errors.push({ row: index + 1, error: validation.error || "Xogta ardayga ma saxna." });
+        continue;
+      }
+
+      normalizedRows.push({ row: index + 1, student: validation.value });
+    }
+
+    if (errors.length > 0) {
+      return res.status(400).json({
+        error: "Import-ka waxaa ku jira xog aan sax ahayn.",
+        imported: 0,
+        failed: errors.length,
+        errors: errors.slice(0, 100)
+      });
+    }
+
+    const allClasses = new Set<string>();
+    const currentIds = new Set<string>();
+    const currentRolls = new Set<string>();
+    const currentNationalIds = new Set<string>();
+    const currentNameClasses = new Set<string>();
+
+    if (!useLocalFallback) {
+      const [{ data: classesData, error: classesError }, { data: existingData, error: existingError }] = await Promise.all([
+        supabase.from("dugsiga_classes").select("class_name").eq("school_id", schoolId).limit(5000),
+        supabase.from("dugsiga_students").select("id,full_name,class,roll_number,national_id").eq("school_id", schoolId).limit(50000)
+      ]);
+
+      if (classesError) throw classesError;
+      if (existingError) throw existingError;
+
+      for (const row of classesData || []) {
+        const name = String(row.class_name || "").trim().toLowerCase();
+        if (name) allClasses.add(name);
+      }
+
+      for (const row of existingData || []) {
+        if (row.id) currentIds.add(String(row.id).trim().toLowerCase());
+        const roll = String(row.roll_number || "").trim().toLowerCase();
+        const national = String(row.national_id || "").trim().toLowerCase();
+        const name = String(row.full_name || "").trim().toLowerCase();
+        const cls = String(row.class || "").trim().toLowerCase();
+
+        if (roll) currentRolls.add(roll);
+        if (national) currentNationalIds.add(national);
+        if (name && cls) currentNameClasses.add(name + "::" + cls);
+      }
+    } else {
+      const db = loadLocalDB();
+      for (const row of db.classes || []) {
+        if (row.schoolId === schoolId) {
+          const name = String(row.className || "").trim().toLowerCase();
+          if (name) allClasses.add(name);
+        }
+      }
+      for (const row of db.students || []) {
+        if (row.schoolId !== schoolId) continue;
+        if (row.id) currentIds.add(String(row.id).trim().toLowerCase());
+        const roll = String(row.rollNumber || "").trim().toLowerCase();
+        const national = String(row.nationalId || "").trim().toLowerCase();
+        const name = String(row.fullName || "").trim().toLowerCase();
+        const cls = String(row.class || "").trim().toLowerCase();
+
+        if (roll) currentRolls.add(roll);
+        if (national) currentNationalIds.add(national);
+        if (name && cls) currentNameClasses.add(name + "::" + cls);
+      }
+    }
+
+    const batchIds = new Set<string>();
+    const batchRolls = new Set<string>();
+    const batchNationalIds = new Set<string>();
+    const batchNameClasses = new Set<string>();
+    const insertRows: any[] = [];
+
+    for (const item of normalizedRows) {
+      const student = item.student;
+      const classKey = String(student.class || "").trim().toLowerCase();
+      const rollKey = String(student.rollNumber || "").trim().toLowerCase();
+      const nationalKey = String(student.nationalId || "").trim().toLowerCase();
+      const nameKey = String(student.fullName || "").trim().toLowerCase() + "::" + classKey;
+      const studentId = String(student.id || "").trim() || "STD-" + crypto.randomUUID().slice(0, 8).toUpperCase();
+      const idKey = studentId.toLowerCase();
+
+      if (!allClasses.has(classKey)) {
+        errors.push({ row: item.row, error: "Fasalka la doortay kama jiro school-kan." });
+        continue;
+      }
+      if (currentIds.has(idKey) || batchIds.has(idKey)) {
+        errors.push({ row: item.row, error: "Student ID-ga hore ayaa loo isticmaalay." });
+        continue;
+      }
+      if (rollKey && (currentRolls.has(rollKey) || batchRolls.has(rollKey))) {
+        errors.push({ row: item.row, error: "Roll Number-kan hore ayaa loo isticmaalay." });
+        continue;
+      }
+      if (nationalKey && (currentNationalIds.has(nationalKey) || batchNationalIds.has(nationalKey))) {
+        errors.push({ row: item.row, error: "National ID-gan hore ayaa loo isticmaalay." });
+        continue;
+      }
+      if (batchNameClasses.has(nameKey) || currentNameClasses.has(nameKey)) {
+        errors.push({ row: item.row, error: "Magacan iyo fasalkan arday hore ayaa loogu diiwaangeliyey." });
+        continue;
+      }
+
+      const nowIso = new Date().toISOString();
+      insertRows.push({
+        id: studentId,
+        school_id: schoolId,
+        full_name: student.fullName,
+        class: student.class,
+        gender: student.gender || "Male",
+        guardian_phone: student.guardianPhone || "",
+        status: student.status || "active",
+        photo: student.photo || "",
+        date_of_birth: student.dateOfBirth || "",
+        address: student.address || "",
+        guardian_name: student.guardianName || "",
+        guardian_relationship: student.guardianRelationship || "",
+        guardian_phone_alt: student.guardianPhoneAlt || "",
+        section: student.section || "",
+        roll_number: student.rollNumber || "",
+        national_id: student.nationalId || "",
+        previous_school: student.previousSchool || "",
+        blood_group: student.bloodGroup || "",
+        medical_notes: student.medicalNotes || "",
+        created_at: student.createdAt || new Date().toISOString().slice(0, 10),
+        updated_at: nowIso
+      });
+
+      batchIds.add(idKey);
+      if (rollKey) batchRolls.add(rollKey);
+      if (nationalKey) batchNationalIds.add(nationalKey);
+      batchNameClasses.add(nameKey);
+    }
+
+    if (errors.length > 0) {
+      return res.status(409).json({
+        error: "Import-ka waxaa ku jira duplicates ama fasallo aan jirin.",
+        imported: 0,
+        failed: errors.length,
+        errors: errors.slice(0, 100)
+      });
+    }
+
+    if (!insertRows.length) {
+      return res.status(400).json({ error: "Ma jiraan arday sax ah oo la gelin karo." });
+    }
+
+    if (!useLocalFallback) {
+      const { data, error } = await supabase
+        .from("dugsiga_students")
+        .insert(insertRows)
+        .select("*");
+
+      if (error) {
+        if (error.code === "23505") {
+          return res.status(409).json({
+            error: "Import-ku wuxuu la kulmay duplicate Student ID, Roll Number, ama National ID.",
+            imported: 0,
+            failed: insertRows.length
+          });
+        }
+        throw error;
+      }
+
+      const inserted = data || [];
+      if (inserted.length !== insertRows.length) {
+        return res.status(500).json({ error: "Import-ku ma dhamaystirin dhammaan records-ka." });
+      }
+
+      const auditRows = inserted.map((row: any) => ({
+        school_id: schoolId,
+        student_id: row.id,
+        action: "created",
+        actor_email: authUser.email,
+        actor_role: authUser.role,
+        changed_fields: {
+          fields: [
+            "fullName", "class", "gender", "guardianPhone", "guardianName",
+            "guardianRelationship", "guardianPhoneAlt", "section", "rollNumber",
+            "nationalId", "previousSchool", "bloodGroup", "medicalNotes", "status"
+          ]
+        }
+      }));
+
+      if (auditRows.length > 0) {
+        const { error: auditError } = await supabase
+          .from("dugsiga_student_audit")
+          .insert(auditRows);
+        if (auditError) console.warn("Student import audit log failed:", auditError.message);
+      }
+
+      return res.status(201).json({
+        success: true,
+        imported: inserted.length,
+        failed: 0,
+        students: inserted.map(formatStudentRow)
+      });
+    }
+
+    const db = loadLocalDB();
+    for (const row of insertRows) {
+      db.students.push({
+        id: row.id,
+        schoolId,
+        fullName: row.full_name,
+        class: row.class,
+        gender: row.gender,
+        guardianPhone: row.guardian_phone,
+        status: row.status,
+        photo: row.photo,
+        dateOfBirth: row.date_of_birth,
+        address: row.address,
+        guardianName: row.guardian_name,
+        guardianRelationship: row.guardian_relationship,
+        guardianPhoneAlt: row.guardian_phone_alt,
+        section: row.section,
+        rollNumber: row.roll_number,
+        nationalId: row.national_id,
+        previousSchool: row.previous_school,
+        bloodGroup: row.blood_group,
+        medicalNotes: row.medical_notes,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
+      });
+    }
+    saveLocalDB(db);
+    return res.status(201).json({ success: true, imported: insertRows.length, failed: 0 });
+  } catch (e: any) {
+    return handleSupabaseError(res, e, "Bulk Import-ka Ardayda");
+  }
+});
+
 app.post("/api/students/bulk", async (req, res) => {
   const schoolId = getSchoolId(req);
   const authUser = getAuthenticatedUser(req, loadLocalDB);
