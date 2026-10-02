@@ -1760,10 +1760,17 @@ function handleStudentSupabaseError(
   const code = String(error?.code || '');
   const message = String(error?.message || '');
 
-  if (code === '23514' && message.toLowerCase().includes('capacity')) {
+  if (code === '23514') {
+    if (message.toLowerCase().includes('capacity')) {
+      return res.status(409).json({
+        error: 'Fasalka aad dooratay wuxuu gaaray capacity-giisa. Fadlan dooro fasal/section kale ama Archive ka dhig arday kale.',
+        code: 'CLASS_CAPACITY_EXCEEDED'
+      });
+    }
+
     return res.status(409).json({
-      error: 'Fasalka aad dooratay wuxuu gaaray capacity-giisa. Fadlan dooro fasal/section kale ama Archive ka dhig arday kale.',
-      code: 'CLASS_CAPACITY_EXCEEDED'
+      error: 'Xogta fasalka ama section-ka ardayga ma waafaqsana diiwaanka school-ka.',
+      code: 'STUDENT_CLASS_ASSIGNMENT_INVALID'
     });
   }
 
@@ -1904,6 +1911,19 @@ app.use("/api", (req, res, next) => {
 });
 
   next();
+});
+
+app.use("/api", (req, res, next) => {
+  if (!req.path.startsWith("/students")) return next();
+
+  if (useLocalFallback && process.env.NODE_ENV === "production") {
+    return res.status(503).json({
+      error:
+        "Student cloud service-ku offline fallback ayuu galay. Xogta lama qori doono si looga fogaado data split-brain."
+    });
+  }
+
+  return next();
 });
 
 app.get("/api/db/status", async (req, res) => {
@@ -2967,7 +2987,12 @@ app.put("/api/students/:id", async (req, res) => {
 
   try {
     if (!useLocalFallback) {
-      const { data: current, error: currentError } = await supabase.from("dugsiga_students").select("*").eq("school_id", schoolId).eq("id", id).maybeSingle();
+      const { data: current, error: currentError } = await supabase
+        .from("dugsiga_students")
+        .select("*")
+        .eq("school_id", schoolId)
+        .eq("id", id)
+        .maybeSingle();
       if (currentError) throw currentError;
       if (!current) return res.status(404).json({ error: "Ardayga lama helin." });
 
