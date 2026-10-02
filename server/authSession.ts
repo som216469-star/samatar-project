@@ -213,13 +213,38 @@ export async function verifyPassword(
   return { valid, needsRehash: valid };
 }
 
+const SESSION_COOKIE_NAME = "dugsi_session";
+
+function getSessionCookie(req: express.Request): string | null {
+  const cookieHeader = req.headers.cookie;
+  if (!cookieHeader) return null;
+
+  for (const part of cookieHeader.split(";")) {
+    const separator = part.indexOf("=");
+    if (separator === -1) continue;
+    const name = part.slice(0, separator).trim();
+    if (name !== SESSION_COOKIE_NAME) continue;
+
+    const value = part.slice(separator + 1).trim();
+    if (!value) return null;
+
+    try {
+      return decodeURIComponent(value);
+    } catch {
+      return null;
+    }
+  }
+
+  return null;
+}
+
 export function getSessionTokenFromRequest(
   req: express.Request
 ): string | null {
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith("Bearer ")) {
     const token = authHeader.substring(7).trim();
-    return token || null;
+    if (token) return token;
   }
 
   const customToken =
@@ -228,7 +253,8 @@ export function getSessionTokenFromRequest(
     return customToken.trim();
   }
 
-  return null;
+  // Preferred browser session: HttpOnly SameSite cookie.
+  return getSessionCookie(req);
 }
 
 export function getSessionFromRequest(
