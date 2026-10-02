@@ -1526,10 +1526,6 @@ export default function StudentsView({
         }}
         onOpenBulkArchive={() => setBulkActionModal({ isOpen: true, action: 'archive' })}
         onOpenBulkDelete={() => setBulkActionModal({ isOpen: true, action: 'delete' })}
-        canBulkManage={studentPermissions.canBulkManage}
-        canDeleteStudents={studentPermissions.canDelete}
-        canUpdateStudents={studentPermissions.canUpdate}
-        canViewFinance={studentPermissions.canViewFinance}
       />
 
       {/* 5. STUDENTS CONTENT VIEW (TABLE OR CARDS) & PAGINATION */}
