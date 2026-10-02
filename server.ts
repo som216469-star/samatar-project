@@ -873,38 +873,27 @@ CREATE TABLE IF NOT EXISTS dugsiga_payroll (
   updated_at TEXT
 );
 
--- Grant privileges for direct access
-DO $$
+-- Security defaults: keep RLS enabled and expose tables only to server-side service_role
+DO $
+DECLARE
+  tbl_name TEXT;
+  tables_list TEXT[] := ARRAY[
+    'dugsiga_users','dugsiga_students','dugsiga_classes','dugsiga_subjects',
+    'dugsiga_exam_scores','dugsiga_attendance','dugsiga_fees','dugsiga_settings',
+    'dugsiga_teachers','dugsiga_staff','dugsiga_guardians','dugsiga_staff_attendance',
+    'dugsiga_timetable','dugsiga_admissions','dugsiga_announcements',
+    'dugsiga_library_books','dugsiga_library_loans','dugsiga_inventory',
+    'dugsiga_documents','dugsiga_notifications','dugsiga_fee_structures',
+    'dugsiga_invoices','dugsiga_payments','dugsiga_expenses','dugsiga_income',
+    'dugsiga_budgets','dugsiga_payroll'
+  ];
 BEGIN
-  EXECUTE 'ALTER TABLE dugsiga_users DISABLE ROW LEVEL SECURITY';
-  EXECUTE 'ALTER TABLE dugsiga_students DISABLE ROW LEVEL SECURITY';
-  EXECUTE 'ALTER TABLE dugsiga_classes DISABLE ROW LEVEL SECURITY';
-  EXECUTE 'ALTER TABLE dugsiga_subjects DISABLE ROW LEVEL SECURITY';
-  EXECUTE 'ALTER TABLE dugsiga_exam_scores DISABLE ROW LEVEL SECURITY';
-  EXECUTE 'ALTER TABLE dugsiga_attendance DISABLE ROW LEVEL SECURITY';
-  EXECUTE 'ALTER TABLE dugsiga_fees DISABLE ROW LEVEL SECURITY';
-  EXECUTE 'ALTER TABLE dugsiga_settings DISABLE ROW LEVEL SECURITY';
-  EXECUTE 'ALTER TABLE dugsiga_teachers DISABLE ROW LEVEL SECURITY';
-  EXECUTE 'ALTER TABLE dugsiga_staff DISABLE ROW LEVEL SECURITY';
-  EXECUTE 'ALTER TABLE dugsiga_guardians DISABLE ROW LEVEL SECURITY';
-  EXECUTE 'ALTER TABLE dugsiga_staff_attendance DISABLE ROW LEVEL SECURITY';
-  EXECUTE 'ALTER TABLE dugsiga_timetable DISABLE ROW LEVEL SECURITY';
-  EXECUTE 'ALTER TABLE dugsiga_admissions DISABLE ROW LEVEL SECURITY';
-  EXECUTE 'ALTER TABLE dugsiga_announcements DISABLE ROW LEVEL SECURITY';
-  EXECUTE 'ALTER TABLE dugsiga_library_books DISABLE ROW LEVEL SECURITY';
-  EXECUTE 'ALTER TABLE dugsiga_library_loans DISABLE ROW LEVEL SECURITY';
-  EXECUTE 'ALTER TABLE dugsiga_inventory DISABLE ROW LEVEL SECURITY';
-  EXECUTE 'ALTER TABLE dugsiga_documents DISABLE ROW LEVEL SECURITY';
-  EXECUTE 'ALTER TABLE dugsiga_notifications DISABLE ROW LEVEL SECURITY';
-  EXECUTE 'ALTER TABLE dugsiga_fee_structures DISABLE ROW LEVEL SECURITY';
-  EXECUTE 'ALTER TABLE dugsiga_invoices DISABLE ROW LEVEL SECURITY';
-  EXECUTE 'ALTER TABLE dugsiga_payments DISABLE ROW LEVEL SECURITY';
-  EXECUTE 'ALTER TABLE dugsiga_expenses DISABLE ROW LEVEL SECURITY';
-  EXECUTE 'ALTER TABLE dugsiga_income DISABLE ROW LEVEL SECURITY';
-  EXECUTE 'ALTER TABLE dugsiga_budgets DISABLE ROW LEVEL SECURITY';
-  EXECUTE 'ALTER TABLE dugsiga_payroll DISABLE ROW LEVEL SECURITY';
-EXCEPTION WHEN OTHERS THEN NULL;
-END $$;
+  FOREACH tbl_name IN ARRAY tables_list LOOP
+    EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', tbl_name);
+    EXECUTE format('REVOKE ALL ON TABLE public.%I FROM anon, authenticated', tbl_name);
+    EXECUTE format('GRANT ALL ON TABLE public.%I TO service_role', tbl_name);
+  END LOOP;
+END $;
 `;
 
 // RBAC Permissions Mapping
