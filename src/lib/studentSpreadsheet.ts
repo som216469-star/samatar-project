@@ -16,6 +16,11 @@ function normalizeCell(value: unknown): unknown {
   return value;
 }
 
+function sanitizeSpreadsheetText(value: string): string {
+  // Prevent CSV/Excel formula injection from untrusted imported names/notes.
+  return /^[=+\-@]/.test(value) ? "'" + value : value;
+}
+
 export async function readStudentSpreadsheet(file: File): Promise<Record<string, unknown>[]> {
   const extension = file.name.toLowerCase().split('.').pop() || '';
 
@@ -124,9 +129,11 @@ export async function downloadStudentSpreadsheet(
           typeof value === 'boolean' ||
           value instanceof Date
         ) {
-          return value as CellValue;
+          return typeof value === 'string'
+            ? sanitizeSpreadsheetText(value)
+            : (value as CellValue);
         }
-        return String(value ?? '');
+        return sanitizeSpreadsheetText(String(value ?? ''));
       })
     )
   ];
