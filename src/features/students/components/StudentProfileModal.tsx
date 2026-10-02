@@ -791,13 +791,18 @@ export default function StudentProfileModal({
                     </thead>
                     <tbody className="divide-y divide-[var(--color-border)] text-[var(--color-text-primary)]">
                       {studentScores.map((score) => {
+                        const maxMarks = Number(score.maxMarks) || 100;
+                        const scorePercent =
+                          maxMarks > 0
+                            ? ((Number(score.marksObtained) || 0) / maxMarks) * 100
+                            : 0;
                         const grade =
                           score.grade ||
-                          (score.marksObtained >= 80
+                          (scorePercent >= 80
                             ? 'A'
-                            : score.marksObtained >= 65
+                            : scorePercent >= 65
                             ? 'B'
-                            : score.marksObtained >= 50
+                            : scorePercent >= 50
                             ? 'C'
                             : 'F');
                         return (
