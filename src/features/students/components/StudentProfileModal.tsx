@@ -203,7 +203,7 @@ export default function StudentProfileModal({
       22
     );
     doc.text(
-      `Xiriirka Waalidka: ${student.guardianPhone || guardian?.phone || '-'} | Heerka Joogitaanka: ${attendanceRate === null ? 'N/A' : attendanceRate + '%'}`,
+      `Xiriirka Waalidka: ${student.guardianPhone || guardian?.phone || '-'} | Emergency: ${student.emergencyContact || '-'} | Heerka Joogitaanka: ${attendanceRate === null ? 'N/A' : attendanceRate + '%'}`,
       14,
       28
     );
@@ -690,6 +690,14 @@ export default function StudentProfileModal({
                     </span>
                     <span className="text-[var(--color-text-primary)] font-mono">
                       {student.guardianPhoneAlt || 'Lama hayo'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[var(--color-text-muted)] block text-[10px]">
+                      Emergency Contact
+                    </span>
+                    <span className="text-[var(--color-text-primary)] font-mono">
+                      {student.emergencyContact || 'Lama hayo'}
                     </span>
                   </div>
                 </div>
