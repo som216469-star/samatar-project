@@ -990,7 +990,7 @@ export default function StudentsView({
         const nationalKey = nationalId.toLowerCase();
 
         if (!fullName) rowErrors.push("Magaca ardayga waa maqan yahay");
-        else if (fullName.split(/\\s+/).filter(Boolean).length < 2) {
+        else if (fullName.split(/\s+/).filter(Boolean).length < 2) {
           rowErrors.push("Magaca ardayga waa inuu leeyahay ugu yaraan 2 magac");
         }
 
@@ -1002,10 +1002,10 @@ export default function StudentsView({
 
         if (!gender) rowErrors.push("Gender-ka waa inuu noqdaa Male ama Female");
         if (!guardianPhone) rowErrors.push("Telefoonka waalidka waa qasab");
-        else if (!/^[+0-9()\\s.-]{7,30}$/.test(guardianPhone)) {
+        else if (!/^[+0-9()\s.-]{7,30}$/.test(guardianPhone)) {
           rowErrors.push("Telefoonka waalidka ma saxna");
         }
-        if (guardianPhoneAlt && !/^[+0-9()\\s.-]{7,30}$/.test(guardianPhoneAlt)) {
+        if (guardianPhoneAlt && !/^[+0-9()\s.-]{7,30}$/.test(guardianPhoneAlt)) {
           rowErrors.push("Telefoonka labaad ma saxna");
         }
         if (nationalId.length > 80) rowErrors.push("National ID aad buu u dheer yahay");
