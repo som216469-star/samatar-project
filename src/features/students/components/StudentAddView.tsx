@@ -145,10 +145,6 @@ export default function StudentAddView({
         s.guardianPhone &&
         s.guardianPhone.replace(/\D/g, '') === cleanPhone.replace(/\D/g, '') &&
         s.fullName.trim().toLowerCase() === cleanName;
-      const sameAltPhone =
-        cleanAltPhone.length >= 7 &&
-        s.guardianPhoneAlt &&
-        s.guardianPhoneAlt.replace(/\D/g, '') === cleanAltPhone.replace(/\D/g, '');
       const sameRoll =
         cleanRoll &&
         s.rollNumber &&
@@ -159,7 +155,7 @@ export default function StudentAddView({
         cleanNationalId &&
         s.nationalId &&
         s.nationalId.trim().toLowerCase() === cleanNationalId;
-      return Boolean(sameId || sameNameClass || samePhone || sameAltPhone || sameRoll || sameNationalId);
+      return Boolean(sameId || sameNameClass || samePhone || sameRoll || sameNationalId);
     });
 
     if (localMatch) {
