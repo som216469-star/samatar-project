@@ -70,6 +70,7 @@ export const StudentsRosterTable: React.FC<StudentsRosterTableProps> = ({
   totalPages = 1,
   pageSize = 25,
   getStudentFeeStatus,
+  visibleColumns,
   onToggleSelectAllVisible,
   onToggleSelectAll,
   onToggleSelectOne,
