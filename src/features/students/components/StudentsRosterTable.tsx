@@ -476,7 +476,8 @@ export const StudentsRosterTable: React.FC<StudentsRosterTableProps> = ({
                               )}
                             </div>
                           </td>
-                        )}                      </tr>
+                        )}
+                      </tr>
                     );
                   })
                 )}
@@ -603,7 +604,7 @@ export const StudentsRosterTable: React.FC<StudentsRosterTableProps> = ({
                         {feeInfo.status}
                       </Badge>
                     </div>
-                  )}                </div>
+                  )}
                 </div>
 
                 <div className="flex items-center justify-between pt-2 border-t border-[var(--color-border)]">
@@ -639,7 +640,8 @@ export const StudentsRosterTable: React.FC<StudentsRosterTableProps> = ({
                       </button>
                     )}
                   </div>
-                </div>              </Card>
+                </div>
+              </Card>
             );
           })}
         </div>
