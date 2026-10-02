@@ -652,6 +652,18 @@ export default function StudentsView({
 
     if (!formData.class) {
       errors.class = 'Fasalka waa qasab (Class is required)';
+    } else {
+      const configuredSections = Array.from(
+        new Set(
+          classes
+            .filter((item) => item.className === formData.class)
+            .map((item) => String(item.section || '').trim())
+            .filter(Boolean)
+        )
+      );
+      if (configuredSections.length > 0 && !formData.section.trim()) {
+        errors.section = 'Section-ka waa qasab fasalkan.';
+      }
     }
 
     if (formData.guardianPhone && !/^[0-9+()\s.-]{7,30}$/.test(formData.guardianPhone.trim())) {
