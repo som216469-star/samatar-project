@@ -37,6 +37,7 @@ interface ParsedRow {
   address?: string;
   guardianRelationship?: string;
   guardianPhoneAlt?: string;
+  emergencyContact?: string;
   nationalId?: string;
   previousSchool?: string;
   bloodGroup?: string;
@@ -79,6 +80,7 @@ export default function StudentImportView({
         'Cinwaanka (Address)': 'Muqdisho, Hodan',
         'Xiriirka Waalidka (Relationship)': 'Aabbe',
         'Telefoon Labaad (Guardian Phone Alt)': '',
+        'Emergency Contact': '',
         'National ID': '',
         'Iskuulkii Hore (Previous School)': '',
         'Blood Group': '',
@@ -218,6 +220,11 @@ export default function StudentImportView({
           'Guardian Phone Alt',
           'Alternate Phone'
         );
+        const emergencyContact = get(
+          'Emergency Contact',
+          'Emergency Contact Phone',
+          'emergencyContact'
+        );
         const nationalId = get('National ID', 'NationalID', 'nationalId');
         const previousSchool = get(
           'Iskuulkii Hore (Previous School)',
@@ -333,6 +340,7 @@ export default function StudentImportView({
           address: address || undefined,
           guardianRelationship: guardianRelationship || undefined,
           guardianPhoneAlt: guardianPhoneAlt || undefined,
+          emergencyContact: emergencyContact || undefined,
           nationalId: nationalId || undefined,
           previousSchool: previousSchool || undefined,
           bloodGroup: bloodGroup || undefined,
@@ -453,6 +461,7 @@ export default function StudentImportView({
       address: r.address,
       guardianRelationship: r.guardianRelationship,
       guardianPhoneAlt: r.guardianPhoneAlt,
+      emergencyContact: r.emergencyContact,
       nationalId: r.nationalId,
       previousSchool: r.previousSchool,
       bloodGroup: r.bloodGroup,
