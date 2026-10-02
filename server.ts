@@ -2609,7 +2609,7 @@ app.post("/api/students/bulk", async (req, res) => {
 
       const { data: rows, error: rowsError } = await supabase
         .from("dugsiga_students")
-        .select("id,class,section,status")
+        .select("*")
         .eq("school_id", schoolId)
         .in("id", studentIds);
       if (rowsError) throw rowsError;
@@ -2677,10 +2677,21 @@ app.post("/api/students/bulk", async (req, res) => {
           });
         }
 
-        const { data: deleted, error } = await supabase.from("dugsiga_students").delete().eq("school_id", schoolId).in("id", studentIds).select("id");
+        const { data: deleted, error } = await supabase
+          .from("dugsiga_students")
+          .delete()
+          .eq("school_id", schoolId)
+          .in("id", studentIds)
+          .select("*");
         if (error) throw error;
-        const deletedIds = (deleted || []).map((row: any) => row.id);
-        await Promise.all(deletedIds.map((id) => recordStudentAudit(req, schoolId, id, "deleted", ["student"])));
+
+        const deletedRows = deleted || [];
+        const deletedIds = deletedRows.map((row: any) => row.id);
+        await Promise.all(
+          deletedRows.map((row: any) =>
+            recordStudentAudit(req, schoolId, row.id, "deleted", ["student"], row, null)
+          )
+        );
         return res.json({ success: true, count: deletedIds.length });
       }
 
@@ -2694,13 +2705,31 @@ app.post("/api/students/bulk", async (req, res) => {
       }
       if (nextStatus) updateObj.status = nextStatus;
 
-      const { data: updated, error } = await supabase.from("dugsiga_students").update(updateObj).eq("school_id", schoolId).in("id", studentIds).select("id,status");
+      const { data: updated, error } = await supabase
+        .from("dugsiga_students")
+        .update(updateObj)
+        .eq("school_id", schoolId)
+        .in("id", studentIds)
+        .select("*");
       if (error) throw error;
 
+      const beforeById = new Map<string, any>(
+        found.map((row: any) => [String(row.id), row])
+      );
       const updatedRows = updated || [];
-      await Promise.all(updatedRows.map((row: any) =>
-        recordStudentAudit(req, schoolId, row.id, row.status === "archived" ? "archived" : "updated", Object.keys(updateObj).filter((key) => key !== "updated_at"))
-      ));
+      await Promise.all(
+        updatedRows.map((row: any) =>
+          recordStudentAudit(
+            req,
+            schoolId,
+            row.id,
+            row.status === "archived" ? "archived" : "updated",
+            Object.keys(updateObj).filter((key) => key !== "updated_at"),
+            beforeById.get(String(row.id)) || null,
+            row
+          )
+        )
+      );
       return res.json({ success: true, count: updatedRows.length });
     } catch (e: any) {
       return handleStudentSupabaseError(res, e, "Hawsha guud ee ardayda (Bulk Students Operation)");
@@ -2993,7 +3022,7 @@ app.get("/api/students/:id/audit", async (req, res) => {
 
       const { data, error } = await supabase
         .from("dugsiga_student_audit")
-        .select("id,student_id,action,actor_email,actor_role,changed_fields,created_at")
+        .select("id,student_id,action,actor_email,actor_role,changed_fields,before_data,after_data,created_at")
         .eq("school_id", schoolId)
         .eq("student_id", id)
         .order("created_at", { ascending: false })
