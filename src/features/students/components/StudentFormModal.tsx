@@ -23,6 +23,12 @@ export interface StudentFormData {
   status: 'active' | 'inactive' | 'archived';
   photo: string;
   createdAt: string;
+  guardianRelationship: string;
+  guardianPhoneAlt: string;
+  nationalId: string;
+  previousSchool: string;
+  bloodGroup: string;
+  medicalNotes: string;
 }
 
 export interface StudentFormModalProps {
@@ -313,6 +319,31 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                     className="w-full ds-input"
                   />
                 </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="font-semibold text-[var(--color-text-secondary)] block">
+                    National ID
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.nationalId}
+                    onChange={(e) => setFormData({ ...formData, nationalId: e.target.value })}
+                    placeholder="Tusaale: 123456789"
+                    className="w-full ds-input font-mono"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="font-semibold text-[var(--color-text-secondary)] block">
+                    Blood Group
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.bloodGroup}
+                    onChange={(e) => setFormData({ ...formData, bloodGroup: e.target.value })}
+                    placeholder="Tusaale: O+"
+                    className="w-full ds-input"
+                  />
+                </div>
               </div>
             </div>
           )}
@@ -395,6 +426,19 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                   className="w-full ds-input"
                 />
               </div>
+
+              <div className="space-y-1.5">
+                <label className="font-semibold text-[var(--color-text-secondary)] block">
+                  Iskuulkii Hore (Previous School)
+                </label>
+                <input
+                  type="text"
+                  value={formData.previousSchool}
+                  onChange={(e) => setFormData({ ...formData, previousSchool: e.target.value })}
+                  placeholder="Magaca iskuulkii hore"
+                  className="w-full ds-input"
+                />
+              </div>
             </div>
           )}
 
@@ -434,6 +478,46 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                       {formErrors.guardianPhone}
                     </p>
                   )}
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="font-semibold text-[var(--color-text-secondary)] block">
+                    Xiriirka Waalidka (Relationship)
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.guardianRelationship}
+                    onChange={(e) => setFormData({ ...formData, guardianRelationship: e.target.value })}
+                    placeholder="Tusaale: Aabbe, Hooyo, Adeer"
+                    className="w-full ds-input"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="font-semibold text-[var(--color-text-secondary)] block">
+                    Telefoon Labaad (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.guardianPhoneAlt}
+                    onChange={(e) => setFormData({ ...formData, guardianPhoneAlt: e.target.value })}
+                    placeholder="+252 ..."
+                    className="w-full ds-input font-mono"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="font-semibold text-[var(--color-text-secondary)] block">
+                    Xusuusin Caafimaad (Medical Notes)
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.medicalNotes}
+                    onChange={(e) => setFormData({ ...formData, medicalNotes: e.target.value })}
+                    placeholder="Optional"
+                    className="w-full ds-input"
+                  />
                 </div>
               </div>
 
