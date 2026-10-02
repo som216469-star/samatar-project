@@ -1489,6 +1489,9 @@ function validateStudentPayload(
   };
 
   if (!readString("fullName", "Magaca ardayga", 160, !partial)) return { ok: false, value: {}, error: value.__error };
+  if (value.fullName && value.fullName.split(/\s+/).filter(Boolean).length < 2) {
+    return { ok: false, value: {}, error: "Magaca ardayga waa inuu leeyahay ugu yaraan 2 magac." };
+  }
   if (!readString("class", "Fasalka", 120, !partial)) return { ok: false, value: {}, error: value.__error };
   if (!readString("guardianPhone", "Telefoonka waalidka", 30, false)) return { ok: false, value: {}, error: value.__error };
   if (!readString("guardianName", "Magaca waalidka", 160, false)) return { ok: false, value: {}, error: value.__error };
@@ -1878,7 +1881,14 @@ function handleStudentSupabaseError(
     });
   }
 
-  return handleSupabaseError(res, error, operation);
+  console.error(`Student module database error during "${operation}":`, {
+    code,
+    message
+  });
+  return res.status(500).json({
+    error: 'Khalad server/database ah ayaa dhacay. Fadlan mar kale isku day.',
+    code: 'STUDENT_DATABASE_ERROR'
+  });
 }
 
 async function getStudentDependencyIds(studentIds: string[], schoolId: string): Promise<Set<string>> {
