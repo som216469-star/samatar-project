@@ -613,16 +613,24 @@ CREATE TABLE IF NOT EXISTS dugsiga_students (
   school_id TEXT NOT NULL,
   full_name TEXT NOT NULL,
   class TEXT NOT NULL,
-  gender TEXT,
-  guardian_phone TEXT,
-  status TEXT DEFAULT 'active',
+  gender TEXT NOT NULL DEFAULT 'Male',
+  guardian_phone TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'active',
   created_at TEXT,
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now()),
   photo TEXT,
   date_of_birth TEXT,
   address TEXT,
   guardian_name TEXT,
+  guardian_relationship TEXT,
+  guardian_phone_alt TEXT,
   section TEXT,
-  roll_number TEXT
+  roll_number TEXT,
+  national_id TEXT,
+  emergency_contact TEXT,
+  previous_school TEXT,
+  blood_group TEXT,
+  medical_notes TEXT
 );
 
 -- 3. Classes Table
