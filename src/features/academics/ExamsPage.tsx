@@ -509,7 +509,7 @@ export default function ExamsPage({
               <span>Soo Geli (Import)</span>
               <input
                 type="file"
-                accept=".xlsx, .xls"
+                accept=".xlsx"
                 onChange={handleExcelImport}
                 className="hidden"
               />
