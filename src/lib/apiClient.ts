@@ -2,8 +2,9 @@ import { enqueueOfflineAction } from '../utils/offlineSync';
 import { getStoredSession, getAuthToken } from './authStorage';
 
 /**
- * Centralized Institutional API Client
- * Automatically attaches tenant X-School-Email and Bearer JWT token from canonical session storage.
+ * Centralized Institutional API Client.
+ * The preferred browser credential is the server-issued HttpOnly session cookie.
+ * Authorization is only attached when a short-lived in-memory compatibility token exists.
  */
 export async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   const session = getStoredSession();
@@ -16,7 +17,8 @@ export async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Pr
 
   return window.fetch(input, {
     ...init,
-    headers
+    headers,
+    credentials: 'same-origin'
   });
 }
 
