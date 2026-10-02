@@ -55,6 +55,7 @@ export interface StudentsStatsOverviewProps {
   showDashboardDetails?: boolean;
   setShowDashboardDetails?: React.Dispatch<React.SetStateAction<boolean>>;
   onOpenProfile?: (student: Student) => void;
+  canViewFinance?: boolean;
 }
 
 export const StudentsStatsOverview: React.FC<StudentsStatsOverviewProps> = ({
@@ -74,7 +75,8 @@ export const StudentsStatsOverview: React.FC<StudentsStatsOverviewProps> = ({
   selectedFeeFilter,
   setSelectedFeeFilter,
   selectedClassFilter,
-  setSelectedClassFilter
+  setSelectedClassFilter,
+  canViewFinance = true
 }) => {
   const safeStats = stats || {
     total: 0,
@@ -202,6 +204,7 @@ export const StudentsStatsOverview: React.FC<StudentsStatsOverviewProps> = ({
           onClick={handleAttentionClick}
         />
 
+        {canViewFinance && (
         <StatCard
           label="Baaqi Lacageed"
           value={unpaidCount}
@@ -210,6 +213,8 @@ export const StudentsStatsOverview: React.FC<StudentsStatsOverviewProps> = ({
           icon={<Wallet className="w-4 h-4" />}
           onClick={handleUnpaidClick}
         />
+        )}
+
       </div>
 
       {/* Quick Class Breakdown Strip */}
