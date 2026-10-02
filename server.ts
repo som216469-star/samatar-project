@@ -1855,6 +1855,9 @@ app.use("/api", (req, res, next) => {
     });
   }
 
+  return next();
+});
+
 app.use("/api", (req, res, next) => {
   const publicPath = PUBLIC_API_PATHS.some((pattern) => pattern.test(req.path));
   if (publicPath || !req.path.startsWith("/students")) return next();
@@ -1908,9 +1911,6 @@ app.use("/api", (req, res, next) => {
   }
 
   return next();
-});
-
-  next();
 });
 
 app.use("/api", (req, res, next) => {
