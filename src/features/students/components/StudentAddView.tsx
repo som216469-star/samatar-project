@@ -28,7 +28,10 @@ interface StudentAddViewProps {
 }
 
 function generateStudentId(): string {
-  return 'STD-' + Math.floor(1000 + Math.random() * 9000);
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return 'STD-' + crypto.randomUUID().slice(0, 8).toUpperCase();
+  }
+  return 'STD-' + Date.now().toString(36).toUpperCase();
 }
 
 function compressImage(file: File, maxDim = 400, quality = 0.85): Promise<string> {
@@ -110,7 +113,10 @@ export default function StudentAddView({
     const cleanName = formData.fullName.trim().toLowerCase();
     const cleanClass = formData.class;
     const cleanPhone = formData.guardianPhone.trim();
+    const cleanAltPhone = formData.guardianPhoneAlt.trim();
     const cleanId = formData.id.trim().toLowerCase();
+    const cleanRoll = formData.rollNumber.trim().toLowerCase();
+    const cleanNationalId = formData.nationalId.trim().toLowerCase();
 
     if (!cleanName && !cleanPhone) {
       setDuplicateWarning({ found: false });
@@ -129,7 +135,19 @@ export default function StudentAddView({
         s.guardianPhone &&
         s.guardianPhone.replace(/\D/g, '') === cleanPhone.replace(/\D/g, '') &&
         s.fullName.trim().toLowerCase() === cleanName;
-      return sameId || sameNameClass || samePhone;
+      const sameAltPhone =
+        cleanAltPhone.length >= 7 &&
+        s.guardianPhoneAlt &&
+        s.guardianPhoneAlt.replace(/\D/g, '') === cleanAltPhone.replace(/\D/g, '');
+      const sameRoll =
+        cleanRoll &&
+        s.rollNumber &&
+        s.rollNumber.trim().toLowerCase() === cleanRoll;
+      const sameNationalId =
+        cleanNationalId &&
+        s.nationalId &&
+        s.nationalId.trim().toLowerCase() === cleanNationalId;
+      return Boolean(sameId || sameNameClass || samePhone || sameAltPhone || sameRoll || sameNationalId);
     });
 
     if (localMatch) {
@@ -161,7 +179,10 @@ export default function StudentAddView({
             studentId: formData.id.trim(),
             fullName: formData.fullName.trim(),
             className: formData.class,
-            guardianPhone: formData.guardianPhone.trim()
+            guardianPhone: formData.guardianPhone.trim(),
+            rollNumber: formData.rollNumber.trim(),
+            nationalId: formData.nationalId.trim(),
+            gender: formData.gender
           })
         });
         if (res.ok) {
@@ -212,8 +233,12 @@ export default function StudentAddView({
     }
     if (!formData.guardianPhone.trim()) {
       errs.guardianPhone = 'Telefoonka waalidka waa qasab (Guardian phone is required)';
-    } else if (formData.guardianPhone.trim().length < 6) {
+    } else if (!/^[+0-9()\s.-]{7,30}$/.test(formData.guardianPhone.trim())) {
       errs.guardianPhone = 'Fadlan geli lambar telefoon sax ah';
+    }
+
+    if (formData.guardianPhoneAlt && !/^[+0-9()\s.-]{7,30}$/.test(formData.guardianPhoneAlt.trim())) {
+      errs.guardianPhoneAlt = 'Telefoonka labaad ma saxna';
     }
 
     setFormErrors(errs);
