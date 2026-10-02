@@ -289,7 +289,7 @@ export const StudentsFilterToolbar: React.FC<StudentsFilterToolbarProps> = ({
                   </button>
                 </span>
               )}
-              {resolvedFee !== 'All' && resolvedFee !== 'all' && (
+              {canViewFinance && resolvedFee !== 'All' && resolvedFee !== 'all' && (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[var(--color-warning-soft)] text-[var(--color-warning)] border border-[var(--color-warning-border)]">
                   Lacagta: {resolvedFee}
                   <button type="button" onClick={() => resolvedFeeChange('all')}>
