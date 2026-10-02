@@ -13,6 +13,8 @@ import {
   hashPassword,
   verifyPassword,
   requireAuthenticatedRequest,
+  getSessionTokenFromRequest,
+  revokeSession,
   validatePassword
 } from "./server/authSession.ts";
 
@@ -78,7 +80,145 @@ function parseSupabaseUrl(url: string | undefined): string {
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 
+// Reverse-proxy aware and hardened Express defaults.
+app.disable("x-powered-by");
+app.set("trust proxy", 1);
+
+// Security headers that are safe for this SPA without introducing a brittle CSP.
+app.use((req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader(
+    "Permissions-Policy",
+    "camera=(), microphone=(), geolocation=(), payment=()"
+  );
+  res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
+  res.setHeader("Cross-Origin-Resource-Policy", "same-origin");
+
+  const forwardedProto = String(req.headers["x-forwarded-proto"] || "").split(",")[0].trim().toLowerCase();
+  if (req.secure || forwardedProto === "https") {
+    res.setHeader(
+      "Strict-Transport-Security",
+      "max-age=31536000; includeSubDomains"
+    );
+  }
+
+  if (req.path.startsWith("/api/auth/")) {
+    res.setHeader("Cache-Control", "no-store");
+    res.setHeader("Pragma", "no-cache");
+  }
+  next();
+});
+
 app.use(express.json({ limit: "10mb" }));
+
+// Basic in-process abuse controls for public authentication endpoints.
+// These limits protect each runtime instance and complement the signed session design.
+type RateBucket = { count: number; resetAt: number };
+const authRateBuckets = new Map<string, RateBucket>();
+
+function consumeAuthRateLimit(key: string, maxAttempts: number, windowMs: number): {
+  allowed: boolean;
+  retryAfterSeconds: number;
+} {
+  const now = Date.now();
+  const current = authRateBuckets.get(key);
+
+  if (!current || current.resetAt <= now) {
+    authRateBuckets.set(key, { count: 1, resetAt: now + windowMs });
+    return { allowed: true, retryAfterSeconds: Math.ceil(windowMs / 1000) };
+  }
+
+  current.count += 1;
+  if (current.count > maxAttempts) {
+    return {
+      allowed: false,
+      retryAfterSeconds: Math.max(1, Math.ceil((current.resetAt - now) / 1000))
+    };
+  }
+
+  return {
+    allowed: true,
+    retryAfterSeconds: Math.max(1, Math.ceil((current.resetAt - now) / 1000))
+  };
+}
+
+function clearAuthRateLimit(keyPrefix: string) {
+  for (const key of authRateBuckets.keys()) {
+    if (key.startsWith(keyPrefix)) authRateBuckets.delete(key);
+  }
+}
+
+// Reject cross-site state-changing API requests. Bearer auth is the primary control,
+// while this adds defense-in-depth against browser-based request forgery.
+function apiOriginAllowed(req: express.Request): boolean {
+  if (!req.headers.origin) return true;
+
+  const forwardedProto = String(req.headers["x-forwarded-proto"] || "").split(",")[0].trim();
+  const forwardedHost = String(req.headers["x-forwarded-host"] || req.headers.host || "").split(",")[0].trim();
+  const requestOrigin = forwardedHost
+    ? `${forwardedProto || (req.secure ? "https" : "http")}://${forwardedHost}`
+    : "";
+
+  let configuredOrigin = "";
+  try {
+    if (process.env.APP_URL) configuredOrigin = new URL(process.env.APP_URL).origin;
+  } catch {}
+
+  return req.headers.origin === requestOrigin ||
+    (!!configuredOrigin && req.headers.origin === configuredOrigin);
+}
+
+app.use("/api", (req, res, next) => {
+  if (["POST", "PUT", "PATCH", "DELETE"].includes(req.method) && !apiOriginAllowed(req)) {
+    return res.status(403).json({ error: "Cross-site request blocked." });
+  }
+  next();
+});
+
+app.use("/api", (req, res, next) => {
+  const pathName = req.path;
+
+  if (req.method === "POST" && pathName === "/auth/login") {
+    const ip = req.ip || "unknown";
+    const email = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "unknown";
+    const ipLimit = consumeAuthRateLimit(`login:ip:${ip}`, 10, 15 * 60 * 1000);
+    const accountLimit = consumeAuthRateLimit(`login:account:${ip}:${email}`, 6, 15 * 60 * 1000);
+
+    if (!ipLimit.allowed || !accountLimit.allowed) {
+      const retry = Math.max(ipLimit.retryAfterSeconds, accountLimit.retryAfterSeconds);
+      res.setHeader("Retry-After", String(retry));
+      return res.status(429).json({
+        error: "Too many login attempts. Fadlan sug wax yar kadibna mar kale isku day."
+      });
+    }
+  }
+
+  if (req.method === "POST" && pathName === "/auth/signup") {
+    const ip = req.ip || "unknown";
+    const limit = consumeAuthRateLimit(`signup:ip:${ip}`, 5, 60 * 60 * 1000);
+    if (!limit.allowed) {
+      res.setHeader("Retry-After", String(limit.retryAfterSeconds));
+      return res.status(429).json({
+        error: "Diiwaangelin badan ayaa laga helay cinwaankan. Fadlan sug wax yar."
+      });
+    }
+  }
+
+  if (req.method === "POST" && pathName === "/teachers/activate-account") {
+    const ip = req.ip || "unknown";
+    const limit = consumeAuthRateLimit(`activation:ip:${ip}`, 10, 60 * 60 * 1000);
+    if (!limit.allowed) {
+      res.setHeader("Retry-After", String(limit.retryAfterSeconds));
+      return res.status(429).json({
+        error: "Codsiyo badan ayaa laga helay cinwaankan. Fadlan sug wax yar."
+      });
+    }
+  }
+
+  return next();
+});
 
 // Initialize Supabase Client with resilient key resolution
 function deriveSupabaseKey(): string {
@@ -415,10 +555,14 @@ const SQL_SETUP_SCRIPT = `
 
 -- 1. Users Table
 CREATE TABLE IF NOT EXISTS dugsiga_users (
+  id BIGSERIAL UNIQUE,
   email TEXT PRIMARY KEY,
   password TEXT NOT NULL,
   verified BOOLEAN DEFAULT TRUE,
   role TEXT DEFAULT 'School Admin',
+  school_id TEXT,
+  teacher_id TEXT,
+  verification_code TEXT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -904,13 +1048,80 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
   ]
 };
 
+function normalizeRole(role: string): string {
+  const normalized = String(role || "").trim().toLowerCase();
+  const aliases: Record<string, string> = {
+    "admin": "School Admin",
+    "school admin": "School Admin",
+    "super admin": "Super Admin",
+    "teacher": "Teacher",
+    "staff": "Staff",
+    "accountant": "Accountant",
+    "receptionist": "Receptionist",
+    "librarian": "Librarian",
+    "principal": "Principal"
+  };
+  return aliases[normalized] || role.trim();
+}
+
 function hasPermission(role: string, requiredPermission: string): boolean {
-  const permissions = ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS['School Admin'];
+  const normalizedRole = normalizeRole(role);
+  const permissions = ROLE_PERMISSIONS[normalizedRole] || [];
   if (permissions.includes('*')) return true;
   if (permissions.includes(requiredPermission)) return true;
   const [domain] = requiredPermission.split('.');
   if (permissions.includes(`${domain}.*`)) return true;
   return false;
+}
+
+// Map every protected API surface to a least-privilege permission.
+// This is defense-in-depth on top of the existing tenant filters in each handler.
+function requiredPermissionForRequest(req: express.Request): string | null {
+  const pathName = req.path;
+
+  if (pathName === "/reset") return "system.reset";
+  if (pathName === "/db/status" || pathName === "/supabase-server-test") return "system.admin";
+  if (pathName === "/documentation-pdf" || pathName.startsWith("/docs/download/")) return "reports.view";
+  if (pathName === "/user/profile") return null;
+
+  const read = req.method === "GET";
+  const mutationPermission = (domain: string) => `${domain}.manage`;
+  const readPermission = (domain: string) => `${domain}.view`;
+
+  if (pathName.startsWith("/students")) return read ? readPermission("students") : (req.method === "POST" ? "students.create" : req.method === "PUT" ? "students.update" : "students.delete");
+  if (pathName.startsWith("/classes")) return read ? readPermission("classes") : mutationPermission("classes");
+  if (pathName.startsWith("/subjects")) return read ? readPermission("subjects") : mutationPermission("subjects");
+  if (pathName.startsWith("/exams")) return read ? readPermission("exams") : "exams.manage";
+  if (pathName.startsWith("/attendance")) return read ? readPermission("attendance") : "attendance.manage";
+  if (pathName.startsWith("/teachers")) return read ? readPermission("teachers") : mutationPermission("teachers");
+  if (pathName.startsWith("/staff-attendance")) return read ? readPermission("attendance") : "attendance.manage";
+  if (pathName.startsWith("/staff")) return read ? readPermission("staff") : mutationPermission("staff");
+  if (pathName.startsWith("/guardians")) return read ? readPermission("guardians") : mutationPermission("guardians");
+  if (pathName.startsWith("/timetable")) return read ? readPermission("timetable") : mutationPermission("timetable");
+  if (pathName.startsWith("/admissions")) return read ? readPermission("admissions") : mutationPermission("admissions");
+  if (pathName.startsWith("/announcements")) return read ? readPermission("announcements") : mutationPermission("announcements");
+  if (pathName.startsWith("/library/")) return read ? readPermission("library") : mutationPermission("library");
+  if (pathName.startsWith("/inventory")) return read ? readPermission("inventory") : mutationPermission("inventory");
+  if (pathName.startsWith("/notifications")) return read ? "announcements.view" : "communication.manage";
+  if (pathName.startsWith("/analytics/") || pathName.startsWith("/reports/")) return "reports.view";
+
+  if (
+    pathName.startsWith("/fee-structures") ||
+    pathName.startsWith("/invoices") ||
+    pathName.startsWith("/payments") ||
+    pathName.startsWith("/expenses") ||
+    pathName.startsWith("/income") ||
+    pathName.startsWith("/payroll") ||
+    pathName.startsWith("/budgets")
+  ) {
+    return read ? "finance.view" : "finance.manage";
+  }
+
+  if (pathName === "/profit-loss" || pathName === "/cash-flow" || pathName === "/finance/stats" || pathName === "/financial-reports") {
+    return "finance.view";
+  }
+
+  return null;
 }
 
 // Password hashing is centralized in server/authSession.ts.
@@ -1007,16 +1218,36 @@ app.use("/api", (req, res, next) => {
   return requireAuthenticatedRequest(req, res, next);
 });
 
+app.use("/api", (req, res, next) => {
+  const publicPath = PUBLIC_API_PATHS.some((pattern) => pattern.test(req.path));
+  if (publicPath) return next();
+
+  const requiredPermission = requiredPermissionForRequest(req);
+  if (!requiredPermission) return next();
+
+  const authUser = getAuthenticatedUser(req, loadLocalDB);
+  if (!authUser) {
+    return res.status(401).json({
+      error: "Unauthorized. Fadlan marka hore gal akoonkaaga."
+    });
+  }
+
+  if (!hasPermission(authUser.role, requiredPermission)) {
+    return res.status(403).json({
+      error: "Fasax ku filan ma lihid hawshan (Forbidden)."
+    });
+  }
+
+  next();
+});
+
 app.get("/api/db/status", async (req, res) => {
   try {
     await checkSupabaseStatus();
     res.json({
       connected: !useLocalFallback && customSupabaseActive,
       fallbackMode: useLocalFallback,
-      customSupabaseActive: customSupabaseActive,
-      customSupabaseConfigured: true,
-      supabaseUrl: supabaseUrl,
-      sqlScript: SQL_SETUP_SCRIPT
+      customSupabaseActive: customSupabaseActive
     });
   } catch (err: any) {
     console.error("Error in /api/db/status:", err);
@@ -1053,21 +1284,14 @@ app.get("/api/docs/download/word", (req, res) => {
 
 app.get("/api/supabase-server-test", expressWithSupabase({ auth: "none" }, async (_req: any, ctx: any) => {
   try {
-    const { data: usersData, error: usersError } = await ctx.supabaseAdmin.from("dugsiga_users").select("email").limit(5);
-    const { data: studentsData, error: studentsError } = await ctx.supabaseAdmin.from("dugsiga_students").select("id, full_name").limit(5);
+    const { error: usersError } = await ctx.supabaseAdmin.from("dugsiga_users").select("email").limit(1);
+    const { error: studentsError } = await ctx.supabaseAdmin.from("dugsiga_students").select("id").limit(1);
     return Response.json({
       status: "success",
       message: "Supabase server SDK successfully configured!",
-      env_variables_verified: {
-        SUPABASE_URL: !!process.env.SUPABASE_URL,
-        SUPABASE_PUBLISHABLE_KEY: !!process.env.SUPABASE_PUBLISHABLE_KEY,
-        SUPABASE_SECRET_KEY: !!process.env.SUPABASE_SECRET_KEY,
-        SUPABASE_JWKS_URL: !!process.env.SUPABASE_JWKS_URL
-      },
       has_supabase_client: !!ctx.supabase,
       has_supabase_admin_client: !!ctx.supabaseAdmin,
-      test_query_admin_users: usersError ? { error: usersError.message } : usersData,
-      test_query_admin_students: studentsError ? { error: studentsError.message } : studentsData
+      database_check: !usersError && !studentsError
     });
   } catch (err: any) {
     return Response.json({ status: "error", message: err.message }, { status: 500 });
@@ -1143,6 +1367,12 @@ app.post("/api/auth/verify", async (req, res) => {
   res.json({ success: true, message: "Verification step is disabled. Automated success." });
 });
 
+app.post("/api/auth/logout", (req, res) => {
+  const token = getSessionTokenFromRequest(req);
+  if (token) revokeSession(token);
+  return res.json({ success: true });
+});
+
 app.get("/api/documentation-pdf", (req, res) => {
   const publicPdf = path.join(process.cwd(), "public", "DUGSI_PRO_2026_DOCUMENTATION.pdf");
   const rootPdf = path.join(process.cwd(), "DUGSI_PRO_2026_DOCUMENTATION.pdf");
@@ -1210,8 +1440,43 @@ app.post("/api/auth/login", async (req, res) => {
         }
         saveLocalDB(db);
 
+        if (String(user.role || "").trim().toLowerCase() === "teacher" && user.teacher_id) {
+          const { data: cloudTeacher, error: teacherLookupError } = await supabase
+            .from("dugsiga_teachers")
+            .select("id, school_id, name, email, status, assigned_classes, assigned_subjects")
+            .eq("id", user.teacher_id)
+            .eq("school_id", user.school_id || cleanEmail)
+            .maybeSingle();
+
+          if (teacherLookupError) {
+            console.warn("Teacher status lookup notice:", teacherLookupError.message);
+          } else if (!cloudTeacher) {
+            return res.status(403).json({ error: "Akoonka macallinka lama helin ama waa la saaray." });
+          } else if (cloudTeacher.status === "DEACTIVATED" || cloudTeacher.status === "INACTIVE") {
+            return res.status(403).json({ error: "Akoonkaaga macallinka waa la hakiyey (Account deactivated). Fadlan la xiriir maamulka iskuulka." });
+          } else if (cloudTeacher.status === "INVITED") {
+            return res.status(403).json({ error: "Akoonkan weli lama dhaqaajin. Fadlan isticmaal link-gii casuumaadda." });
+          }
+
+          const teacherPayload: any = {
+            email: cleanEmail,
+            role: "teacher",
+            name: cloudTeacher.name,
+            teacherId: cloudTeacher.id,
+            schoolId: cloudTeacher.school_id || user.school_id || cleanEmail,
+            assignedClasses: Array.isArray(cloudTeacher.assigned_classes) ? cloudTeacher.assigned_classes : [],
+            assignedSubjects: Array.isArray(cloudTeacher.assigned_subjects) ? cloudTeacher.assigned_subjects : []
+          };
+          const token = createSessionToken(teacherPayload);
+          clearAuthRateLimit(`login:ip:${req.ip || "unknown"}:`);
+          clearAuthRateLimit(`login:account:${req.ip || "unknown"}:${cleanEmail}`);
+          return res.json({ success: true, token, user: teacherPayload });
+        }
+
         const authRes = buildAuthResponse(cleanEmail, db);
         if (authRes.error) return res.status(403).json({ error: authRes.error });
+        clearAuthRateLimit(`login:ip:${req.ip || "unknown"}:`);
+        clearAuthRateLimit(`login:account:${req.ip || "unknown"}:${cleanEmail}`);
         return res.json(authRes);
       }
     } catch (e: any) {
@@ -1233,6 +1498,8 @@ app.post("/api/auth/login", async (req, res) => {
 
     const authRes = buildAuthResponse(cleanEmail, db);
     if (authRes.error) return res.status(403).json({ error: authRes.error });
+    clearAuthRateLimit(`login:ip:${req.ip || "unknown"}:`);
+    clearAuthRateLimit(`login:account:${req.ip || "unknown"}:${cleanEmail}`);
     return res.json(authRes);
   }
 
