@@ -49,6 +49,7 @@ import ReportsPage from './features/reports/ReportsPage';
 // Centralized Institutional Data & API Client
 import { useInstitutionalData } from './hooks/useInstitutionalData';
 import { apiFetch } from './lib/apiClient';
+import { saveAuthSession, clearAuthSession } from './lib/authStorage';
 
 export default function App() {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -105,16 +106,30 @@ export default function App() {
     }
   }, [theme]);
 
-  // Restore session & URL state on mount
+  // Restore UI only after the server validates the HttpOnly session cookie.
   useEffect(() => {
-    const savedUser =
-      localStorage.getItem('dugsi_user') || localStorage.getItem('dugsiga_auth');
+    let cancelled = false;
     const parsed = parseAppLocation(window.location.pathname, window.location.search);
 
-    if (savedUser) {
+    const restoreSession = async () => {
       try {
-        const parsedUser = JSON.parse(savedUser);
-        setUser(parsedUser);
+        const res = await apiFetch('/api/user/profile', { method: 'GET' });
+        if (!res.ok) throw new Error('session_invalid');
+
+        const profile = await res.json();
+        if (cancelled) return;
+
+        const restoredUser: AuthUser = {
+          email: profile.email,
+          schoolId: profile.schoolId,
+          role: profile.role,
+          name: profile.name || undefined,
+          teacherId: profile.teacherId || undefined
+        };
+
+        saveAuthSession(restoredUser);
+        setUser(restoredUser);
+
         if (parsed.publicRoute === 'dashboard') {
           setPublicRoute('dashboard');
           setActiveTab(parsed.activeTab);
@@ -125,22 +140,23 @@ export default function App() {
           setPublicRoute(parsed.publicRoute);
         }
       } catch {
-        localStorage.removeItem('dugsi_user');
-        localStorage.removeItem('dugsiga_auth');
+        clearAuthSession();
+        setUser(null);
         setPublicRoute(parsed.publicRoute === 'dashboard' ? 'login' : parsed.publicRoute);
       }
-    } else {
-      setPublicRoute(parsed.publicRoute === 'dashboard' ? 'login' : parsed.publicRoute);
-    }
+    };
+
+    restoreSession();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Browser Back/Forward Navigation Sync
   useEffect(() => {
     const handlePopState = () => {
       const parsed = parseAppLocation(window.location.pathname, window.location.search);
-      const savedUser =
-        localStorage.getItem('dugsi_user') || localStorage.getItem('dugsiga_auth');
-      if (parsed.publicRoute === 'dashboard' && !savedUser && !user) {
+      if (parsed.publicRoute === 'dashboard' && !user) {
         setPublicRoute('login');
         return;
       }
@@ -155,9 +171,8 @@ export default function App() {
   }, [user]);
 
   const handleLogout = useCallback(() => {
-    localStorage.removeItem('dugsi_user');
-    localStorage.removeItem('dugsiga_auth');
-    localStorage.removeItem('dugsi_token');
+    void apiFetch('/api/auth/logout', { method: 'POST' }).catch(() => undefined);
+    clearAuthSession();
     setUser(null);
     setPublicRoute('landing');
     window.history.pushState({}, '', '/');
@@ -207,7 +222,7 @@ export default function App() {
     setAuthError('');
     setAuthLoading(true);
     try {
-      const endpoint = publicRoute === 'signup' ? '/api/auth/register' : '/api/auth/login';
+      const endpoint = publicRoute === 'signup' ? '/api/auth/signup' : '/api/auth/login';
       const res = await apiFetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -222,12 +237,7 @@ export default function App() {
           role: payload.role || 'admin',
           schoolId: payload.schoolId || email
         };
-        if (payload.token) {
-          localStorage.setItem('dugsi_token', payload.token);
-          authUser.token = payload.token;
-        }
-        localStorage.setItem('dugsi_user', JSON.stringify(authUser));
-        localStorage.setItem('dugsiga_auth', JSON.stringify(authUser));
+        saveAuthSession(authUser, payload.token);
         setUser(authUser);
         setPublicRoute('dashboard');
         setActiveTab('overview');
