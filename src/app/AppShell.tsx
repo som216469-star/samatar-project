@@ -437,7 +437,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                 <div className="text-sm font-bold text-white truncate tracking-tight">
                   {settings.schoolName || 'Dugsi Pro 2026'}
                 </div>
-                <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-[#94a3b8]">
+                <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-[var(--sidebar-text-muted)]">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                   <span>{settings.academicYear || '2025/2026'}</span>
                 </div>
@@ -450,7 +450,7 @@ export const AppShell: React.FC<AppShellProps> = ({
               type="button"
               onClick={() => setMobileMenuOpen(false)}
               aria-label="Close sidebar"
-              className="p-1.5 rounded-[var(--radius-sm)] text-[#94a3b8] hover:text-white hover:bg-white/5 cursor-pointer"
+              className="p-1.5 rounded-[var(--radius-sm)] text-[var(--sidebar-text-muted)] hover:text-white hover:bg-white/5 cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
@@ -460,7 +460,7 @@ export const AppShell: React.FC<AppShellProps> = ({
               onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
               aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
               title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-              className="p-1.5 rounded-[var(--radius-sm)] text-[#94a3b8] hover:text-white hover:bg-white/5 cursor-pointer"
+              className="p-1.5 rounded-[var(--radius-sm)] text-[var(--sidebar-text-muted)] hover:text-white hover:bg-white/5 cursor-pointer"
             >
               {collapsed ? (
                 <PanelLeftOpen className="w-4 h-4" />
@@ -483,7 +483,7 @@ export const AppShell: React.FC<AppShellProps> = ({
             return (
               <div key={group.id} className="space-y-1">
                 {!collapsed && (
-                  <div className="px-2.5 pb-1 text-[10px] font-bold uppercase tracking-widest text-[#64748b]">
+                  <div className="px-2.5 pb-1 text-[10px] font-bold uppercase tracking-widest text-[var(--sidebar-text-muted)]">
                     {group.label}
                   </div>
                 )}
@@ -502,7 +502,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                           className={`flex items-center justify-between rounded-[var(--radius-sm)] transition-colors ${
                             active
                               ? 'bg-[var(--sidebar-active-bg)] text-white font-semibold'
-                              : 'text-[#cbd5e1] hover:bg-[var(--sidebar-hover-bg)] hover:text-white'
+                              : 'text-[var(--sidebar-text)] hover:bg-[var(--sidebar-hover-bg)] hover:text-white'
                           }`}
                         >
                           <button
@@ -522,7 +522,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                             <div className="flex items-center gap-2.5 min-w-0">
                               <Icon
                                 className={`w-4 h-4 shrink-0 ${
-                                  active ? 'text-[var(--color-accent)]' : 'text-[#94a3b8]'
+                                  active ? 'text-[var(--color-accent)]' : 'text-[var(--sidebar-text-muted)]'
                                 }`}
                               />
                               {!collapsed && <span className="truncate">{item.label}</span>}
@@ -531,12 +531,12 @@ export const AppShell: React.FC<AppShellProps> = ({
                             {!collapsed && (
                               <div className="flex items-center gap-1.5 shrink-0">
                                 {badgeVal !== undefined && badgeVal > 0 && (
-                                  <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-white/10 text-[#cbd5e1]">
+                                  <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-white/10 text-[var(--sidebar-text)]">
                                     {badgeVal}
                                   </span>
                                 )}
                                 <ChevronDown
-                                  className={`w-3.5 h-3.5 text-[#94a3b8] transition-transform duration-150 ${
+                                  className={`w-3.5 h-3.5 text-[var(--sidebar-text-muted)] transition-transform duration-150 ${
                                     isExpanded ? 'rotate-180 text-white' : ''
                                   }`}
                                 />
@@ -575,13 +575,13 @@ export const AppShell: React.FC<AppShellProps> = ({
                                       className={`w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-[var(--radius-xs)] text-xs transition-colors cursor-pointer ${
                                         childActive
                                           ? 'bg-[var(--sidebar-active-bg)] text-white font-semibold border-l-2 border-[var(--color-accent)]'
-                                          : 'text-[#94a3b8] hover:text-white hover:bg-white/5'
+                                          : 'text-[var(--sidebar-text-muted)] hover:text-white hover:bg-white/5'
                                       }`}
                                     >
                                       <div className="flex items-center gap-2 min-w-0">
                                         <ChildIcon
                                           className={`w-3.5 h-3.5 shrink-0 ${
-                                            childActive ? 'text-[var(--color-accent)]' : 'text-[#64748b]'
+                                            childActive ? 'text-[var(--color-accent)]' : 'text-[var(--sidebar-text-muted)]'
                                           }`}
                                         />
                                         <span className="truncate">{child.label}</span>
@@ -594,7 +594,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                                               ? 'bg-emerald-500/15 text-emerald-300'
                                               : child.badgeTone === 'warning'
                                               ? 'bg-amber-500/15 text-amber-300'
-                                              : 'bg-white/10 text-[#cbd5e1]'
+                                              : 'bg-white/10 text-[var(--sidebar-text)]'
                                           }`}
                                         >
                                           {childBadge}
@@ -626,19 +626,19 @@ export const AppShell: React.FC<AppShellProps> = ({
                       className={`w-full flex items-center justify-between gap-2.5 px-2.5 py-2 rounded-[var(--radius-sm)] text-xs transition-colors cursor-pointer ${
                         active
                           ? 'bg-[var(--sidebar-active-bg)] text-white font-semibold border-l-2 border-[var(--color-accent)]'
-                          : 'text-[#cbd5e1] hover:bg-[var(--sidebar-hover-bg)] hover:text-white'
+                          : 'text-[var(--sidebar-text)] hover:bg-[var(--sidebar-hover-bg)] hover:text-white'
                       }`}
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
                         <Icon
                           className={`w-4 h-4 shrink-0 ${
-                            active ? 'text-[var(--color-accent)]' : 'text-[#94a3b8]'
+                            active ? 'text-[var(--color-accent)]' : 'text-[var(--sidebar-text-muted)]'
                           }`}
                         />
                         {!collapsed && <span className="truncate">{item.label}</span>}
                       </div>
                       {!collapsed && badgeVal !== undefined && badgeVal > 0 && (
-                        <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-white/10 text-[#cbd5e1]">
+                        <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-white/10 text-[var(--sidebar-text)]">
                           {badgeVal}
                         </span>
                       )}
@@ -664,7 +664,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                   <p className="text-xs font-semibold text-white truncate">
                     {user.name || user.email.split('@')[0]}
                   </p>
-                  <p className="text-[10px] font-mono uppercase tracking-wider text-[#94a3b8] truncate">
+                  <p className="text-[10px] font-mono uppercase tracking-wider text-[var(--sidebar-text-muted)] truncate">
                     {user.role || 'Administrator'}
                   </p>
                 </div>
@@ -676,7 +676,7 @@ export const AppShell: React.FC<AppShellProps> = ({
               onClick={onLogout}
               title="Sign out"
               aria-label="Sign out"
-              className="p-1.5 rounded-[var(--radius-xs)] text-[#94a3b8] hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer shrink-0"
+              className="p-1.5 rounded-[var(--radius-xs)] text-[var(--sidebar-text-muted)] hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer shrink-0"
             >
               <LogOut className="w-4 h-4" />
             </button>
