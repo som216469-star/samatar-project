@@ -1,16 +1,21 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import * as XLSX from "xlsx";
+import { downloadStudentSpreadsheet } from "../../lib/studentSpreadsheet";
 
 export function formatMoney(amount: number, currency = "USD"): string {
   return `${currency} ${Number(amount || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 }
 
-export function exportToExcel(filename: string, sheetName: string, data: any[]) {
-  const ws = XLSX.utils.json_to_sheet(data);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, sheetName);
-  XLSX.writeFile(wb, `${filename}.xlsx`);
+export async function exportToExcel(
+  filename: string,
+  sheetName: string,
+  data: any[]
+) {
+  await downloadStudentSpreadsheet(
+    data as Record<string, unknown>[],
+    `${filename}.xlsx`,
+    sheetName
+  );
 }
 
 export function openWhatsApp(phone: string, message: string) {
