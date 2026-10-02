@@ -1037,7 +1037,7 @@ CREATE TABLE IF NOT EXISTS dugsiga_payroll (
 );
 
 -- Security defaults: keep RLS enabled and expose tables only to server-side service_role
-DO $
+DO $dugsi$
 DECLARE
   tbl_name TEXT;
   tables_list TEXT[] := ARRAY[
@@ -1056,7 +1056,7 @@ BEGIN
     EXECUTE format('REVOKE ALL ON TABLE public.%I FROM anon, authenticated', tbl_name);
     EXECUTE format('GRANT ALL ON TABLE public.%I TO service_role', tbl_name);
   END LOOP;
-END $;
+END $dugsi$;
 `;
 
 // RBAC Permissions Mapping
