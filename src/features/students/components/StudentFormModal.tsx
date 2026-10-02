@@ -318,7 +318,14 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                     onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
                     className="w-full ds-input"
                   />
+                  {formErrors.dateOfBirth && (
+                    <p className="text-[11px] text-[var(--color-danger)] font-semibold">
+                      {formErrors.dateOfBirth}
+                    </p>
+                  )}
                 </div>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="font-semibold text-[var(--color-text-secondary)] block">
@@ -511,12 +518,12 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                   <label className="font-semibold text-[var(--color-text-secondary)] block">
                     Xusuusin Caafimaad (Medical Notes)
                   </label>
-                  <input
-                    type="text"
+                  <textarea
                     value={formData.medicalNotes}
                     onChange={(e) => setFormData({ ...formData, medicalNotes: e.target.value })}
                     placeholder="Optional"
-                    className="w-full ds-input"
+                    rows={3}
+                    className="w-full ds-input resize-y"
                   />
                 </div>
               </div>
