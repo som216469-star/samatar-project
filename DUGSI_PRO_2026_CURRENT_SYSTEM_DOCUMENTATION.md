@@ -1,280 +1,193 @@
-# DUGSI PRO 2026 - CURRENT SYSTEM DOCUMENTATION & TECHNICAL AUDIT
+# DUGSI PRO 2026 — CURRENT SYSTEM DOCUMENTATION & TECHNICAL AUDIT
 
-**Audit Date:** September 17, 2026  
+**Audit Date:** October 2, 2026  
 **System Version:** DUGSI PRO 2026 Enterprise Edition  
-**Audit Scope:** Factual inspection of active codebase, modules, APIs, database integration, security posture, and readiness.
+**Audit Scope:** Comprehensive factual inspection of the active codebase, modular frontend architecture, Express REST APIs, Supabase PostgreSQL + Local JSON dual persistence, Zero-Trust session authentication, Teacher Invitation & Portal workflows, PWA & Offline Sync Queue, and security posture.
 
 ---
 
 ## 1. Executive Summary & Product Overview
-DUGSI PRO 2026 is an institutional Islamic school management and financial accounting software suite built for madrasas, integrated primary/secondary Islamic academies, and Quranic memorization centers. 
+**DUGSI PRO 2026** is a multi-tenant institutional school management and financial accounting platform designed for madrasas, integrated primary/secondary Islamic academies, and Quranic memorization centers.
 
-The application is structured into two main operational pillars:
-1. **Academic & Operational Core (Upgrades Prompt 1):** Student directory, staff & teacher human resources, guardian directory, attendance tracking (student and staff), class/subject management, timetable scheduling, admissions lifecycle, exam scoring, library circulation, inventory asset tracking, and school-wide announcements.
-2. **Institutional Financial & Accounting Suite (Upgrades Prompt 2):** Configurable fee structures, invoice generation (single & bulk), payment ledger with receipt issuance, operational expense approvals, non-fee revenue logging, automated payroll calculations, department budgeting with variance analysis, real-time Profit & Loss (P&L), and cash flow tracking.
+The platform is organized into four integrated operational pillars:
+1. **Academic & Student Core:** Student directory with 7 sub-sections (`all`, `add`, `active`, `inactive`, `archived`, `import`, `export`), duplicate prevention, 360° student profiles, dual-session daily attendance (`before_break` & `after_break`), class & room management, curriculum subjects, exam scoring & automated grading, and printable PDF report cards.
+2. **HR, People & Teacher Portal:** Specialized teachers directory with zero-trust email invitation onboarding (`/activate-teacher?token=...`), dedicated Teacher Portal (scoped to assigned classes and subjects), staff directory, guardians directory with student linkage, staff daily attendance, and collision-validated weekly timetable scheduling.
+3. **Campus Operations & Communications:** Applicant admissions with one-click student enrollment conversion, library book catalog & circulation loans, physical inventory & asset ledger, targeted campus announcements, and direct WhatsApp notification dispatch.
+4. **Institutional Finance & Accounting Suite:** Configurable fee structures, single & bulk invoice generation, multi-channel payment ledger (Cash, Bank, EVC Plus, Zaad) with official thermal/A4 receipts, operational expense approvals, non-tuition income tracking, automated payroll with linked salary expense generation, department budgets with live actual-vs-planned variance, real-time Profit & Loss (P&L) statements, and Cash Flow reconciliation.
 
 ---
 
 ## 2. Technology Stack & Framework Architecture
-- **Client Frontend:** React 18+ Single Page Application (SPA), TypeScript, Vite 6.
-- **Styling & UI:** Tailwind CSS v4, Lucide React icons, Canvas-confetti, Responsive design.
-- **Backend Server:** Node.js, Express.js custom server (`server.ts`) running concurrently with Vite dev middleware on port 3000.
-- **Server Bundler:** `esbuild` compiling `server.ts` to CommonJS `dist/server.cjs` for production.
-- **Primary Database Client:** `@supabase/supabase-js` v2.49.1 (PostgreSQL Supabase backend).
-- **Secondary / Resilient Persistence:** File-based local JSON fallback (`database.json` via native Node `fs` & atomic writes).
-- **Export & Document Generation:** Client-side HTML Canvas / Printable DOM window generators for PDF receipts, invoices, payslips, and statements; CSV/Excel text format exporters.
-- **Communication Integration:** Direct WhatsApp URI dispatch (`https://api.whatsapp.com/send?phone=...`).
+- **Client Frontend:** React 19 Single Page Application (SPA), TypeScript 5.8, Vite 6.
+- **Styling & UI System:** Tailwind CSS v4 (`@tailwindcss/vite`), Lucide React icons, Motion (`motion/react`) transitions, Recharts analytics visualizations, and tokenized light/dark theme variables (`src/index.css` + `src/components/ui/primitives.tsx`).
+- **Progressive Web App (PWA) & Offline Engine:** `vite-plugin-pwa` with Workbox precaching, `/api/*` navigation fallback denylist (`navigateFallbackDenylist: [/^\/api\//]`), compliant `manifest.webmanifest` (`id: '/'`, 192x192, 512x512, maskable 512x512, iOS `apple-touch-icon.png`), `PWAInstallButton`, and `OfflineSyncBadge` backed by `src/utils/offlineSync.ts` (`localStorage` mutation queue with automatic online replay).
+- **Backend Server:** Node.js + Express 4 (`server.ts`) running on port `3000` with Vite middleware in development and static `dist/` serving in production (`esbuild` bundle to `dist/server.cjs`).
+- **Primary Cloud Database:** `@supabase/supabase-js` v2 + `@supabase/server` connected to PostgreSQL (27 tables defined in `DUGSI_PRO_2026_ALL_TABLES.sql` and `SQL_SETUP_SCRIPT`).
+- **Resilient Local Persistence:** Automatic fallback and write-through persistence to `database.json` (with `/tmp/dugsi_database.json` and in-memory fallback for read-only container filesystems) and automatic cloud synchronization (`syncLocalToSupabase`).
+- **Email & Document Engines:** `nodemailer` SMTP transactional email service (`server/emailService.ts`) with automatic link simulation fallback; client-side `jspdf`, `jspdf-autotable`, and `xlsx` (SheetJS) for PDF/Excel import & export.
 
 ---
 
 ## 3. Complete Folder & File Architecture
 
-```
+```text
 /
-├── .env.example                               # Environment variable contract
-├── database.json                              # Local JSON database storage engine
-├── metadata.json                              # Platform capability & runtime manifest
-├── package.json                               # Dependencies & build scripts
-├── tsconfig.json                              # TypeScript strict compiler config
-├── vite.config.ts                             # Vite configuration with Tailwind plugin
-├── server.ts                                  # Primary Express entrypoint, auth, core APIs
+├── .env.example                               # Sanitized environment variable contract
+├── DUGSI_PRO_2026_ALL_TABLES.sql              # Complete 27-table PostgreSQL / Supabase DDL schema
+├── DUGSI_PRO_2026_CURRENT_SYSTEM_DOCUMENTATION.md
+├── SYSTEM_DOCUMENTATION.md                    # Somali technical & functional documentation
+├── database.json                              # Resilient local JSON persistence store
+├── index.html                                 # HTML entrypoint with SEO, OpenGraph, JSON-LD & PWA tags
+├── metadata.json                              # AI Studio applet metadata manifest
+├── package.json                               # Scripts & dependencies
+├── tsconfig.json                              # TypeScript configuration
+├── vite.config.ts                             # Vite + Tailwind v4 + VitePWA configuration
+├── server.ts                                  # Express server entrypoint, Core APIs & Supabase sync
 ├── server/
-│   ├── modernRoutes.ts                        # Prompt 1 APIs (HR, Timetable, Library, Inventory, Admissions)
-│   └── financeRoutes.ts                       # Prompt 2 APIs (Invoicing, Payments, P&L, Budgets, Payroll)
-├── public/                                    # Static assets and favicons
+│   ├── authSession.ts                         # Zero-Trust session token store, TTL & tenant resolver
+│   ├── emailService.ts                        # Nodemailer SMTP teacher invitation email dispatcher
+│   ├── teacherAuthRoutes.ts                   # Teacher token verification, account activation & status toggle
+│   ├── modernRoutes.ts                        # HR, Timetable, Admissions, Library, Inventory, Announcements APIs
+│   └── financeRoutes.ts                       # Fee Structures, Invoices, Payments, Expenses, Income, Payroll, Budgets, P&L APIs
+├── public/
+│   ├── manifest.webmanifest                   # Web App Manifest
+│   ├── icon.svg / favicon.ico                 # Vector & browser tab icons
+│   ├── apple-touch-icon.png                   # 180x180 iOS home screen icon
+│   ├── pwa-192x192.png / pwa-512x512.png      # Standard PWA icons (purpose: any)
+│   └── pwa-maskable-512x512.png               # Android maskable icon (purpose: maskable)
 └── src/
-    ├── main.tsx                               # Application bootstrap entrypoint
-    ├── App.tsx                                # Main app shell, global state, router & modal management
-    ├── types.ts                               # Shared TypeScript types & interfaces
-    ├── index.css                              # Tailwind CSS v4 import entrypoint
-    └── components/
-        ├── AdmissionsView.tsx                 # Admission intake & one-click student enrollment
-        ├── AnnouncementsView.tsx              # School board notifications & priority banners
-        ├── ClassesView.tsx                    # Classroom management & teacher assignments
-        ├── ExamsView.tsx                      # Grading, assessment records & mark sheets
-        ├── FinanceView.tsx                    # Top-level Finance container & tab router
-        ├── InventoryView.tsx                  # School physical assets & equipment ledger
-        ├── LandingPage.tsx                    # Marketing & platform introduction
-        ├── LibraryView.tsx                    # Library catalog & book borrowing circulation
-        ├── PeopleView.tsx                     # Unified directory (Teachers, Staff, Guardians)
-        ├── ReportsView.tsx                    # Academic analytics & attendance summaries
-        ├── StaffAttendanceView.tsx            # Daily biometric/status check-in for personnel
-        ├── StudentProfileModal.tsx            # 360-degree student view (Academics, fees, history)
-        ├── SubjectsView.tsx                   # Curriculum subjects & credit management
-        ├── TimetableScheduleView.tsx          # Weekly timetable grid by class & room
+    ├── main.tsx                               # React 19 root mount
+    ├── App.tsx                                # Top-level state orchestrator, auth gate & view router
+    ├── types.ts                               # Domain TypeScript interfaces
+    ├── index.css                              # Tailwind CSS v4 & custom theme design tokens
+    ├── app/
+    │   ├── AppShell.tsx                       # Institutional sidebar, topbar, Cmd+K palette & breadcrumbs
+    │   ├── navigationConfig.ts                # Role-based navigation tree & access helpers
+    │   └── routeConfig.ts                     # Tab & sub-section URL synchronization
+    ├── lib/
+    │   ├── apiClient.ts                       # Centralized fetch wrapper injecting Bearer token & X-School-Email
+    │   └── authStorage.ts                     # Canonical session & token persistence in localStorage
+    ├── utils/
+    │   └── offlineSync.ts                     # Offline mutation queue & auto-replay hook (useNetworkSync)
+    ├── hooks/
+    │   ├── useInstitutionalData.ts            # Central data fetching, CRUD handlers & PDF report card generator
+    │   ├── usePWAInstall.ts                   # beforeinstallprompt & iOS standalone detector
+    │   └── institutional/
+    │       └── useAttendanceData.ts           # Attendance state & calculation helpers
+    ├── components/
+    │   ├── LandingPage.tsx                    # Public marketing & interactive showcase
+    │   ├── OfflineSyncBadge.tsx               # Real-time connectivity indicator & manual sync modal
+    │   ├── PWAInstallButton.tsx               # In-app install button & iOS Safari guide modal
+    │   ├── landing/                           # 15 modular landing page sections
+    │   ├── layout/PageLayout.tsx              # Standardized page header, toolbar & content layout
+    │   └── ui/primitives.tsx                  # Button, Badge, StatusBadge, StatCard, Modal, Drawer, EmptyState, Skeleton
+    └── features/
+        ├── auth/
+        │   ├── AuthPortalView.tsx             # Sign In & School Sign Up portal
+        │   └── TeacherActivateView.tsx        # One-time token teacher password creation & activation view
+        ├── dashboard/ExecutiveDashboard.tsx   # School Admin KPI dashboard, charts & quick actions
+        ├── teacher/TeacherPortalDashboard.tsx # Teacher-specific dashboard (assigned classes, subjects, schedule)
+        ├── students/
+        │   ├── StudentsPage.tsx               # Unified student directory controller
+        │   └── components/                    # Roster table, filter toolbar, stats, add/import/export views, 360° profile modal
+        ├── attendance/
+        │   ├── StudentAttendancePage.tsx      # Dual-session student attendance sheet & history
+        │   └── StaffAttendanceView.tsx        # Daily teacher & staff check-in ledger
+        ├── academics/
+        │   ├── ClassesView.tsx                # Classrooms, capacities & homeroom teachers
+        │   ├── SubjectsView.tsx               # Curriculum subjects & pass/max mark thresholds
+        │   ├── ExamsView.tsx                  # Assessment mark entry, grade calculation & filtering
+        │   └── TimetableScheduleView.tsx      # Weekly timetable grid with conflict detection
+        ├── people/PeopleView.tsx              # Teachers, Staff & Guardians directory with invitation actions
+        ├── operations/
+        │   ├── AdmissionsView.tsx             # Applicant pipeline & 1-click student enrollment
+        │   ├── LibraryView.tsx                # Book catalog & loan issue/return tracking
+        │   ├── InventoryView.tsx              # Campus assets & condition tracking
+        │   └── AnnouncementsView.tsx          # Priority announcements & audience targeting
         ├── finance/
-        │   ├── BudgetsModule.tsx              # Budget limits, real-time burn rate & variances
-        │   ├── CashFlowView.tsx               # Opening/closing cash balances & flow breakdown
-        │   ├── ExpensesModule.tsx             # Expense logging, category allocation & approvals
-        │   ├── FeeStructuresModule.tsx        # Tuition, admission, transport fee rules
-        │   ├── FinanceDashboard.tsx           # Financial KPIs, revenue vs expense charts
-        │   ├── FinancialReportsModule.tsx     # Balance sheets, aging reports, statement export
-        │   ├── IncomeModule.tsx               # Non-fee income logging (Donations, grants, canteen)
-        │   ├── InvoicesModule.tsx             # Invoice generation, line items, PDF & WhatsApp
-        │   ├── PaymentsModule.tsx             # Cash/bank/mobile money payment register & receipts
-        │   ├── PayrollModule.tsx              # Staff salary calculation, slips & expense sync
-        │   ├── ProfitLossView.tsx             # Real-time P&L statement & net income
-        │   └── financeUtils.ts                # Shared currency formatting & financial math
-        └── landing/                           # 15 Modular public presentation sections
+        │   ├── FinanceView.tsx                # Unified 11-tab Finance & Accounting workspace
+        │   ├── FinanceDashboard.tsx           # Revenue vs. Expense KPIs & charts
+        │   ├── FeeStructuresModule.tsx        # Recurring tuition & fee templates
+        │   ├── InvoicesModule.tsx             # Single/bulk invoicing, discounts, print & WhatsApp dispatch
+        │   ├── PaymentsModule.tsx             # Payment collection & thermal/A4 official receipts
+        │   ├── ExpensesModule.tsx             # Expense vouchers & approval workflow
+        │   ├── IncomeModule.tsx               # Non-tuition revenue ledger
+        │   ├── PayrollModule.tsx              # Staff salary computation, payslips & auto-expense sync
+        │   ├── BudgetsModule.tsx              # Planned vs. live actual budget variance analyzer
+        │   ├── ProfitLossView.tsx             # Real-time P&L statement & monthly trend breakdown
+        │   ├── CashFlowView.tsx               # Inflow/outflow timeline & closing cash position
+        │   ├── FinancialReportsModule.tsx     # Exportable revenue, expense, fee & payroll statements
+        │   └── financeUtils.ts                # Currency formatting, print windows & CSV/Excel helpers
+        ├── reports/
+        │   ├── ReportsView.tsx                # Academic & attendance analytics center
+        │   └── reportsPdfExport.ts            # Institutional PDF report generators
+        └── settings/SettingsPage.tsx          # School profile, grading thresholds, Supabase SQL & factory reset
 ```
 
 ---
 
-## 4. Authentication, Authorization & Multi-Tenancy
+## 4. Authentication, Zero-Trust Sessions, Teacher Onboarding & Multi-Tenancy
 
-### Authentication Architecture
-- Built-in session auth via Express endpoints: `/api/auth/signup`, `/api/auth/login`, `/api/auth/verify`.
-- Password hashing using `crypto.scryptSync` with random salt strings.
-- Passwords verified on login; existing unhashed passwords automatically upgraded upon next successful login.
-- Client stores user session in `localStorage` under `dugsiga_user`.
+### 4.1. Zero-Trust Session Management (`server/authSession.ts`)
+- Upon login (`POST /api/auth/login`), the server generates a 256-bit cryptographically random session token (`crypto.randomBytes(32).toString('hex')`) stored in `activeSessions` with a 14-day TTL.
+- Every API request from `src/lib/apiClient.ts` and `src/utils/offlineSync.ts` attaches `Authorization: Bearer <token>` and `X-School-Email`.
+- `getAuthenticatedUser(req, loadLocalDB)` resolves the authenticated identity and tenant `schoolId` directly from the server-side session store (or verified database records), preventing cross-tenant spoofing.
 
-### Role-Based Access Control (RBAC)
-- Supported Roles: `admin`, `teacher`, `accountant`, `staff`.
-- Navigation tabs and critical mutations check `user.role`:
-  - **Accountant**: Unrestricted access to Finance, Invoices, Fees, Expenses, Budgets, Payroll.
-  - **Teacher**: Restricted to assigned Classes, Subjects, Student Attendance, and Grading.
-  - **Staff**: Limited to personal attendance, announcements, and asset tracking.
-  - **Admin**: Unrestricted access across all operational and administrative modules.
+### 4.2. Teacher Invitation & Account Activation (`server/teacherAuthRoutes.ts`)
+- Administrators never set or view teacher passwords. When a teacher is added with an email (`POST /api/teachers`), their status is set to `INVITED` with a 7-day one-time `invitationToken`.
+- `server/emailService.ts` dispatches an HTML invitation email via SMTP (or outputs a direct copyable activation link `/activate-teacher?token=...` if SMTP is not configured).
+- The teacher opens `/activate-teacher?token=...`, verified by `GET /api/teachers/verify-invitation/:token`, and sets their own password via `POST /api/teachers/activate-account`. The token is permanently invalidated and status transitions to `ACTIVE`.
 
-### Multi-Tenancy
-- Tenancy model: **Shared Database, Tenant-Partitioned Tables**.
-- Every query enforces `eq("school_id", schoolId)` derived from `req.headers["x-school-id"]` or user profile `school_id`.
-- Local JSON fallback maintains separate records filtered by `schoolId`.
+### 4.3. Role-Based Access Control (RBAC)
+- **Supported Roles:** `Super Admin`, `School Admin` (`admin`), `Principal`, `Accountant`, `Teacher` (`teacher`), `Receptionist`, `Librarian`, `Staff` (`staff`).
+- **Frontend Enforcement (`src/app/navigationConfig.ts`):** Filters sidebar items, sub-sections, and `Cmd+K` command palette results by role. Teachers see `TeacherPortalDashboard` and are scoped to their assigned classes/subjects.
+- **Backend Enforcement (`server.ts`, `server/financeRoutes.ts`, `server/teacherAuthRoutes.ts`):** Blocks unauthorized mutations (`403 Forbidden`) for teachers/staff on finance routes, fee records, teacher invitations, and unassigned class attendance.
 
 ---
 
-## 5. Database Architecture & Audit
+## 5. Database Architecture & 27-Table Verification Matrix
 
-### Existing Active Tables (Queried via Supabase in `server.ts`)
-| Table Name | Purpose | Verified Status |
-|---|---|---|
-| `dugsiga_users` | Multi-school administrative & staff user accounts | **EXISTING / USED** |
-| `dugsiga_students` | Student demographic, enrollments, guardian contacts | **EXISTING / USED** |
-| `dugsiga_attendance` | Daily student attendance logs by session & date | **EXISTING / USED** |
-| `dugsiga_fees` | Student monthly tuition records & fee balances | **EXISTING / USED** |
-| `dugsiga_classes` | Class rooms, grade levels, and assigned teachers | **EXISTING / USED** |
-| `dugsiga_subjects` | Course subjects assigned to grade levels | **EXISTING / USED** |
-| `dugsiga_exam_scores`| Exam terms, marks obtained, grades, max marks | **EXISTING / USED** |
-| `dugsiga_settings` | School profile, currency, term dates, branding | **EXISTING / USED** |
+All 27 tables are defined in `DUGSI_PRO_2026_ALL_TABLES.sql` and embedded in `server.ts` (`SQL_SETUP_SCRIPT`), with multi-tenant partitioning via `school_id` and resilient dual persistence (Supabase PostgreSQL + `database.json` fallback):
 
-### Modern Operational Tables (Queried in `server/modernRoutes.ts`)
-| Table Name | Purpose | Database Status |
-|---|---|---|
-| `dugsiga_teachers` | Specialized teacher roster, qualifications, subjects | **EXPECTED BUT NOT VERIFIED** |
-| `dugsiga_staff` | Administrative & support personnel directory | **EXPECTED BUT NOT VERIFIED** |
-| `dugsiga_guardians` | Parent & guardian records with student links | **EXPECTED BUT NOT VERIFIED** |
-| `dugsiga_staff_attendance`| Staff daily attendance records & check-in times | **EXPECTED BUT NOT VERIFIED** |
-| `dugsiga_timetable` | Class schedule slots, periods, day-of-week, rooms | **EXPECTED BUT NOT VERIFIED** |
-| `dugsiga_admissions` | Online/walk-in applicants, status, enrollment stage | **EXPECTED BUT NOT VERIFIED** |
-| `dugsiga_announcements`| Campus announcements, priority, expiry dates | **EXPECTED BUT NOT VERIFIED** |
-| `dugsiga_library_books`| Book catalog, ISBN, category, available copies | **EXPECTED BUT NOT VERIFIED** |
-| `dugsiga_library_loans`| Borrowing ledger, borrower student ID, due date | **EXPECTED BUT NOT VERIFIED** |
-| `dugsiga_inventory` | Institutional equipment, quantity, room, condition | **EXPECTED BUT NOT VERIFIED** |
-| `dugsiga_notifications`| System alerts and guardian communication logs | **EXPECTED BUT NOT VERIFIED** |
-
-### Finance & Accounting Tables (Currently Local JSON in `server/financeRoutes.ts`)
-*These 7 tables are fully implemented in the API and UI using the resilient local JSON engine (`database.json`), and are scheduled for Supabase migration:*
-| Proposed Supabase Table | In-Memory / Local JSON Key | Purpose |
-|---|---|---|
-| `dugsiga_fee_structures` | `feeStructures` | Recurring tuition, term fee and transport templates |
-| `dugsiga_invoices` | `invoices` | Itemized student invoices with line items & balances |
-| `dugsiga_payments` | `payments` | Transaction ledger (Cash, Bank, Zaad, EVC Plus) |
-| `dugsiga_expenses` | `expenses` | Expense vouchers, vendor records, approvals |
-| `dugsiga_income` | `income` | Non-tuition revenue (Grants, donations, sales) |
-| `dugsiga_budgets` | `budgets` | Annual/term department budget ceilings & spend |
-| `dugsiga_payroll` | `payroll` | Monthly payroll, gross/net pay, payslips |
+| # | Supabase Table Name | Local JSON Key | Module / Domain | Persistence Status |
+|---|---|---|---|---|
+| 1 | `dugsiga_users` | `users` | Auth & RBAC Accounts | **Supabase + Local Sync** |
+| 2 | `dugsiga_students` | `students` | Student Directory & Demographics | **Supabase + Local Sync** |
+| 3 | `dugsiga_classes` | `classes` | Classrooms & Capacities | **Supabase + Local Sync** |
+| 4 | `dugsiga_subjects` | `subjects` | Curriculum Subjects | **Supabase + Local Sync** |
+| 5 | `dugsiga_exam_scores` | `examScores` | Exams, Marks & Grades | **Supabase + Local Sync** |
+| 6 | `dugsiga_attendance` | `attendance` | Dual-Session Student Attendance | **Supabase + Local Sync** |
+| 7 | `dugsiga_fees` | `fees` | Legacy Monthly Fee Records | **Supabase + Local Sync** |
+| 8 | `dugsiga_settings` | `settings` | School Profile & Thresholds | **Supabase + Local Sync** |
+| 9 | `dugsiga_teachers` | `teachers` | Teachers & Invitation Tokens | **Supabase + Local Sync** |
+| 10 | `dugsiga_staff` | `staff` | Support & Admin Personnel | **Supabase + Local Sync** |
+| 11 | `dugsiga_guardians` | `guardians` | Parents & Student Links | **Supabase + Local Sync** |
+| 12 | `dugsiga_staff_attendance` | `staffAttendance` | Daily Staff Check-In Logs | **Supabase + Local Sync** |
+| 13 | `dugsiga_timetable` | `timetable` | Weekly Class Schedule Grid | **Supabase + Local Sync** |
+| 14 | `dugsiga_admissions` | `admissions` | Applicant Intake & Enrollment | **Supabase + Local Sync** |
+| 15 | `dugsiga_announcements` | `announcements` | Targeted Campus Announcements | **Supabase + Local Sync** |
+| 16 | `dugsiga_library_books` | `libraryBooks` | Library Book Catalog | **Supabase + Local Sync** |
+| 17 | `dugsiga_library_loans` | `libraryLoans` | Book Borrowing & Returns | **Supabase + Local Sync** |
+| 18 | `dugsiga_inventory` | `inventory` | Physical Assets & Equipment | **Supabase + Local Sync** |
+| 19 | `dugsiga_documents` | `documents` | Institutional Document Metadata | **Supabase + Local Sync** |
+| 20 | `dugsiga_notifications` | `notifications` | WhatsApp & System Alert Logs | **Supabase + Local Sync** |
+| 21 | `dugsiga_fee_structures` | `feeStructures` | Tuition & Fee Templates | **Supabase + Local Sync** |
+| 22 | `dugsiga_invoices` | `invoices` | Student Invoices & Balances | **Supabase + Local Sync** |
+| 23 | `dugsiga_payments` | `payments` | Payment Receipts & Ledger | **Supabase + Local Sync** |
+| 24 | `dugsiga_expenses` | `expenses` | Operational & Salary Expenses | **Supabase + Local Sync** |
+| 25 | `dugsiga_income` | `income` | Non-Tuition Revenue Streams | **Supabase + Local Sync** |
+| 26 | `dugsiga_budgets` | `budgets` | Department Budgets & Variances | **Supabase + Local Sync** |
+| 27 | `dugsiga_payroll` | `payroll` | Staff Payroll & Payslips | **Supabase + Local Sync** |
 
 ---
 
-## 6. Module-by-Module Verification Matrix
-
-### Core Modules (Initial System)
-1. **Students Directory:** `IMPLEMENTED AND WORKING` (Full CRUD via API, Supabase & local fallback).
-2. **Attendance Management:** `IMPLEMENTED AND WORKING` (Date picker, session type, bulk check-in, statistics).
-3. **Legacy Fees:** `IMPLEMENTED AND WORKING` (Monthly fee tracking, payment status updates).
-4. **Classes Management:** `IMPLEMENTED AND WORKING` (Class list, room numbers, teacher assignments).
-5. **Subjects Management:** `IMPLEMENTED AND WORKING` (Subject codes, class linkage).
-6. **Exams & Grading:** `IMPLEMENTED AND WORKING` (Exam score entry, grade calculation).
-7. **School Settings:** `IMPLEMENTED AND WORKING` (Name, contact, currency, term setup).
-
-### Modernization Modules (Upgrade Prompt 1)
-8. **Teachers Roster:** `IMPLEMENTED AND WORKING` (Dedicated UI in `PeopleView`, full CRUD via `/api/teachers`).
-9. **Staff / Employees:** `IMPLEMENTED AND WORKING` (UI in `PeopleView`, full CRUD via `/api/staff`).
-10. **Guardians Directory:** `IMPLEMENTED AND WORKING` (UI in `PeopleView`, link to students, CRUD via `/api/guardians`).
-11. **Staff Attendance:** `IMPLEMENTED AND WORKING` (`StaffAttendanceView`, daily check-in, status stats).
-12. **Timetable & Scheduling:** `IMPLEMENTED AND WORKING` (`TimetableScheduleView`, visual weekly calendar grid).
-13. **Admissions & Enrollment:** `IMPLEMENTED AND WORKING` (`AdmissionsView`, applicant intake, 1-click student conversion).
-14. **Announcements Board:** `IMPLEMENTED AND WORKING` (`AnnouncementsView`, audience targeting, importance tags).
-15. **Library Circulation:** `IMPLEMENTED AND WORKING` (`LibraryView`, book catalog, borrow/return workflows).
-16. **Inventory & Asset Ledger:** `IMPLEMENTED AND WORKING` (`InventoryView`, asset logging, category & room tracking).
-17. **360° Student Profile:** `IMPLEMENTED AND WORKING` (`StudentProfileModal`, attendance %, fee balance, academic marks).
-18. **Reports Center:** `IMPLEMENTED AND WORKING` (`ReportsView`, attendance summaries, class rosters, print formats).
-
-### Finance & Accounting Modules (Upgrade Prompt 2)
-19. **Finance Dashboard:** `IMPLEMENTED AND WORKING` (Real-time KPIs, Revenue/Expense chart, shortcuts).
-20. **Fee Structures:** `IMPLEMENTED AND WORKING` (Configurable tuition tiers, fee frequencies, class targeting).
-21. **Invoicing & Billing:** `IMPLEMENTED AND WORKING` (Individual & bulk generation, line items, discounts, balance sync).
-22. **Payments & Receipts:** `IMPLEMENTED AND WORKING` (Multi-payment channels, printable receipts, WhatsApp dispatch).
-23. **Expense Management:** `IMPLEMENTED AND WORKING` (Category breakdown, approval workflow, vendor tracking).
-24. **Income Management:** `IMPLEMENTED AND WORKING` (Non-tuition revenue logging, category summaries).
-25. **Profit & Loss (P&L):** `IMPLEMENTED AND WORKING` (Dynamic income statement, time-range filters, PDF/Excel export).
-26. **Cash Flow Statement:** `IMPLEMENTED AND WORKING` (Opening/closing balances, operating cash flows, transaction audit).
-27. **Budgeting vs. Actuals:** `IMPLEMENTED AND WORKING` (Category limits, live actual spend calculation, variance warnings).
-28. **Staff Payroll:** `IMPLEMENTED AND WORKING` (Gross-to-net salary calculator, printable payslips, expense ledger sync).
-29. **Financial Reports:** `IMPLEMENTED AND WORKING` (Aging reports, revenue summaries, batch statement exports).
+## 6. Finance Accounting Integrity & Double-Counting Prevention
+- **Legacy Fee Auto-Bridging (`syncLegacyFeesToInvoices`):** Automatically bridges legacy `dugsiga_fees` records into `invoices` and `payments` idempotently (`inv.id === f.id || inv.feeId === f.id`) while mirroring invoice updates back to `fees`.
+- **Realized Revenue vs. Receivables:** Profit & Loss (`/api/profit-loss`) and Cash Flow (`/api/cash-flow`) calculate revenue strictly from **cleared payments** (`payments`) plus standalone non-fee income (`income`). Unpaid invoice balances are tracked as `totalOutstandingFees` (Accounts Receivable) and never inflate revenue.
+- **Payroll-to-Expense Deduplication:** Marking a payroll record as `Paid` (`POST /api/payroll` or `PUT /api/payroll/:id/pay`) automatically creates or updates a single linked expense record (`id: exp-pr-<payrollId>`, `category: 'Salaries'`). P&L and Cash Flow aggregate paid expenses from the expense ledger, preventing double-counting between payroll and expenses.
 
 ---
 
-## 7. Finance Calculation Logic & Double-Counting Prevention
-- **Invoicing to Fee Sync:** When an invoice is paid or partially paid, the payment is recorded in the payments ledger with an exact `invoice_id` reference.
-- **Double Counting Protection:**
-  - Revenue calculations in P&L and Cash Flow count **actual cleared payments** (`/api/payments`) plus non-fee income (`/api/income`). Invoices themselves represent accounts receivable and are **not** counted as realized revenue.
-  - Payroll expenses: When a payroll entry is marked as `paid`, an automatic expense record is generated in the expense ledger with `category = 'Salaries'` and `notes = 'Payroll for ... [ID: pay-xxxx]'`. The P&L engine references only the expense ledger, avoiding double counting payroll records and expense entries.
-- **Cash Flow Reconciliation:**
-  - `Opening Balance` is derived from base reserves or initial setting.
-  - `Inflows` = Total Payments Received + Total Other Income.
-  - `Outflows` = Total Approved/Paid Expenses (inclusive of paid salaries).
-  - `Closing Cash Position` = `Opening Balance + Inflows - Outflows`.
-
----
-
-## 8. Export, Document Printing & Communication Facilities
-- **Official Receipts:** Formatted standard thermal or A4 receipts with receipt number, student details, paid amount, remaining balance, and cashier timestamp.
-- **Printable Invoices:** Clean tabular invoices displaying school letterhead, student details, line items, discounts, and payment terms.
-- **Salary Payslips:** Formal employee payslips with breakdown of basic salary, allowances, deductions, and net pay.
-- **WhatsApp Integration:** Instant message formatting with pre-filled student name, invoice number, balance, and custom institution phone numbers.
-- **Excel/CSV Data Export:** Built-in tabular export for students, invoices, expenses, payments, and payroll.
-
----
-
-## 9. Security & Vulnerability Audit
-
-| Concern | Severity | Observation | Recommendation |
-|---|---|---|---|
-| **Supabase Service Key on Server** | Low | Kept strictly server-side in `server.ts`; never exposed to Vite bundle. | Maintain strict server-only boundaries. |
-| **API Tenant Scoping** | Medium | Requests rely on `x-school-id` header or session token. | Enforce strict JWT token verification on all modern routes in production. |
-| **Local Fallback Mode** | Informational | System defaults to `database.json` if Supabase connection fails or credentials are placeholder. | Ensures zero downtime during network or migration interruptions. |
-| **Input Validation** | Low | Basic validation present in Express handlers; TypeScript ensures client types. | Implement centralized schema validation (e.g. Zod) across all POST/PUT routes before production migration. |
-
----
-
-## 10. User-Facing System Flow Map
-
-```
-[ Landing Page / Public Showcase ]
-              │
-              ▼
-    [ Authentication ]
-    (Sign In / Register)
-              │
-              ▼
-     [ Main Dashboard ] ◄────────────────────────────────────────┐
-              │                                                  │
-   ┌──────────┴───────────────┬──────────────────────┐           │
-   │                          │                      │           │
-[ Academics ]            [ Financials ]          [ Campus ]      │
-   ├── Students             ├── Dashboard           ├── People   │
-   ├── Attendance           ├── Invoices            ├── Timetable│
-   ├── Classes              ├── Payments/Receipts   ├── Library  │
-   ├── Subjects             ├── Expenses            ├── Inventory│
-   ├── Exams & Grading      ├── Income              └── Admissions
-   └── Reports              ├── Budgets                          │
-                            ├── Payroll                          │
-                            └── Profit & Loss                    │
-                                      │                          │
-                                      └──────────────────────────┘
-```
-
----
-
-## 11. Final Gap Analysis & Migration Checklist
-
-### What is Complete:
-- Complete frontend UI for all 29 modules.
-- End-to-end operational workflows (Invoicing, Receipt generation, Attendance check-in, Payroll calculation, P&L reporting).
-- Robust local database fallback (`database.json`) ensuring functional data persistence.
-- Zero TypeScript build or bundle errors.
-
-### What Requires Database Migration (Supabase Action):
-To move all features from local JSON / expected tables into permanent cloud PostgreSQL, the following SQL tables should be provisioned in Supabase:
-1. `dugsiga_teachers`
-2. `dugsiga_staff`
-3. `dugsiga_guardians`
-4. `dugsiga_staff_attendance`
-5. `dugsiga_timetable`
-6. `dugsiga_admissions`
-7. `dugsiga_announcements`
-8. `dugsiga_library_books`
-9. `dugsiga_library_loans`
-10. `dugsiga_inventory`
-11. `dugsiga_notifications`
-12. `dugsiga_fee_structures`
-13. `dugsiga_invoices`
-14. `dugsiga_payments`
-15. `dugsiga_expenses`
-16. `dugsiga_income`
-17. `dugsiga_budgets`
-18. `dugsiga_payroll`
-
----
-*Documentation compiled and verified directly against source code in `/server.ts`, `/server/modernRoutes.ts`, `/server/financeRoutes.ts`, and `/src/`.*
+## 7. Progressive Web App (PWA) & Offline Sync Architecture
+- **Service Worker & Workbox (`vite.config.ts`):** Pre-caches static application shell assets (`js, css, html, ico, png, svg, woff, woff2`) and caches Google Fonts (`CacheFirst`), while explicitly excluding `/api/*` routes via `navigateFallbackDenylist: [/^\/api\//]` so authenticated tenant data is never cached in shared browser storage.
+- **Offline Mutation Queue (`src/utils/offlineSync.ts`):** When offline, student, attendance, and exam score mutations are queued in `localStorage` (`dugsiga_offline_sync_queue`), deduplicated, and automatically replayed with full `Authorization: Bearer` and `X-School-Email` headers as soon as `window` fires the `online` event or the user clicks **Hadda Sync Garee** in `OfflineSyncBadge`.

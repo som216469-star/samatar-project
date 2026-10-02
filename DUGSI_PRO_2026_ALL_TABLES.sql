@@ -16,6 +16,8 @@ CREATE TABLE IF NOT EXISTS dugsiga_users (
   verified BOOLEAN DEFAULT TRUE,
   verification_code TEXT,
   role TEXT DEFAULT 'admin',
+  school_id TEXT,
+  teacher_id TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
@@ -32,9 +34,16 @@ CREATE TABLE IF NOT EXISTS dugsiga_students (
   date_of_birth TEXT,
   address TEXT,
   guardian_name TEXT,
+  guardian_relationship TEXT,
+  guardian_phone_alt TEXT,
   section TEXT,
   roll_number TEXT,
-  created_at TEXT
+  national_id TEXT,
+  previous_school TEXT,
+  blood_group TEXT,
+  medical_notes TEXT,
+  created_at TEXT,
+  updated_at TEXT
 );
 
 -- 3. Classes Table (Fasallada Dugsiga)
@@ -144,6 +153,11 @@ CREATE TABLE IF NOT EXISTS dugsiga_teachers (
   notes TEXT,
   assigned_classes JSONB DEFAULT '[]'::jsonb,
   assigned_subjects JSONB DEFAULT '[]'::jsonb,
+  status TEXT DEFAULT 'ACTIVE',
+  invitation_token TEXT,
+  invitation_expires_at TEXT,
+  invitation_sent_at TEXT,
+  activated_at TEXT,
   created_at TEXT
 );
 

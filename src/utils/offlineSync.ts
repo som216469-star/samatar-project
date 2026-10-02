@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { getStoredSession, getAuthToken } from "../lib/authStorage";
 
 export interface SyncQueueItem {
   id: string;
@@ -82,18 +83,17 @@ export async function processOfflineQueue(): Promise<{ syncedCount: number; erro
   let syncedCount = 0;
   let errorCount = 0;
 
-  // Retrieve current auth headers
-  let authHeaders: Record<string, string> = {
+  // Retrieve current auth headers from canonical auth storage
+  const authHeaders: Record<string, string> = {
     "Content-Type": "application/json"
   };
   try {
-    const authRaw = localStorage.getItem("dugsiga_auth");
-    if (authRaw) {
-      const auth = JSON.parse(authRaw);
-      if (auth.email) authHeaders["X-School-Email"] = auth.email;
-      if (auth.schoolId) authHeaders["X-School-Id"] = auth.schoolId;
-      if (auth.token) authHeaders["Authorization"] = `Bearer ${auth.token}`;
-    }
+    const session = getStoredSession();
+    const token = getAuthToken();
+    const schoolEmail = session?.schoolId || session?.email || "";
+    if (schoolEmail) authHeaders["X-School-Email"] = schoolEmail;
+    if (session?.schoolId) authHeaders["X-School-Id"] = session.schoolId;
+    if (token) authHeaders["Authorization"] = `Bearer ${token}`;
   } catch (e) {}
 
   for (let i = 0; i < queue.length; i++) {

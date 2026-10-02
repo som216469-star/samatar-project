@@ -1,4 +1,5 @@
 import type express from "express";
+import { getAuthenticatedUser } from "./authSession.ts";
 
 interface FinanceRouteHelpers {
   getSchoolId: (req: express.Request) => string;
@@ -17,19 +18,34 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
     saveLocalDB,
     supabase,
     getUseLocalFallback,
-    hasPermission,
-    handleSupabaseError
+    hasPermission
   } = helpers;
 
-  // Helper: check user role for finance operations
+  // Helper: check user role for finance operations using Zero-Trust session resolution
   const checkFinanceAuth = (req: express.Request, requiredPermission: string): { authorized: boolean; role: string; schoolId: string } => {
     const schoolId = getSchoolId(req);
+    const authUser = getAuthenticatedUser(req, loadLocalDB);
     const db = loadLocalDB();
-    const user = (db.users || []).find((u: any) => u.email.toLowerCase() === schoolId.toLowerCase());
+
+    if (authUser && (authUser.role === "teacher" || authUser.role === "staff" || authUser.role === "receptionist")) {
+      const normalizedRole =
+        authUser.role === "teacher"
+          ? "Teacher"
+          : authUser.role === "receptionist"
+          ? "Receptionist"
+          : "Staff";
+      return {
+        authorized: hasPermission(normalizedRole, requiredPermission),
+        role: normalizedRole,
+        schoolId
+      };
+    }
+
+    const user = (db.users || []).find((u: any) => u.email.toLowerCase() === (authUser?.email || schoolId).toLowerCase());
     const role = user?.role || "School Admin";
     
-    // School Admin and Super Admin always have full access
-    if (role === "School Admin" || role === "Super Admin" || role === "Accountant") {
+    // School Admin, admin, and Super Admin always have full access
+    if (role === "School Admin" || role === "Super Admin" || role === "Accountant" || role === "admin" || role === "accountant") {
       return { authorized: true, role, schoolId };
     }
     
@@ -136,11 +152,53 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
     }
   };
 
+  // Helper: synchronize local finance collections with Supabase tables (Tables 21-27) when Cloud DB is active
+  const syncFinanceTableToSupabase = async (table: string, row: Record<string, any>) => {
+    if (getUseLocalFallback() || !supabase) return;
+    try {
+      await supabase.from(table).upsert([row], { onConflict: "id" });
+    } catch {
+      // Resilient fallback if table is not yet provisioned
+    }
+  };
+
+  const deleteFinanceRowFromSupabase = async (table: string, id: string, schoolId: string) => {
+    if (getUseLocalFallback() || !supabase) return;
+    try {
+      await supabase.from(table).delete().eq("id", id).eq("school_id", schoolId);
+    } catch {
+      // Resilient fallback
+    }
+  };
+
   /* =========================================================================
      1. FEE STRUCTURES (CRUD)
      ========================================================================= */
   app.get("/api/fee-structures", async (req, res) => {
     const schoolId = getSchoolId(req);
+    if (!getUseLocalFallback() && supabase) {
+      try {
+        const { data, error } = await supabase
+          .from("dugsiga_fee_structures")
+          .select("*")
+          .eq("school_id", schoolId);
+        if (!error && data && data.length > 0) {
+          const formatted = data.map((fs: any) => ({
+            id: fs.id,
+            schoolId: fs.school_id,
+            name: fs.name,
+            category: fs.category || "Monthly Tuition",
+            amount: Number(fs.amount) || 0,
+            className: fs.class_name || "All Classes",
+            academicYear: fs.academic_year || "2026-2027",
+            term: fs.term || "All Terms",
+            description: fs.description || "",
+            createdAt: fs.created_at || ""
+          }));
+          return res.json(formatted);
+        }
+      } catch {}
+    }
     const db = getEnsureDB();
     const list = (db.feeStructures || []).filter((fs: any) => fs.schoolId === schoolId);
     return res.json(list);
@@ -171,6 +229,18 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
 
     db.feeStructures.push(newStructure);
     saveLocalDB(db);
+    await syncFinanceTableToSupabase("dugsiga_fee_structures", {
+      id: newStructure.id,
+      school_id: schoolId,
+      name: newStructure.name,
+      category: newStructure.category,
+      amount: newStructure.amount,
+      class_name: newStructure.className,
+      academic_year: newStructure.academicYear,
+      term: newStructure.term,
+      description: newStructure.description,
+      created_at: newStructure.createdAt
+    });
     return res.status(201).json(newStructure);
   });
 
@@ -185,7 +255,20 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
 
     db.feeStructures[idx] = { ...db.feeStructures[idx], ...req.body };
     saveLocalDB(db);
-    return res.json(db.feeStructures[idx]);
+    const updated = db.feeStructures[idx];
+    await syncFinanceTableToSupabase("dugsiga_fee_structures", {
+      id: updated.id,
+      school_id: schoolId,
+      name: updated.name,
+      category: updated.category,
+      amount: Number(updated.amount) || 0,
+      class_name: updated.className,
+      academic_year: updated.academicYear,
+      term: updated.term,
+      description: updated.description,
+      created_at: updated.createdAt
+    });
+    return res.json(updated);
   });
 
   app.delete("/api/fee-structures/:id", async (req, res) => {
@@ -196,6 +279,7 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
     const db = getEnsureDB();
     db.feeStructures = (db.feeStructures || []).filter((fs: any) => !(fs.id === id && fs.schoolId === schoolId));
     saveLocalDB(db);
+    await deleteFinanceRowFromSupabase("dugsiga_fee_structures", id, schoolId);
     return res.json({ success: true });
   });
 
@@ -318,6 +402,27 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
     }
 
     saveLocalDB(db);
+    await syncFinanceTableToSupabase("dugsiga_invoices", {
+      id: newInvoice.id,
+      school_id: schoolId,
+      invoice_number: newInvoice.invoiceNumber,
+      student_id: newInvoice.studentId,
+      student_name: newInvoice.studentName,
+      class_name: newInvoice.className,
+      guardian_name: newInvoice.guardianName,
+      guardian_phone: newInvoice.guardianPhone,
+      items: newInvoice.items,
+      subtotal: newInvoice.subtotal,
+      discount: newInvoice.discount,
+      total: newInvoice.total,
+      paid_amount: newInvoice.paidAmount,
+      balance: newInvoice.balance,
+      issue_date: newInvoice.issueDate,
+      due_date: newInvoice.dueDate,
+      status: newInvoice.status,
+      notes: newInvoice.notes,
+      created_at: newInvoice.createdAt
+    });
     return res.status(201).json(newInvoice);
   });
 
@@ -469,7 +574,30 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
     }
 
     saveLocalDB(db);
-    return res.json(db.invoices[idx]);
+    const updatedInv = db.invoices[idx];
+    await syncFinanceTableToSupabase("dugsiga_invoices", {
+      id: updatedInv.id,
+      school_id: schoolId,
+      invoice_number: updatedInv.invoiceNumber,
+      student_id: updatedInv.studentId,
+      student_name: updatedInv.studentName,
+      class_name: updatedInv.className,
+      guardian_name: updatedInv.guardianName,
+      guardian_phone: updatedInv.guardianPhone,
+      items: updatedInv.items,
+      subtotal: updatedInv.subtotal,
+      discount: updatedInv.discount,
+      total: updatedInv.total,
+      paid_amount: updatedInv.paidAmount,
+      balance: updatedInv.balance,
+      issue_date: updatedInv.issueDate,
+      due_date: updatedInv.dueDate,
+      status: updatedInv.status,
+      notes: updatedInv.notes,
+      created_at: updatedInv.createdAt,
+      updated_at: updatedInv.updatedAt
+    });
+    return res.json(updatedInv);
   });
 
   app.delete("/api/invoices/:id", async (req, res) => {
@@ -481,6 +609,7 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
     db.invoices = (db.invoices || []).filter((inv: any) => !(inv.id === id && inv.schoolId === schoolId));
     db.fees = (db.fees || []).filter((f: any) => !(f.id === id && f.schoolId === schoolId));
     saveLocalDB(db);
+    await deleteFinanceRowFromSupabase("dugsiga_invoices", id, schoolId);
     return res.json({ success: true });
   });
 
@@ -558,6 +687,46 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
 
     db.payments.unshift(newPayment);
     saveLocalDB(db);
+    await syncFinanceTableToSupabase("dugsiga_payments", {
+      id: newPayment.id,
+      school_id: schoolId,
+      receipt_number: newPayment.receiptNumber,
+      invoice_id: newPayment.invoiceId,
+      invoice_number: newPayment.invoiceNumber,
+      student_id: newPayment.studentId,
+      student_name: newPayment.studentName,
+      class_name: newPayment.className,
+      amount: newPayment.amount,
+      payment_date: newPayment.paymentDate,
+      payment_method: newPayment.paymentMethod,
+      reference: newPayment.reference,
+      remaining_balance: newBalance,
+      received_by: newPayment.receivedBy,
+      notes: newPayment.notes,
+      created_at: newPayment.createdAt
+    });
+    await syncFinanceTableToSupabase("dugsiga_invoices", {
+      id: inv.id,
+      school_id: schoolId,
+      invoice_number: inv.invoiceNumber,
+      student_id: inv.studentId,
+      student_name: inv.studentName,
+      class_name: inv.className,
+      guardian_name: inv.guardianName,
+      guardian_phone: inv.guardianPhone,
+      items: inv.items,
+      subtotal: inv.subtotal,
+      discount: inv.discount,
+      total: inv.total,
+      paid_amount: newPaidAmount,
+      balance: newBalance,
+      issue_date: inv.issueDate,
+      due_date: inv.dueDate,
+      status: newStatus,
+      notes: inv.notes,
+      created_at: inv.createdAt,
+      updated_at: db.invoices[invoiceIdx].updatedAt
+    });
 
     return res.status(201).json({
       success: true,
@@ -633,6 +802,23 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
 
     db.expenses.unshift(newExpense);
     saveLocalDB(db);
+    await syncFinanceTableToSupabase("dugsiga_expenses", {
+      id: newExpense.id,
+      school_id: schoolId,
+      expense_id: newExpense.expenseId,
+      category: newExpense.category,
+      description: newExpense.description,
+      amount: newExpense.amount,
+      date: newExpense.date,
+      payment_method: newExpense.paymentMethod,
+      vendor_payee: newExpense.vendorPayee,
+      reference_number: newExpense.referenceNumber,
+      receipt_document: newExpense.receiptDocument,
+      created_by: newExpense.createdBy,
+      notes: newExpense.notes,
+      status: newExpense.status,
+      created_at: newExpense.createdAt
+    });
     return res.status(201).json(newExpense);
   });
 
@@ -653,7 +839,26 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
     };
 
     saveLocalDB(db);
-    return res.json(db.expenses[idx]);
+    const updatedExp = db.expenses[idx];
+    await syncFinanceTableToSupabase("dugsiga_expenses", {
+      id: updatedExp.id,
+      school_id: schoolId,
+      expense_id: updatedExp.expenseId,
+      category: updatedExp.category,
+      description: updatedExp.description,
+      amount: updatedExp.amount,
+      date: updatedExp.date,
+      payment_method: updatedExp.paymentMethod,
+      vendor_payee: updatedExp.vendorPayee,
+      reference_number: updatedExp.referenceNumber,
+      receipt_document: updatedExp.receiptDocument,
+      created_by: updatedExp.createdBy,
+      notes: updatedExp.notes,
+      status: updatedExp.status,
+      created_at: updatedExp.createdAt,
+      updated_at: updatedExp.updatedAt
+    });
+    return res.json(updatedExp);
   });
 
   app.put("/api/expenses/:id/approve", async (req, res) => {
@@ -668,7 +873,26 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
     db.expenses[idx].status = 'Approved';
     db.expenses[idx].updatedAt = new Date().toISOString();
     saveLocalDB(db);
-    return res.json(db.expenses[idx]);
+    const approvedExp = db.expenses[idx];
+    await syncFinanceTableToSupabase("dugsiga_expenses", {
+      id: approvedExp.id,
+      school_id: schoolId,
+      expense_id: approvedExp.expenseId,
+      category: approvedExp.category,
+      description: approvedExp.description,
+      amount: approvedExp.amount,
+      date: approvedExp.date,
+      payment_method: approvedExp.paymentMethod,
+      vendor_payee: approvedExp.vendorPayee,
+      reference_number: approvedExp.referenceNumber,
+      receipt_document: approvedExp.receiptDocument,
+      created_by: approvedExp.createdBy,
+      notes: approvedExp.notes,
+      status: approvedExp.status,
+      created_at: approvedExp.createdAt,
+      updated_at: approvedExp.updatedAt
+    });
+    return res.json(approvedExp);
   });
 
   app.delete("/api/expenses/:id", async (req, res) => {
@@ -679,6 +903,7 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
     const db = getEnsureDB();
     db.expenses = (db.expenses || []).filter((e: any) => !(e.id === id && e.schoolId === schoolId));
     saveLocalDB(db);
+    await deleteFinanceRowFromSupabase("dugsiga_expenses", id, schoolId);
     return res.json({ success: true });
   });
 
@@ -742,6 +967,21 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
 
     db.income.unshift(newIncome);
     saveLocalDB(db);
+    await syncFinanceTableToSupabase("dugsiga_income", {
+      id: newIncome.id,
+      school_id: schoolId,
+      income_id: newIncome.incomeId,
+      category: newIncome.category,
+      description: newIncome.description,
+      amount: newIncome.amount,
+      date: newIncome.date,
+      payment_method: newIncome.paymentMethod,
+      reference: newIncome.reference,
+      payer: newIncome.payer,
+      notes: newIncome.notes,
+      created_by: newIncome.createdBy,
+      created_at: newIncome.createdAt
+    });
     return res.status(201).json(newIncome);
   });
 
@@ -761,7 +1001,23 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
     };
 
     saveLocalDB(db);
-    return res.json(db.income[idx]);
+    const updatedInc = db.income[idx];
+    await syncFinanceTableToSupabase("dugsiga_income", {
+      id: updatedInc.id,
+      school_id: schoolId,
+      income_id: updatedInc.incomeId,
+      category: updatedInc.category,
+      description: updatedInc.description,
+      amount: updatedInc.amount,
+      date: updatedInc.date,
+      payment_method: updatedInc.paymentMethod,
+      reference: updatedInc.reference,
+      payer: updatedInc.payer,
+      notes: updatedInc.notes,
+      created_by: updatedInc.createdBy,
+      created_at: updatedInc.createdAt
+    });
+    return res.json(updatedInc);
   });
 
   app.delete("/api/income/:id", async (req, res) => {
@@ -772,6 +1028,7 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
     const db = getEnsureDB();
     db.income = (db.income || []).filter((inc: any) => !(inc.id === id && inc.schoolId === schoolId));
     saveLocalDB(db);
+    await deleteFinanceRowFromSupabase("dugsiga_income", id, schoolId);
     return res.json({ success: true });
   });
 
@@ -851,6 +1108,27 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
 
     db.payroll.unshift(newPayroll);
     saveLocalDB(db);
+    await syncFinanceTableToSupabase("dugsiga_payroll", {
+      id: newPayroll.id,
+      school_id: schoolId,
+      employee_type: newPayroll.employeeType,
+      employee_id: newPayroll.employeeId,
+      employee_name: newPayroll.employeeName,
+      role_or_department: newPayroll.roleOrDepartment,
+      basic_salary: newPayroll.basicSalary,
+      allowances: newPayroll.allowances,
+      deductions: newPayroll.deductions,
+      gross_salary: newPayroll.grossSalary,
+      net_salary: newPayroll.netSalary,
+      payment_date: newPayroll.paymentDate,
+      payment_method: newPayroll.paymentMethod,
+      payroll_period: newPayroll.payrollPeriod,
+      status: newPayroll.status,
+      notes: newPayroll.notes,
+      paid_at: newPayroll.paidAt || null,
+      expense_id: newPayroll.expenseId || null,
+      created_at: newPayroll.createdAt
+    });
     return res.status(201).json(newPayroll);
   });
 
@@ -1021,6 +1299,20 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
 
     db.budgets.push(newBudget);
     saveLocalDB(db);
+    await syncFinanceTableToSupabase("dugsiga_budgets", {
+      id: newBudget.id,
+      school_id: schoolId,
+      academic_year: newBudget.academicYear,
+      period: newBudget.period,
+      category: newBudget.category,
+      type: newBudget.type,
+      planned_amount: newBudget.plannedAmount,
+      actual_amount: newBudget.actualAmount,
+      remaining_amount: newBudget.remainingAmount,
+      variance: newBudget.variance,
+      notes: newBudget.notes,
+      created_at: newBudget.createdAt
+    });
     return res.status(201).json(newBudget);
   });
 

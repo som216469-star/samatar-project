@@ -736,6 +736,143 @@ CREATE TABLE IF NOT EXISTS dugsiga_notifications (
   created_at TEXT
 );
 
+-- 21. Fee Structures Table
+CREATE TABLE IF NOT EXISTS dugsiga_fee_structures (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  category TEXT NOT NULL,
+  amount NUMERIC NOT NULL DEFAULT 0,
+  class_name TEXT DEFAULT 'All Classes',
+  academic_year TEXT DEFAULT '2026-2027',
+  term TEXT DEFAULT 'All Terms',
+  description TEXT,
+  created_at TEXT
+);
+
+-- 22. Invoices Table
+CREATE TABLE IF NOT EXISTS dugsiga_invoices (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  invoice_number TEXT NOT NULL,
+  student_id TEXT NOT NULL,
+  student_name TEXT,
+  class_name TEXT,
+  guardian_name TEXT,
+  guardian_phone TEXT,
+  items JSONB DEFAULT '[]'::jsonb,
+  subtotal NUMERIC NOT NULL DEFAULT 0,
+  discount NUMERIC NOT NULL DEFAULT 0,
+  total NUMERIC NOT NULL DEFAULT 0,
+  paid_amount NUMERIC NOT NULL DEFAULT 0,
+  balance NUMERIC NOT NULL DEFAULT 0,
+  issue_date TEXT NOT NULL,
+  due_date TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'Unpaid',
+  notes TEXT,
+  created_at TEXT,
+  updated_at TEXT
+);
+
+-- 23. Payments Table
+CREATE TABLE IF NOT EXISTS dugsiga_payments (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  receipt_number TEXT NOT NULL,
+  invoice_id TEXT,
+  invoice_number TEXT,
+  student_id TEXT,
+  student_name TEXT,
+  class_name TEXT,
+  amount NUMERIC NOT NULL DEFAULT 0,
+  payment_date TEXT NOT NULL,
+  payment_method TEXT NOT NULL DEFAULT 'Cash',
+  reference TEXT,
+  remaining_balance NUMERIC DEFAULT 0,
+  received_by TEXT NOT NULL,
+  notes TEXT,
+  created_at TEXT
+);
+
+-- 24. Expenses Table
+CREATE TABLE IF NOT EXISTS dugsiga_expenses (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  expense_id TEXT,
+  category TEXT NOT NULL,
+  description TEXT NOT NULL,
+  amount NUMERIC NOT NULL DEFAULT 0,
+  date TEXT NOT NULL,
+  payment_method TEXT NOT NULL DEFAULT 'Cash',
+  vendor_payee TEXT NOT NULL,
+  reference_number TEXT,
+  receipt_document TEXT,
+  created_by TEXT NOT NULL,
+  notes TEXT,
+  status TEXT NOT NULL DEFAULT 'Approved',
+  payroll_id TEXT,
+  created_at TEXT,
+  updated_at TEXT
+);
+
+-- 25. Income Table
+CREATE TABLE IF NOT EXISTS dugsiga_income (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  income_id TEXT,
+  category TEXT NOT NULL,
+  description TEXT NOT NULL,
+  amount NUMERIC NOT NULL DEFAULT 0,
+  date TEXT NOT NULL,
+  payment_method TEXT NOT NULL DEFAULT 'Cash',
+  reference TEXT,
+  payer TEXT NOT NULL,
+  notes TEXT,
+  created_by TEXT NOT NULL,
+  payment_id TEXT,
+  created_at TEXT
+);
+
+-- 26. Budgets Table
+CREATE TABLE IF NOT EXISTS dugsiga_budgets (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  academic_year TEXT NOT NULL DEFAULT '2026-2027',
+  period TEXT NOT NULL DEFAULT 'Annual',
+  category TEXT NOT NULL,
+  type TEXT NOT NULL DEFAULT 'Expense',
+  planned_amount NUMERIC NOT NULL DEFAULT 0,
+  actual_amount NUMERIC NOT NULL DEFAULT 0,
+  remaining_amount NUMERIC NOT NULL DEFAULT 0,
+  variance NUMERIC NOT NULL DEFAULT 0,
+  notes TEXT,
+  created_at TEXT
+);
+
+-- 27. Payroll Table
+CREATE TABLE IF NOT EXISTS dugsiga_payroll (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  employee_type TEXT NOT NULL DEFAULT 'Teacher',
+  employee_id TEXT NOT NULL,
+  employee_name TEXT NOT NULL,
+  role_or_department TEXT,
+  basic_salary NUMERIC NOT NULL DEFAULT 0,
+  allowances NUMERIC NOT NULL DEFAULT 0,
+  deductions NUMERIC NOT NULL DEFAULT 0,
+  gross_salary NUMERIC NOT NULL DEFAULT 0,
+  net_salary NUMERIC NOT NULL DEFAULT 0,
+  payment_date TEXT NOT NULL,
+  payment_method TEXT NOT NULL DEFAULT 'EVC Plus',
+  payroll_period TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'Draft',
+  notes TEXT,
+  paid_at TEXT,
+  expense_id TEXT,
+  created_at TEXT,
+  updated_at TEXT
+);
+
 -- Grant privileges for direct access
 DO $$
 BEGIN
@@ -747,6 +884,25 @@ BEGIN
   EXECUTE 'ALTER TABLE dugsiga_attendance DISABLE ROW LEVEL SECURITY';
   EXECUTE 'ALTER TABLE dugsiga_fees DISABLE ROW LEVEL SECURITY';
   EXECUTE 'ALTER TABLE dugsiga_settings DISABLE ROW LEVEL SECURITY';
+  EXECUTE 'ALTER TABLE dugsiga_teachers DISABLE ROW LEVEL SECURITY';
+  EXECUTE 'ALTER TABLE dugsiga_staff DISABLE ROW LEVEL SECURITY';
+  EXECUTE 'ALTER TABLE dugsiga_guardians DISABLE ROW LEVEL SECURITY';
+  EXECUTE 'ALTER TABLE dugsiga_staff_attendance DISABLE ROW LEVEL SECURITY';
+  EXECUTE 'ALTER TABLE dugsiga_timetable DISABLE ROW LEVEL SECURITY';
+  EXECUTE 'ALTER TABLE dugsiga_admissions DISABLE ROW LEVEL SECURITY';
+  EXECUTE 'ALTER TABLE dugsiga_announcements DISABLE ROW LEVEL SECURITY';
+  EXECUTE 'ALTER TABLE dugsiga_library_books DISABLE ROW LEVEL SECURITY';
+  EXECUTE 'ALTER TABLE dugsiga_library_loans DISABLE ROW LEVEL SECURITY';
+  EXECUTE 'ALTER TABLE dugsiga_inventory DISABLE ROW LEVEL SECURITY';
+  EXECUTE 'ALTER TABLE dugsiga_documents DISABLE ROW LEVEL SECURITY';
+  EXECUTE 'ALTER TABLE dugsiga_notifications DISABLE ROW LEVEL SECURITY';
+  EXECUTE 'ALTER TABLE dugsiga_fee_structures DISABLE ROW LEVEL SECURITY';
+  EXECUTE 'ALTER TABLE dugsiga_invoices DISABLE ROW LEVEL SECURITY';
+  EXECUTE 'ALTER TABLE dugsiga_payments DISABLE ROW LEVEL SECURITY';
+  EXECUTE 'ALTER TABLE dugsiga_expenses DISABLE ROW LEVEL SECURITY';
+  EXECUTE 'ALTER TABLE dugsiga_income DISABLE ROW LEVEL SECURITY';
+  EXECUTE 'ALTER TABLE dugsiga_budgets DISABLE ROW LEVEL SECURITY';
+  EXECUTE 'ALTER TABLE dugsiga_payroll DISABLE ROW LEVEL SECURITY';
 EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
 `;
@@ -1937,6 +2093,13 @@ app.post("/api/reset", async (req, res) => {
   if (db.inventory) db.inventory = db.inventory.filter((i: any) => i.schoolId !== schoolId);
   if (db.documents) db.documents = db.documents.filter((d: any) => d.schoolId !== schoolId);
   if (db.notifications) db.notifications = db.notifications.filter((n: any) => n.schoolId !== schoolId);
+  if (db.feeStructures) db.feeStructures = db.feeStructures.filter((fs: any) => fs.schoolId !== schoolId);
+  if (db.invoices) db.invoices = db.invoices.filter((inv: any) => inv.schoolId !== schoolId);
+  if (db.payments) db.payments = db.payments.filter((p: any) => p.schoolId !== schoolId);
+  if (db.expenses) db.expenses = db.expenses.filter((e: any) => e.schoolId !== schoolId);
+  if (db.income) db.income = db.income.filter((inc: any) => inc.schoolId !== schoolId);
+  if (db.budgets) db.budgets = db.budgets.filter((b: any) => b.schoolId !== schoolId);
+  if (db.payroll) db.payroll = db.payroll.filter((pr: any) => pr.schoolId !== schoolId);
   if (db.settings && typeof db.settings === 'object' && !db.settings.schoolName) {
     delete db.settings[schoolId];
   } else {
