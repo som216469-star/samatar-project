@@ -2109,10 +2109,6 @@ app.post("/api/reset", async (req, res) => {
   res.json({ success: true });
 });
 
-if (process.env.DISABLE_HMR !== "true") {
-  process.env.DISABLE_HMR = "true";
-}
-
 async function startServer() {
   app.use(express.static(path.join(process.cwd(), "public")));
 
