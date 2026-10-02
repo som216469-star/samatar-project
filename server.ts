@@ -1761,20 +1761,6 @@ async function findStudentUniquenessConflict(
     if ((data || []).length > 0) return "Student ID-gan horey ayaa loo isticmaalay.";
   }
 
-  if (candidate.fullName && candidate.class) {
-    let query = supabase
-      .from("dugsiga_students")
-      .select("id")
-      .eq("school_id", schoolId)
-      .eq("class", candidate.class)
-      .ilike("full_name", escapeIlikePattern(candidate.fullName))
-      .limit(1);
-    if (excludeId) query = query.neq("id", excludeId);
-    const { data, error } = await query;
-    if (error) throw error;
-    if ((data || []).length > 0) return "Magacan iyo fasalkan arday hore ayaa loogu diiwaangeliyey.";
-  }
-
   if (candidate.nationalId) {
     let query = supabase
       .from("dugsiga_students")
@@ -3052,7 +3038,6 @@ app.post("/api/students", async (req, res) => {
       s.schoolId === schoolId &&
       s.id !== studentId &&
       (
-        (s.fullName || "").trim().toLowerCase() === student.fullName.toLowerCase() && (s.class || "").trim() === student.class ||
         (student.rollNumber &&
           (s.rollNumber || "").trim().toLowerCase() === student.rollNumber.toLowerCase() &&
           String(s.class || "").trim().toLowerCase() === String(student.class || "").trim().toLowerCase() &&
@@ -3183,7 +3168,6 @@ app.put("/api/students/:id", async (req, res) => {
     const duplicate = (db.students || []).some((s: any) =>
       s.schoolId === schoolId && s.id !== id &&
       (
-        (updates.fullName && updates.class && (s.fullName || "").trim().toLowerCase() === updates.fullName.toLowerCase() && (s.class || "").trim() === updates.class) ||
         (updates.rollNumber &&
           (s.rollNumber || "").trim().toLowerCase() === updates.rollNumber.toLowerCase() &&
           String(s.class || "").trim().toLowerCase() ===
