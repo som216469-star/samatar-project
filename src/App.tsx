@@ -119,10 +119,19 @@ export default function App() {
         const profile = await res.json();
         if (cancelled) return;
 
+        const normalizedProfileRole =
+          String(profile.role || '').trim().toLowerCase() === 'teacher'
+            ? 'teacher'
+            : ['staff', 'librarian', 'receptionist', 'accountant'].includes(
+                String(profile.role || '').trim().toLowerCase()
+              )
+              ? 'staff'
+              : 'admin';
+
         const restoredUser: AuthUser = {
           email: profile.email,
           schoolId: profile.schoolId,
-          role: profile.role,
+          role: normalizedProfileRole,
           name: profile.name || undefined,
           teacherId: profile.teacherId || undefined
         };
