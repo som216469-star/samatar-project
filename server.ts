@@ -1481,7 +1481,7 @@ async function recordStudentAudit(
   }
 }
 
-async function getStudentDependencyIds(studentIds: string[]): Promise<Set<string>> {
+async function getStudentDependencyIds(studentIds: string[], schoolId: string): Promise<Set<string>> {
   const dependentTables = [
     ["dugsiga_attendance", "student_id"],
     ["dugsiga_fees", "student_id"],
@@ -1892,7 +1892,7 @@ app.post("/api/students/check-duplicate", async (req, res) => {
     if (!useLocalFallback) {
       const checks = [
         raw.studentId
-          ? supabase.from("dugsiga_students").select("id,full_name,class,guardian_phone").eq("id", String(raw.studentId).trim()).limit(1)
+          ? supabase.from("dugsiga_students").select("id,full_name,class,guardian_phone").eq("school_id", schoolId).eq("id", String(raw.studentId).trim()).limit(1)
           : Promise.resolve({ data: [], error: null }),
         candidate.value.fullName && candidate.value.class
           ? supabase.from("dugsiga_students").select("id,full_name,class,guardian_phone").eq("school_id", schoolId).eq("class", candidate.value.class).ilike("full_name", candidate.value.fullName).limit(5)
@@ -1978,7 +1978,7 @@ app.post("/api/students/bulk", async (req, res) => {
       }
 
       if (action === "delete") {
-        const dependentIds = await getStudentDependencyIds(studentIds);
+        const dependentIds = await getStudentDependencyIds(studentIds, schoolId);
         if (dependentIds.size > 0) {
           return res.status(409).json({
             error: "Qaar ka mid ah ardaydan waxay leeyihiin xog ku xiran. Isticmaal Archive halkii Delete.",
@@ -2184,6 +2184,66 @@ app.put("/api/students/:id", async (req, res) => {
   }
 });
 
+
+app.get("/api/students/:id/audit", async (req, res) => {
+  const schoolId = getSchoolId(req);
+  const authUser = getAuthenticatedUser(req, loadLocalDB);
+  const id = typeof req.params.id === "string" ? req.params.id.trim() : "";
+
+  if (!schoolId || !authUser) return res.status(401).json({ error: "Session-ka lama xaqiijin." });
+  if (!isSafeStudentId(id)) return res.status(400).json({ error: "Student ID-ga ma saxna." });
+
+  try {
+    if (!useLocalFallback) {
+      const { data: student, error: studentError } = await supabase
+        .from("dugsiga_students")
+        .select("id,class")
+        .eq("school_id", schoolId)
+        .eq("id", id)
+        .maybeSingle();
+
+      if (studentError) throw studentError;
+      if (!student) return res.status(404).json({ error: "Ardayga lama helin." });
+
+      if (authUser.role === "teacher") {
+        const assigned = Array.isArray(authUser.assignedClasses)
+          ? authUser.assignedClasses.map((c) => String(c).trim()).filter(Boolean)
+          : [];
+        if (!assigned.includes(String(student.class || "").trim())) {
+          return res.status(403).json({ error: "Macallinku ma heli karo taariikhda ardaygan." });
+        }
+      }
+
+      const { data, error } = await supabase
+        .from("dugsiga_student_audit")
+        .select("id,student_id,action,actor_email,actor_role,changed_fields,created_at")
+        .eq("school_id", schoolId)
+        .eq("student_id", id)
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+
+      return res.json((data || []).map((item: any) => ({
+        id: item.id,
+        studentId: item.student_id,
+        action: item.action,
+        actorEmail: item.actor_email || "",
+        actorRole: item.actor_role || "",
+        changedFields: Array.isArray(item.changed_fields?.fields) ? item.changed_fields.fields : [],
+        createdAt: item.created_at
+      })));
+    }
+
+    const db = loadLocalDB();
+    const student = (db.students || []).find((s: any) => s.id === id && s.schoolId === schoolId);
+    if (!student) return res.status(404).json({ error: "Ardayga lama helin." });
+    return res.json([]);
+  } catch (e: any) {
+    return handleSupabaseError(res, e, "Soo qaadista taariikhda ardayga");
+  }
+});
+
 app.delete("/api/students/:id", async (req, res) => {
   const schoolId = getSchoolId(req);
   const authUser = getAuthenticatedUser(req, loadLocalDB);
@@ -2198,7 +2258,7 @@ app.delete("/api/students/:id", async (req, res) => {
       if (currentError) throw currentError;
       if (!current) return res.status(404).json({ error: "Ardayga lama helin." });
 
-      const dependentIds = await getStudentDependencyIds([id]);
+      const dependentIds = await getStudentDependencyIds([id], schoolId);
       if (dependentIds.has(id)) {
         return res.status(409).json({ error: "Ardaygan wuxuu leeyahay xog ku xiran. Isticmaal Archive halkii Delete." });
       }
