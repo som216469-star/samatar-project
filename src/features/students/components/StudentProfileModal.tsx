@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   X,
   User,
@@ -65,6 +65,13 @@ export default function StudentProfileModal({
   >('overview');
   const [activity, setActivity] = useState<ActivityItem[]>([]);
   const [activityLoading, setActivityLoading] = useState(false);
+  const profileTabs = useMemo(
+    () =>
+      canViewFinance
+        ? (['overview', 'academic', 'attendance', 'fees', 'activity'] as const)
+        : (['overview', 'academic', 'attendance', 'activity'] as const),
+    [canViewFinance]
+  );
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -346,7 +353,7 @@ export default function StudentProfileModal({
 
         {/* Modal Navigation Tabs */}
         <div className="flex items-center gap-1 px-5 sm:px-6 pt-2 bg-[var(--color-surface)] border-b border-[var(--color-border)] overflow-x-auto">
-          {(['overview', 'academic', 'attendance', ...(canViewFinance ? (['fees'] as const) : []), 'activity'] as const).map((tab) => (
+          {profileTabs.map((tab) => (
             <button
               key={tab}
               type="button"
