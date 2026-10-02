@@ -446,11 +446,33 @@ export default function StudentsView({
         const matchesName = String(student.fullName || '').toLowerCase().includes(query);
         const matchesId = String(student.id || '').toLowerCase().includes(query);
         const matchesClass = String(student.class || '').toLowerCase().includes(query);
-        const matchesPhone = student.guardianPhone ? student.guardianPhone.includes(query) : false;
-        const matchesGuardian = student.guardianName ? String(student.guardianName).toLowerCase().includes(query) : false;
-        const matchesRoll = student.rollNumber ? String(student.rollNumber).toLowerCase().includes(query) : false;
+        const matchesPhone = student.guardianPhone
+          ? String(student.guardianPhone).toLowerCase().includes(query) ||
+            String(student.guardianPhone).replace(/\D/g, '').includes(query.replace(/\D/g, ''))
+          : false;
+        const matchesGuardian = student.guardianName
+          ? String(student.guardianName).toLowerCase().includes(query)
+          : false;
+        const matchesRoll = student.rollNumber
+          ? String(student.rollNumber).toLowerCase().includes(query)
+          : false;
+        const matchesSection = student.section
+          ? String(student.section).toLowerCase().includes(query)
+          : false;
+        const matchesNationalId = student.nationalId
+          ? String(student.nationalId).toLowerCase().includes(query)
+          : false;
 
-        if (!matchesName && !matchesId && !matchesClass && !matchesPhone && !matchesGuardian && !matchesRoll) {
+        if (
+          !matchesName &&
+          !matchesId &&
+          !matchesClass &&
+          !matchesPhone &&
+          !matchesGuardian &&
+          !matchesRoll &&
+          !matchesSection &&
+          !matchesNationalId
+        ) {
           return false;
         }
       }
@@ -506,19 +528,21 @@ export default function StudentsView({
     // Sorting
     result.sort((a, b) => {
       if (sortBy === 'name_asc') {
-        return a.fullName.localeCompare(b.fullName);
+        return String(a.fullName || '').localeCompare(String(b.fullName || ''));
       } else if (sortBy === 'name_desc') {
-        return b.fullName.localeCompare(a.fullName);
+        return String(b.fullName || '').localeCompare(String(a.fullName || ''));
       } else if (sortBy === 'id_asc') {
-        return a.id.localeCompare(b.id);
+        return String(a.id || '').localeCompare(String(b.id || ''));
       } else if (sortBy === 'date_desc') {
-        return (b.createdAt || '').localeCompare(a.createdAt || '');
+        return String(b.createdAt || '').localeCompare(String(a.createdAt || ''));
       } else if (sortBy === 'date_asc') {
-        return (a.createdAt || '').localeCompare(b.createdAt || '');
+        return String(a.createdAt || '').localeCompare(String(b.createdAt || ''));
       } else if (sortBy === 'updated_desc') {
-        return (b.updatedAt || b.createdAt || '').localeCompare(a.updatedAt || a.createdAt || '');
+        return String(b.updatedAt || b.createdAt || '').localeCompare(
+          String(a.updatedAt || a.createdAt || '')
+        );
       } else if (sortBy === 'class') {
-        return a.class.localeCompare(b.class);
+        return String(a.class || '').localeCompare(String(b.class || ''));
       }
       return 0;
     });
