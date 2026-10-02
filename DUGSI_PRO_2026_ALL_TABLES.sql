@@ -525,7 +525,7 @@ CREATE TABLE IF NOT EXISTS dugsiga_payroll (
 -- RLS waa ON dhammaan tables-ka; service_role wuxuu leeyahay bypassRLS.
 -- ----------------------------------------------------------------------------
 
-DO $
+DO $dugsi$
 DECLARE
   tbl_name TEXT;
   tables_list TEXT[] := ARRAY[
@@ -564,7 +564,7 @@ BEGIN
     EXECUTE format('REVOKE ALL ON TABLE public.%I FROM anon, authenticated', tbl_name);
     EXECUTE format('GRANT ALL ON TABLE public.%I TO service_role', tbl_name);
   END LOOP;
-END $;
+END $dugsi$;
 
 -- Mahadsanid! DUGSI PRO 2026 database-ku waa secure-by-default.
 ),
@@ -1042,7 +1042,7 @@ CREATE TABLE IF NOT EXISTS dugsiga_payroll (
 -- RLS waa ON dhammaan tables-ka; service_role wuxuu leeyahay bypassRLS.
 -- ----------------------------------------------------------------------------
 
-DO $
+DO $dugsi$
 DECLARE
   tbl_name TEXT;
   tables_list TEXT[] := ARRAY[
@@ -1081,7 +1081,7 @@ BEGIN
     EXECUTE format('REVOKE ALL ON TABLE public.%I FROM anon, authenticated', tbl_name);
     EXECUTE format('GRANT ALL ON TABLE public.%I TO service_role', tbl_name);
   END LOOP;
-END $;
+END $dugsi$;
 
 -- Mahadsanid! DUGSI PRO 2026 database-ku waa secure-by-default.
 ),
@@ -1553,7 +1553,7 @@ CREATE TABLE IF NOT EXISTS dugsiga_payroll (
 -- RLS waa ON dhammaan tables-ka; service_role wuxuu leeyahay bypassRLS.
 -- ----------------------------------------------------------------------------
 
-DO $
+DO $dugsi$
 DECLARE
   tbl_name TEXT;
   tables_list TEXT[] := ARRAY[
@@ -1592,7 +1592,7 @@ BEGIN
     EXECUTE format('REVOKE ALL ON TABLE public.%I FROM anon, authenticated', tbl_name);
     EXECUTE format('GRANT ALL ON TABLE public.%I TO service_role', tbl_name);
   END LOOP;
-END $;
+END $dugsi$;
 
 -- Mahadsanid! DUGSI PRO 2026 database-ku waa secure-by-default.
 ),
@@ -2070,7 +2070,7 @@ CREATE TABLE IF NOT EXISTS dugsiga_payroll (
 -- RLS waa ON dhammaan tables-ka; service_role wuxuu leeyahay bypassRLS.
 -- ----------------------------------------------------------------------------
 
-DO $
+DO $dugsi$
 DECLARE
   tbl_name TEXT;
   tables_list TEXT[] := ARRAY[
@@ -2109,7 +2109,7 @@ BEGIN
     EXECUTE format('REVOKE ALL ON TABLE public.%I FROM anon, authenticated', tbl_name);
     EXECUTE format('GRANT ALL ON TABLE public.%I TO service_role', tbl_name);
   END LOOP;
-END $;
+END $dugsi$;
 
 -- Mahadsanid! DUGSI PRO 2026 database-ku waa secure-by-default.
 ),
@@ -2573,7 +2573,7 @@ CREATE TABLE IF NOT EXISTS dugsiga_payroll (
 -- RLS waa ON dhammaan tables-ka; service_role wuxuu leeyahay bypassRLS.
 -- ----------------------------------------------------------------------------
 
-DO $
+DO $dugsi$
 DECLARE
   tbl_name TEXT;
   tables_list TEXT[] := ARRAY[
@@ -2612,7 +2612,7 @@ BEGIN
     EXECUTE format('REVOKE ALL ON TABLE public.%I FROM anon, authenticated', tbl_name);
     EXECUTE format('GRANT ALL ON TABLE public.%I TO service_role', tbl_name);
   END LOOP;
-END $;
+END $dugsi$;
 
 -- Mahadsanid! DUGSI PRO 2026 database-ku waa secure-by-default.
 ),
@@ -3090,7 +3090,7 @@ CREATE TABLE IF NOT EXISTS dugsiga_payroll (
 -- RLS waa ON dhammaan tables-ka; service_role wuxuu leeyahay bypassRLS.
 -- ----------------------------------------------------------------------------
 
-DO $
+DO $dugsi$
 DECLARE
   tbl_name TEXT;
   tables_list TEXT[] := ARRAY[
@@ -3129,7 +3129,7 @@ BEGIN
     EXECUTE format('REVOKE ALL ON TABLE public.%I FROM anon, authenticated', tbl_name);
     EXECUTE format('GRANT ALL ON TABLE public.%I TO service_role', tbl_name);
   END LOOP;
-END $;
+END $dugsi$;
 
 -- Mahadsanid! DUGSI PRO 2026 database-ku waa secure-by-default.
 ),
@@ -3622,7 +3622,7 @@ CREATE TABLE IF NOT EXISTS dugsiga_payroll (
 -- RLS waa ON dhammaan tables-ka; service_role wuxuu leeyahay bypassRLS.
 -- ----------------------------------------------------------------------------
 
-DO $
+DO $dugsi$
 DECLARE
   tbl_name TEXT;
   tables_list TEXT[] := ARRAY[
@@ -3661,7 +3661,7 @@ BEGIN
     EXECUTE format('REVOKE ALL ON TABLE public.%I FROM anon, authenticated', tbl_name);
     EXECUTE format('GRANT ALL ON TABLE public.%I TO service_role', tbl_name);
   END LOOP;
-END $;
+END $dugsi$;
 
 -- Mahadsanid! DUGSI PRO 2026 database-ku waa secure-by-default.
 ),
@@ -4139,7 +4139,7 @@ CREATE TABLE IF NOT EXISTS dugsiga_payroll (
 -- RLS waa ON dhammaan tables-ka; service_role wuxuu leeyahay bypassRLS.
 -- ----------------------------------------------------------------------------
 
-DO $
+DO $dugsi$
 DECLARE
   tbl_name TEXT;
   tables_list TEXT[] := ARRAY[
@@ -4178,6 +4178,6 @@ BEGIN
     EXECUTE format('REVOKE ALL ON TABLE public.%I FROM anon, authenticated', tbl_name);
     EXECUTE format('GRANT ALL ON TABLE public.%I TO service_role', tbl_name);
   END LOOP;
-END $;
+END $dugsi$;
 
 -- Mahadsanid! DUGSI PRO 2026 database-ku waa secure-by-default.
