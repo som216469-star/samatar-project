@@ -1525,6 +1525,13 @@ function validateStudentPayload(
     if (!isValidStudentPhone(value.guardianPhoneAlt ?? "")) return { ok: false, value: {}, error: "Telefoonka labaad ma saxna." };
   }
 
+  if (!partial || hasValue("emergencyContact")) {
+    const emergencyContact = value.emergencyContact ?? "";
+    if (emergencyContact && !/^[+0-9()\s.-]{7,60}$/.test(emergencyContact)) {
+      return { ok: false, value: {}, error: "Emergency Contact ma saxna." };
+    }
+  }
+
   if (!partial || hasValue("dateOfBirth")) {
     const dob = value.dateOfBirth ?? (typeof payload.dateOfBirth === "string" ? payload.dateOfBirth.trim() : "");
     if (dob) {
