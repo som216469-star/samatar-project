@@ -1496,6 +1496,7 @@ export default function StudentsView({
           setSelectedGenderFilter('all');
           setSelectedFeeFilter('all');
           setSelectedRegDateFilter('all');
+          setMissingGuardianOnly(false);
           setSortBy('name_asc');
         }}
         filteredStudentsCount={filteredStudents.length}
