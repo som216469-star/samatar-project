@@ -465,7 +465,9 @@ export default function StudentsView({
     }
     setEditingStudent(null);
     setFormData({
-      id: 'STD-' + Math.floor(1000 + Math.random() * 9000),
+      id: typeof crypto !== 'undefined' && 'randomUUID' in crypto
+        ? 'STD-' + crypto.randomUUID().slice(0, 8).toUpperCase()
+        : 'STD-' + Date.now().toString(36).toUpperCase(),
       fullName: '',
       class: classes[0]?.className || '',
       gender: 'Male',
@@ -521,7 +523,7 @@ export default function StudentsView({
       errors.class = 'Fasalka waa qasab (Class is required)';
     }
 
-    if (formData.guardianPhone && !/^[0-9+\s-]{7,15}$/.test(formData.guardianPhone.trim())) {
+    if (formData.guardianPhone && !/^[0-9+()\s.-]{7,30}$/.test(formData.guardianPhone.trim())) {
       errors.guardianPhone = 'Lambarka telefoonka ma saxna (Invalid phone format)';
     }
 
@@ -576,7 +578,7 @@ export default function StudentsView({
   // --- Quick Status Toggle ---
   const handleQuickStatusChange = async (student: Student, newStatus: 'active' | 'inactive' | 'archived') => {
     try {
-      const success = await onUpdateStudent(student.id, { ...student, status: newStatus });
+      const success = await onUpdateStudent(student.id, { status: newStatus });
       if (success) {
         showToast(`Xaaladda ardayga waxaa laga dhigay: ${newStatus}`, "success");
       }
@@ -597,37 +599,40 @@ export default function StudentsView({
         if (bulkActionModal.action === 'change_status') targetValue = bulkTargetStatus;
 
         const success = await onBulkUpdate(bulkActionModal.action, selectedStudentIds, targetValue);
-        if (success) {
-          showToast(`Hawsha guud ee ${selectedStudentIds.length} arday si guul leh ayaa loo fuliyey!`, "success");
-          setSelectedStudentIds([]);
-          setBulkActionModal({ isOpen: false, action: null });
-          if (onRefreshData) onRefreshData();
-        }
+        if (!success) return;
+
+        showToast(`Hawsha guud ee ${selectedStudentIds.length} arday si guul leh ayaa loo fuliyey!`, "success");
+        setSelectedStudentIds([]);
+        setBulkActionModal({ isOpen: false, action: null });
+        if (onRefreshData) await onRefreshData();
       } else {
-        // Fallback: sequential updates
+        // Fallback: sequential updates with accurate success counting.
         let count = 0;
         for (const id of selectedStudentIds) {
           const st = students.find(s => s.id === id);
           if (!st) continue;
 
+          let ok = false;
           if (bulkActionModal.action === 'change_class' && bulkTargetClass) {
-            await onUpdateStudent(id, { ...st, class: bulkTargetClass });
-            count++;
+            ok = await onUpdateStudent(id, { class: bulkTargetClass });
           } else if (bulkActionModal.action === 'change_status') {
-            await onUpdateStudent(id, { ...st, status: bulkTargetStatus });
-            count++;
+            ok = await onUpdateStudent(id, { status: bulkTargetStatus });
           } else if (bulkActionModal.action === 'archive') {
-            await onUpdateStudent(id, { ...st, status: 'archived' });
-            count++;
+            ok = await onUpdateStudent(id, { status: 'archived' });
           } else if (bulkActionModal.action === 'delete') {
-            await onDeleteStudent(id);
-            count++;
+            ok = await onDeleteStudent(id);
           }
+          if (ok) count++;
         }
-        showToast(`Waxaa la cusbooneysiiyey ${count} arday!`, "success");
-        setSelectedStudentIds([]);
-        setBulkActionModal({ isOpen: false, action: null });
-        if (onRefreshData) onRefreshData();
+
+        if (count === selectedStudentIds.length) {
+          showToast(`Waxaa si guul leh loo fuliyey ${count} arday.`, "success");
+          setSelectedStudentIds([]);
+          setBulkActionModal({ isOpen: false, action: null });
+          if (onRefreshData) await onRefreshData();
+        } else {
+          showToast(`Waxa la fuliyey ${count} / ${selectedStudentIds.length}. Qaar ayaa fashilmay.`, "warning");
+        }
       }
     } catch (e: any) {
       showToast("Khalad ayaa dhacay fulinta hawsha guud", "error");
