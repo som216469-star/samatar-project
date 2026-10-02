@@ -57,6 +57,7 @@ export default function StudentExportView({
     gender: true,
     guardianPhone: true,
     guardianPhoneAlt: false,
+    emergencyContact: false,
     guardianName: true,
     guardianRelationship: true,
     nationalId: false,
@@ -146,6 +147,7 @@ export default function StudentExportView({
       gender: val,
       guardianPhone: val,
       guardianPhoneAlt: val,
+      emergencyContact: val,
       guardianName: val,
       guardianRelationship: val,
       nationalId: val,
@@ -181,6 +183,7 @@ export default function StudentExportView({
         if (selectedColumns.gender) row['Gender'] = s.gender;
         if (selectedColumns.guardianPhone) row['Guardian Phone'] = s.guardianPhone || '-';
         if (selectedColumns.guardianPhoneAlt) row['Guardian Phone Alt'] = s.guardianPhoneAlt || '-';
+        if (selectedColumns.emergencyContact) row['Emergency Contact'] = s.emergencyContact || '-';
         if (selectedColumns.guardianName) row['Guardian Name'] = s.guardianName || '-';
         if (selectedColumns.guardianRelationship) row['Guardian Relationship'] = s.guardianRelationship || '-';
         if (selectedColumns.nationalId) row['National ID'] = s.nationalId || '-';
