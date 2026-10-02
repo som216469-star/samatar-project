@@ -3425,7 +3425,7 @@ app.post("/api/attendance", async (req, res) => {
 
   if (incoming.length > ATTENDANCE_MAX_RECORDS) {
     return res.status(400).json({
-      error: \`Hal mar kama badnaan karaan \${ATTENDANCE_MAX_RECORDS} attendance records.\`
+      error: `Hal mar kama badnaan karaan ${ATTENDANCE_MAX_RECORDS} attendance records.`
     });
   }
 
@@ -3439,20 +3439,20 @@ app.post("/api/attendance", async (req, res) => {
     const status = normalizeAttendanceStatus(item?.status);
 
     if (!studentId) {
-      return res.status(400).json({ error: \`Attendance row \${index + 1}: studentId waa qasab.\` });
+      return res.status(400).json({ error: `Attendance row ${index + 1}: studentId waa qasab.` });
     }
 
     if (!status) {
-      return res.status(400).json({ error: \`Attendance row \${index + 1}: status-ku ma saxna.\` });
+      return res.status(400).json({ error: `Attendance row ${index + 1}: status-ku ma saxna.` });
     }
 
     if (studentId.length > 100) {
-      return res.status(400).json({ error: \`Attendance row \${index + 1}: studentId aad buu u dheer yahay.\` });
+      return res.status(400).json({ error: `Attendance row ${index + 1}: studentId aad buu u dheer yahay.` });
     }
 
     if (recordsByStudent.has(studentId)) {
       return res.status(409).json({
-        error: \`Ardayga \${studentId} laba jeer ayaa attendance-ka loogu daray.\`
+        error: `Ardayga ${studentId} laba jeer ayaa attendance-ka loogu daray.`
       });
     }
 
