@@ -97,6 +97,8 @@ export default function StudentImportView({
         'Cinwaanka (Address)': 'Muqdisho, Howlwadaag',
         'Xiriirka Waalidka (Relationship)': 'Hooyo',
         'Telefoon Labaad (Guardian Phone Alt)': '',
+        'Emergency Contact': '',
+        'Date of Birth': '',
         'National ID': '',
         'Iskuulkii Hore (Previous School)': '',
         'Blood Group': '',
