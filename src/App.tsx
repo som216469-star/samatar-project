@@ -9,7 +9,8 @@ import {
   AppTabId,
   StudentSubSection,
   FinanceSubSection,
-  PeopleSubSection
+  PeopleSubSection,
+  normalizeUserRole
 } from './app/navigationConfig';
 import {
   PublicRouteId,
@@ -119,19 +120,12 @@ export default function App() {
         const profile = await res.json();
         if (cancelled) return;
 
-        const normalizedProfileRole =
-          String(profile.role || '').trim().toLowerCase() === 'teacher'
-            ? 'teacher'
-            : ['staff', 'librarian', 'receptionist', 'accountant'].includes(
-                String(profile.role || '').trim().toLowerCase()
-              )
-              ? 'staff'
-              : 'admin';
-
+        const systemRole = String(profile.role || '').trim();
         const restoredUser: AuthUser = {
           email: profile.email,
           schoolId: profile.schoolId,
-          role: normalizedProfileRole,
+          role: normalizeUserRole(systemRole),
+          systemRole,
           name: profile.name || undefined,
           teacherId: profile.teacherId || undefined
         };
@@ -243,9 +237,14 @@ export default function App() {
       } else {
         const authUser: AuthUser = payload.user || {
           email,
-          role: payload.role || 'admin',
+          role: normalizeUserRole(payload.role || 'admin'),
+          systemRole: String(payload.role || 'admin'),
           schoolId: payload.schoolId || email
         };
+
+        if (!authUser.systemRole) {
+          authUser.systemRole = String(payload.role || authUser.role || 'admin').trim();
+        }
         saveAuthSession(authUser, payload.token);
         setUser(authUser);
         setPublicRoute('dashboard');
