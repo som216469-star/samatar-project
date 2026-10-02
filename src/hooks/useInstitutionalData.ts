@@ -201,17 +201,22 @@ export function useInstitutionalData({
         body: JSON.stringify(studentData)
       });
       if (res.ok) {
-        fetchAllData();
+        await fetchAllData();
         return true;
       } else {
-        const err = await res.json();
+        const err = await res.json().catch(() => ({}));
         showToast(err.error || 'Hawshu way fashilantay', 'error');
         return false;
       }
     } catch {
-      enqueueOfflineAction('student', '/api/students', 'POST', studentData);
-      setStudents((prev) => [studentData, ...prev]);
-      showToast('Ardayga waxaa lagu keydiyey Offline Sync Queue', 'info');
+      const offlineStudent = {
+        ...studentData,
+        id: studentData.id || 'STD-' + (typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID().slice(0, 8).toUpperCase() : Date.now().toString(36).toUpperCase()),
+        updatedAt: new Date().toISOString()
+      };
+      enqueueOfflineAction('student', '/api/students', 'POST', offlineStudent);
+      setStudents((prev) => [offlineStudent, ...prev]);
+      showToast('Ardayga waxaa lagu keydiyey Offline Sync Queue. Wuu sugayaa marka internet-ku soo laabto.', 'info');
       return true;
     }
   };
@@ -224,17 +229,17 @@ export function useInstitutionalData({
         body: JSON.stringify(updates)
       });
       if (res.ok) {
-        fetchAllData();
+        await fetchAllData();
         return true;
       } else {
-        const err = await res.json();
+        const err = await res.json().catch(() => ({}));
         showToast(err.error || 'Cusbooneysiintu way fashilantay', 'error');
         return false;
       }
     } catch {
       enqueueOfflineAction('student', `/api/students/${id}`, 'PUT', updates);
       setStudents((prev) => prev.map((s) => (s.id === id ? { ...s, ...updates } : s)));
-      showToast('Isbeddelka ardayga waxaa lagu keydiyey Offline Queue', 'info');
+      showToast('Isbeddelka ardayga waxaa lagu keydiyey Offline Queue. Wuu sync-gareyn doonaa marka internet-ku soo laabto.', 'info');
       return true;
     }
   };
@@ -243,17 +248,22 @@ export function useInstitutionalData({
     try {
       const res = await apiFetch(`/api/students/${id}`, { method: 'DELETE' });
       if (res.ok) {
-        fetchAllData();
+        await fetchAllData();
         return true;
-      } else {
-        showToast('Tirtiriddu way fashilantay', 'error');
-        return false;
       }
+
+      const err = await res.json().catch(() => ({}));
+      showToast(
+        err.error || 'Tirtiriddu way fashilantay. Haddii ardaygu leeyahay xog ku xiran, isticmaal Archive.',
+        'error'
+      );
+      return false;
     } catch {
-      enqueueOfflineAction('student', `/api/students/${id}`, 'DELETE', { id });
-      setStudents((prev) => prev.filter((s) => s.id !== id));
-      showToast('Tirtiridda waxaa lagu keydiyey Offline Queue', 'info');
-      return true;
+      showToast(
+        'Tirtiridda lama samayn karo marka internet-ku go’an yahay. Fadlan internet-ka soo celi kadib isku day mar kale.',
+        'error'
+      );
+      return false;
     }
   };
 
