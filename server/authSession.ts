@@ -3,7 +3,7 @@ import express from "express";
 
 export interface AuthenticatedUser {
   email: string;
-  role: "admin" | "teacher" | "staff" | "accountant" | "receptionist";
+  role: string;
   schoolId: string;
   name?: string;
   teacherId?: string;
@@ -11,43 +11,133 @@ export interface AuthenticatedUser {
   assignedSubjects?: string[];
 }
 
-export interface SessionInfo {
-  token: string;
+export interface SessionPayload {
+  v: 1;
+  iat: number;
+  exp: number;
+  jti: string;
   user: AuthenticatedUser;
-  createdAt: number;
-  expiresAt: number;
 }
 
-// In-memory active session store with automatic TTL
-const activeSessions = new Map<string, SessionInfo>();
-const SESSION_TTL_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
+// Short-lived stateless signed sessions work across Cloud Run instances/restarts.
+// Use a dedicated SESSION_SECRET in production; SUPABASE_SECRET_KEY is only a fallback
+// so existing deployments continue to work until SESSION_SECRET is configured.
+const rawSessionSecret =
+  (process.env.SESSION_SECRET || process.env.SUPABASE_SECRET_KEY || "").trim();
+
+if (!rawSessionSecret) {
+  console.warn(
+    "SECURITY WARNING: SESSION_SECRET is not configured. Sessions will be tied to this server process and invalidate on restart."
+  );
+}
+
+const SESSION_SECRET = rawSessionSecret
+  ? crypto.createHash("sha256").update(rawSessionSecret, "utf8").digest()
+  : crypto.randomBytes(32);
+
+const SESSION_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
+const revokedSessions = new Map<string, number>();
+
+function cleanupRevocations() {
+  const now = Date.now();
+  for (const [token, expiresAt] of revokedSessions) {
+    if (expiresAt <= now) revokedSessions.delete(token);
+  }
+}
+
+function encodeBase64Url(value: string): string {
+  return Buffer.from(value, "utf8").toString("base64url");
+}
+
+function signSessionPayload(payloadSegment: string): string {
+  return crypto
+    .createHmac("sha256", SESSION_SECRET)
+    .update(payloadSegment, "utf8")
+    .digest("base64url");
+}
 
 export function createSessionToken(user: AuthenticatedUser): string {
-  const token = crypto.randomBytes(32).toString("hex");
-  const now = Date.now();
-  activeSessions.set(token, {
-    token,
-    user,
-    createdAt: now,
-    expiresAt: now + SESSION_TTL_MS
-  });
-  return token;
+  const now = Math.floor(Date.now() / 1000);
+  const payload: SessionPayload = {
+    v: 1,
+    iat: now,
+    exp: now + Math.floor(SESSION_TTL_MS / 1000),
+    jti: crypto.randomBytes(16).toString("hex"),
+    user
+  };
+
+  const payloadSegment = encodeBase64Url(JSON.stringify(payload));
+  const signature = signSessionPayload(payloadSegment);
+  return `s1.${payloadSegment}.${signature}`;
 }
 
 export function getSession(token: string): AuthenticatedUser | null {
-  if (!token) return null;
-  const session = activeSessions.get(token);
-  if (!session) return null;
+  if (!token || token.length > 8192) return null;
 
-  if (Date.now() > session.expiresAt) {
-    activeSessions.delete(token);
+  cleanupRevocations();
+  if (revokedSessions.has(token)) return null;
+
+  const parts = token.split(".");
+  if (parts.length !== 3 || parts[0] !== "s1") return null;
+
+  const [, payloadSegment, signature] = parts;
+  if (!payloadSegment || !signature) return null;
+
+  try {
+    const expectedSignature = signSessionPayload(payloadSegment);
+    const expected = Buffer.from(expectedSignature, "base64url");
+    const provided = Buffer.from(signature, "base64url");
+    if (
+      expected.length !== provided.length ||
+      !crypto.timingSafeEqual(expected, provided)
+    ) {
+      return null;
+    }
+
+    const payload = JSON.parse(
+      Buffer.from(payloadSegment, "base64url").toString("utf8")
+    ) as Partial<SessionPayload>;
+
+    const now = Math.floor(Date.now() / 1000);
+    if (
+      payload.v !== 1 ||
+      typeof payload.iat !== "number" ||
+      typeof payload.exp !== "number" ||
+      !payload.jti ||
+      payload.exp <= now ||
+      payload.iat > now + 60 ||
+      !payload.user ||
+      typeof payload.user.email !== "string" ||
+      typeof payload.user.schoolId !== "string" ||
+      typeof payload.user.role !== "string"
+    ) {
+      return null;
+    }
+
+    return payload.user;
+  } catch {
     return null;
   }
-  return session.user;
 }
 
 export function revokeSession(token: string): boolean {
-  return activeSessions.delete(token);
+  if (!token) return false;
+  const session = getSession(token);
+  if (!session) return false;
+
+  const parts = token.split(".");
+  let expiresAt = Date.now() + SESSION_TTL_MS;
+  try {
+    const payload = JSON.parse(
+      Buffer.from(parts[1], "base64url").toString("utf8")
+    ) as SessionPayload;
+    expiresAt = payload.exp * 1000;
+  } catch {
+    // Keep the conservative fallback TTL.
+  }
+
+  revokedSessions.set(token, expiresAt);
+  return true;
 }
 
 export function generateSecureToken(): string {
@@ -56,8 +146,8 @@ export function generateSecureToken(): string {
 
 // Password security:
 // - New passwords use scrypt with a random 128-bit salt.
-// - Legacy hashes from the old simpleHash() remain readable for one-time migration.
-// - Successful legacy logins are transparently upgraded to scrypt hashes.
+// - Legacy simpleHash hashes remain readable for one-time migration.
+// - Successful legacy logins are transparently upgraded to scrypt.
 export function legacyPasswordHash(password: string): string {
   let hash = 0;
   for (let i = 0; i < password.length; i++) {
@@ -86,7 +176,7 @@ function scryptAsync(password: string, salt: Buffer): Promise<Buffer> {
 export async function hashPassword(password: string): Promise<string> {
   const salt = crypto.randomBytes(16);
   const derivedKey = await scryptAsync(password, salt);
-  return `scrypt${salt.toString("base64url")}${derivedKey.toString("base64url")}`;
+  return `scrypt$${salt.toString("base64url")}$${derivedKey.toString("base64url")}`;
 }
 
 export async function verifyPassword(
@@ -102,6 +192,10 @@ export async function verifyPassword(
     try {
       const salt = Buffer.from(parts[1], "base64url");
       const expected = Buffer.from(parts[2], "base64url");
+      if (salt.length !== 16 || expected.length !== 64) {
+        return { valid: false, needsRehash: false };
+      }
+
       const actual = await scryptAsync(password, salt);
       const valid =
         expected.length === actual.length &&
@@ -113,24 +207,35 @@ export async function verifyPassword(
   }
 
   const legacy = legacyPasswordHash(password);
-  const a = Buffer.from(legacy);
-  const b = Buffer.from(storedHash);
+  const a = Buffer.from(legacy, "utf8");
+  const b = Buffer.from(storedHash, "utf8");
   const valid = a.length === b.length && crypto.timingSafeEqual(a, b);
   return { valid, needsRehash: valid };
 }
 
-export function getSessionFromRequest(req: express.Request): AuthenticatedUser | null {
+export function getSessionTokenFromRequest(
+  req: express.Request
+): string | null {
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith("Bearer ")) {
-    return getSession(authHeader.substring(7).trim());
+    const token = authHeader.substring(7).trim();
+    return token || null;
   }
 
-  const customToken = req.headers["x-session-token"] || req.headers["x-auth-token"];
-  if (typeof customToken === "string") {
-    return getSession(customToken.trim());
+  const customToken =
+    req.headers["x-session-token"] || req.headers["x-auth-token"];
+  if (typeof customToken === "string" && customToken.trim()) {
+    return customToken.trim();
   }
 
   return null;
+}
+
+export function getSessionFromRequest(
+  req: express.Request
+): AuthenticatedUser | null {
+  const token = getSessionTokenFromRequest(req);
+  return token ? getSession(token) : null;
 }
 
 export function requireAuthenticatedRequest(
@@ -147,101 +252,47 @@ export function requireAuthenticatedRequest(
   next();
 }
 
-export function validatePassword(password: string): { valid: boolean; error?: string } {
+export function validatePassword(
+  password: string
+): { valid: boolean; error?: string } {
   if (!password || typeof password !== "string") {
     return { valid: false, error: "Fadlan geli password sax ah." };
   }
-  if (password.length < 8) {
-    return { valid: false, error: "Password-ku waa inuu ka koobnaadaa ugu yaraan 8 xaraf." };
+
+  if (password.length < 10) {
+    return {
+      valid: false,
+      error: "Password-ku waa inuu ka koobnaadaa ugu yaraan 10 xaraf."
+    };
   }
+
+  if (password.length > 128) {
+    return {
+      valid: false,
+      error: "Password-ku kama badnaan karo 128 xaraf."
+    };
+  }
+
   return { valid: true };
 }
 
 /**
- * Derives and securely authenticates the requesting user.
- * ZERO TRUST: Does NOT blindly trust client-provided school_id or roles.
+ * Strict zero-trust user resolution.
+ * The client never gets to choose school_id, role, or identity through a header.
  */
 export function getAuthenticatedUser(
   req: express.Request,
-  loadLocalDB: () => any
+  _loadLocalDB?: () => any
 ): AuthenticatedUser | null {
-  // 1. Check Bearer token in Authorization header
-  const authHeader = req.headers.authorization;
-  if (authHeader && authHeader.startsWith("Bearer ")) {
-    const token = authHeader.substring(7).trim();
-    const sessionUser = getSession(token);
-    if (sessionUser) {
-      return sessionUser;
-    }
-  }
-
-  // 2. Fallback check for session token passed in custom header
-  const customToken = req.headers["x-session-token"] || req.headers["x-auth-token"];
-  if (typeof customToken === "string") {
-    const sessionUser = getSession(customToken.trim());
-    if (sessionUser) {
-      return sessionUser;
-    }
-  }
-
-  // 3. Backward-compatible lookup for existing sessions:
-  // Check X-School-Email, verify against actual database records, and infer role and real school_id
-  const emailHeader = req.headers["x-school-email"] || req.headers["X-School-Email"];
-  if (typeof emailHeader === "string" && emailHeader.trim() !== "") {
-    const cleanEmail = emailHeader.trim().toLowerCase();
-    const db = loadLocalDB();
-
-    // Check if it's an authenticated registered teacher
-    const teacher = (db.teachers || []).find((t: any) => (t.email || "").toLowerCase() === cleanEmail);
-    if (teacher) {
-      return {
-        email: cleanEmail,
-        role: "teacher",
-        schoolId: teacher.schoolId || "default-school",
-        teacherId: teacher.id,
-        name: teacher.name,
-        assignedClasses: teacher.assignedClasses || [],
-        assignedSubjects: teacher.assignedSubjects || []
-      };
-    }
-
-    // Check if it's a registered user
-    const user = (db.users || []).find((u: any) => (u.email || "").toLowerCase() === cleanEmail);
-    if (user) {
-      const isTeacher = user.role === "teacher";
-      return {
-        email: cleanEmail,
-        role: isTeacher ? "teacher" : "admin",
-        schoolId: user.school_id || cleanEmail,
-        teacherId: user.teacher_id,
-        assignedClasses: user.assignedClasses || [],
-        assignedSubjects: user.assignedSubjects || []
-      };
-    }
-
-    // Default tenant identity matching existing behavior
-    return {
-      email: cleanEmail,
-      role: "admin",
-      schoolId: cleanEmail
-    };
-  }
-
-  return null;
+  return getSessionFromRequest(req);
 }
 
 /**
- * Returns strictly validated schoolId.
- * Never allows client spoofing across tenants.
+ * Returns the school identity bound to the verified signed session.
  */
-export function getValidatedSchoolId(req: express.Request, loadLocalDB: () => any): string {
-  const user = getAuthenticatedUser(req, loadLocalDB);
-  if (user && user.schoolId) {
-    return user.schoolId;
-  }
-  const emailHeader = req.headers["x-school-email"] || req.headers["X-School-Email"] || req.headers["x-school-id"] || req.headers["X-School-Id"];
-  if (typeof emailHeader === "string" && emailHeader.trim() !== "") {
-    return emailHeader.trim().toLowerCase();
-  }
-  return "default-school";
+export function getValidatedSchoolId(
+  req: express.Request,
+  _loadLocalDB?: () => any
+): string {
+  return getAuthenticatedUser(req)?.schoolId || "";
 }
