@@ -171,6 +171,7 @@ export default function StudentsView({
     targetValue?: string;
   }>({ isOpen: false, action: null });
   const [bulkTargetClass, setBulkTargetClass] = useState<string>('');
+  const [bulkTargetSection, setBulkTargetSection] = useState<string>('');
   const [bulkTargetStatus, setBulkTargetStatus] = useState<'active' | 'inactive' | 'archived'>('active');
   const [bulkOperating, setBulkOperating] = useState(false);
 
@@ -1510,7 +1511,10 @@ export default function StudentsView({
         pageSize={pageSize}
         setPageSize={setPageSize}
         onOpenBulkChangeClass={() => {
-          setBulkTargetClass(classes[0]?.className || '');
+          const targetClass = classes[0]?.className || '';
+          setBulkTargetClass(targetClass);
+          const firstMatchingClass = classes.find((item) => item.className === targetClass);
+          setBulkTargetSection(firstMatchingClass?.section || '');
           setBulkActionModal({ isOpen: true, action: 'change_class' });
         }}
         onOpenBulkChangeStatus={() => {
@@ -1662,6 +1666,8 @@ export default function StudentsView({
         selectedStudentIdsCount={selectedStudentIds.length}
         bulkTargetClass={bulkTargetClass}
         setBulkTargetClass={setBulkTargetClass}
+        bulkTargetSection={bulkTargetSection}
+        setBulkTargetSection={setBulkTargetSection}
         bulkTargetStatus={bulkTargetStatus}
         setBulkTargetStatus={setBulkTargetStatus}
         bulkOperating={bulkOperating}
