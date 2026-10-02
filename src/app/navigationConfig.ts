@@ -528,6 +528,38 @@ export function getAuthorizedNavItems(role?: string | null): NavItemConfig[] {
   return NAVIGATION_CONFIG.filter((item) => allowedTabs.includes(item.tab));
 }
 
+export interface StudentPermissions {
+  canView: boolean;
+  canCreate: boolean;
+  canUpdate: boolean;
+  canDelete: boolean;
+  canBulkManage: boolean;
+  canExport: boolean;
+  canViewFinance: boolean;
+}
+
+export function getStudentPermissions(role?: string | null): StudentPermissions {
+  const raw = (role || '').toLowerCase().trim();
+  const isFullAdmin = raw === 'admin' || raw === 'school admin' || raw === 'super admin' || raw === 'principal';
+  const canView = isFullAdmin || raw === 'teacher' || raw === 'accountant' || raw === 'receptionist' || raw === 'librarian';
+  const canCreate = isFullAdmin || raw === 'receptionist';
+  const canUpdate = isFullAdmin || raw === 'receptionist';
+  const canDelete = isFullAdmin;
+  const canBulkManage = isFullAdmin;
+  const canExport = canView;
+  const canViewFinance = isFullAdmin || raw === 'accountant';
+
+  return {
+    canView,
+    canCreate,
+    canUpdate,
+    canDelete,
+    canBulkManage,
+    canExport,
+    canViewFinance
+  };
+}
+
 export function canRoleAccessStudentSubSection(
   subSection: StudentSubSection,
   role?: string | null
