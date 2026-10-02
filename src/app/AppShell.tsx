@@ -650,73 +650,61 @@ export const AppShell: React.FC<AppShellProps> = ({
 
                   if (hasChildren) {
                     return (
-                      <div key={item.id} className="space-y-0.5">
-                        <div
-                          className={`flex items-center justify-between rounded-[var(--radius-sm)] transition-colors ${
-                            active
-                              ? 'bg-[var(--sidebar-active-bg)] text-white font-semibold'
-                              : 'text-[var(--sidebar-text)] hover:bg-[var(--sidebar-hover-bg)] hover:text-white'
-                          }`}
+                      <div className="group flex items-center rounded-[var(--radius-sm)] transition-colors ${
+                        active
+                          ? 'bg-[var(--sidebar-active-bg)] text-white font-semibold'
+                          : 'text-[var(--sidebar-text)] hover:bg-[var(--sidebar-hover-bg)] hover:text-white'
+                      }>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (collapsed) {
+                              setSidebarCollapsed(false);
+                              setExpandedGroups((prev) => ({ ...prev, [item.id]: true }));
+                            } else {
+                              toggleExpandItem(item.id);
+                            }
+                          }}
+                          title={collapsed ? item.label : undefined}
+                          aria-expanded={isExpanded}
+                          className="flex-1 flex items-center justify-between gap-2.5 px-2.5 py-2 text-xs cursor-pointer min-w-0 text-left"
                         >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <Icon
+                              className={`w-4 h-4 shrink-0 ${active ? 'text-[var(--color-accent)]' : 'text-[var(--sidebar-text-muted)]'}`}}
+                            />
+                            {!collapsed && <span className="truncate">{item.label}</span>}
+                          </div>
+
+                          {!collapsed && (
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {badgeVal !== undefined && badgeVal > 0 && (
+                                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-white/10 text-[var(--sidebar-text)]">
+                                  {badgeVal}
+                                </span>
+                              )}
+                              <ChevronDown
+                                className={`w-3.5 h-3.5 text-[var(--sidebar-text-muted)] transition-transform duration-150 ${isExpanded ? 'rotate-180 text-white' : ''}`}}
+                              />
+                            </div>
+                          )}
+                        </button>
+
+                        {!collapsed && (
                           <button
                             type="button"
-                            onClick={() => {
-                              if (collapsed) {
-                                setSidebarCollapsed(false);
-                                setExpandedGroups((prev) => ({ ...prev, [item.id]: true }));
-                              } else {
-                                toggleExpandItem(item.id);
-                              }
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              toggleFavoriteNav(item.id);
                             }}
-                            title={collapsed ? item.label : undefined}
-                            aria-expanded={isExpanded}
-                            className="flex-1 flex items-center justify-between gap-2.5 px-2.5 py-2 text-xs cursor-pointer min-w-0"
+                            aria-label={favoriteNavIds.includes(item.id) ? `Unpin ${item.label}` : `Pin ${item.label}`}
+                            title={favoriteNavIds.includes(item.id) ? "Unpin from sidebar" : "Pin to sidebar"}
+                            className={`mr-1.5 p-1.5 rounded-[var(--radius-xs)] cursor-pointer transition-colors ${favoriteNavIds.includes(item.id) ? 'text-[var(--color-accent)] bg-[var(--color-brand-soft)]' : 'text-[var(--sidebar-text-muted)] hover:text-[var(--color-accent)] hover:bg-white/5 opacity-0 group-hover:opacity-100 focus-visible:opacity-100'}`}}
                           >
-                            <div className="flex items-center gap-2.5 min-w-0">
-                              <Icon
-                                className={`w-4 h-4 shrink-0 ${
-                                  active ? 'text-[var(--color-accent)]' : 'text-[var(--sidebar-text-muted)]'
-                                }`}
-                              />
-                              {!collapsed && <span className="truncate">{item.label}</span>}
-                            </div>
-
-                            {!collapsed && (
-                              <button
-                                type="button"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  toggleFavoriteNav(item.id);
-                                }}
-                                aria-label={favoriteNavIds.includes(item.id) ? `Unpin ${item.label}` : `Pin ${item.label}`}
-                                title={favoriteNavIds.includes(item.id) ? 'Unpin from sidebar' : 'Pin to sidebar'}
-                                className={'p-1 rounded-[var(--radius-xs)] cursor-pointer transition-colors ' + (
-                                  favoriteNavIds.includes(item.id)
-                                    ? 'text-[var(--color-accent)] bg-[var(--color-brand-soft)]'
-                                    : 'text-[var(--sidebar-text-muted)] hover:text-[var(--color-accent)] hover:bg-white/5 opacity-0 group-hover:opacity-100 focus-visible:opacity-100'
-                                )}
-                              >
-                                <Star className={'w-3 h-3 ' + (favoriteNavIds.includes(item.id) ? 'fill-current' : '')} />
-                              </button>
-                            )}
-
-                            {!collapsed && (
-                              <div className="flex items-center gap-1.5 shrink-0">
-                                {badgeVal !== undefined && badgeVal > 0 && (
-                                  <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-white/10 text-[var(--sidebar-text)]">
-                                    {badgeVal}
-                                  </span>
-                                )}
-                                <ChevronDown
-                                  className={`w-3.5 h-3.5 text-[var(--sidebar-text-muted)] transition-transform duration-150 ${
-                                    isExpanded ? 'rotate-180 text-white' : ''
-                                  }`}
-                                />
-                              </div>
-                            )}
+                            <Star className={`w-3.5 h-3.5 ${favoriteNavIds.includes(item.id) ? 'fill-current' : ''}`}} />
                           </button>
-                        </div>
-
+                        )}
+                      </div>
                         {/* Collapsible Sub-items */}
                         <AnimatePresence initial={false}>
                           {!collapsed && isExpanded && item.children && (
@@ -784,31 +772,30 @@ export const AppShell: React.FC<AppShellProps> = ({
                   }
 
                   return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => {
-                        onNavigate(item.tab, {
-                          peopleSubSection: item.peopleSubSection,
-                          financeSubSection: item.financeSubSection
-                        });
-                        if (isMobile) setMobileMenuOpen(false);
-                      }}
-                      title={collapsed ? item.label : undefined}
-                      className={`group w-full flex items-center justify-between gap-2.5 px-2.5 py-2 rounded-[var(--radius-sm)] text-xs transition-colors cursor-pointer ${
-                        active
-                          ? 'bg-[var(--sidebar-active-bg)] text-white font-semibold border-l-2 border-[var(--color-accent)]'
-                          : 'text-[var(--sidebar-text)] hover:bg-[var(--sidebar-hover-bg)] hover:text-white'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="group flex items-center rounded-[var(--radius-sm)]">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onNavigate(item.tab, {
+                            peopleSubSection: item.peopleSubSection,
+                            financeSubSection: item.financeSubSection
+                          });
+                          if (isMobile) setMobileMenuOpen(false);
+                        }}
+                        title={collapsed ? item.label : undefined}
+                        className={`flex-1 min-w-0 flex items-center gap-2.5 px-2.5 py-2 rounded-[var(--radius-sm)] text-xs transition-colors cursor-pointer ${
+                          active
+                            ? 'bg-[var(--sidebar-active-bg)] text-white font-semibold border-l-2 border-[var(--color-accent)]'
+                            : 'text-[var(--sidebar-text)] hover:bg-[var(--sidebar-hover-bg)] hover:text-white'
+                        }`}
+                      >
                         <Icon
                           className={`w-4 h-4 shrink-0 ${
                             active ? 'text-[var(--color-accent)]' : 'text-[var(--sidebar-text-muted)]'
                           }`}
                         />
                         {!collapsed && <span className="truncate">{item.label}</span>}
-                      </div>
+                      </button>
                       {!collapsed && (
                         <button
                           type="button"
@@ -817,22 +804,22 @@ export const AppShell: React.FC<AppShellProps> = ({
                             toggleFavoriteNav(item.id);
                           }}
                           aria-label={favoriteNavIds.includes(item.id) ? `Unpin ${item.label}` : `Pin ${item.label}`}
-                          title={favoriteNavIds.includes(item.id) ? 'Unpin from sidebar' : 'Pin to sidebar'}
-                          className={'p-1 rounded-[var(--radius-xs)] cursor-pointer transition-colors ' + (
+                          title={favoriteNavIds.includes(item.id) ? "Unpin from sidebar" : "Pin to sidebar"}
+                          className={`mr-1 p-1.5 rounded-[var(--radius-xs)] cursor-pointer transition-colors ${
                             favoriteNavIds.includes(item.id)
                               ? 'text-[var(--color-accent)] bg-[var(--color-brand-soft)]'
                               : 'text-[var(--sidebar-text-muted)] hover:text-[var(--color-accent)] hover:bg-white/5 opacity-0 group-hover:opacity-100 focus-visible:opacity-100'
-                          )}
+                          }`}
                         >
-                          <Star className={'w-3 h-3 ' + (favoriteNavIds.includes(item.id) ? 'fill-current' : '')} />
+                          <Star className={`w-3.5 h-3.5 ${favoriteNavIds.includes(item.id) ? "fill-current" : ""}`} />
                         </button>
                       )}
                       {!collapsed && badgeVal !== undefined && badgeVal > 0 && (
-                        <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-white/10 text-[var(--sidebar-text)]">
+                        <span className="mr-2 px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-white/10 text-[var(--sidebar-text)]">
                           {badgeVal}
                         </span>
                       )}
-                    </button>
+                    </div>
                   );
                 })}
               </div>
