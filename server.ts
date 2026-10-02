@@ -1088,6 +1088,7 @@ function requiredPermissionForRequest(req: express.Request): string | null {
   const mutationPermission = (domain: string) => `${domain}.manage`;
   const readPermission = (domain: string) => `${domain}.view`;
 
+  if (pathName === "/students/bulk") return "students.manage";
   if (pathName.startsWith("/students")) return read ? readPermission("students") : (req.method === "POST" ? "students.create" : req.method === "PUT" ? "students.update" : "students.delete");
   if (pathName.startsWith("/classes")) return read ? readPermission("classes") : mutationPermission("classes");
   if (pathName.startsWith("/subjects")) return read ? readPermission("subjects") : mutationPermission("subjects");
