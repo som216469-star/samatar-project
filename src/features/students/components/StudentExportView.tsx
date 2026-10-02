@@ -631,7 +631,9 @@ export default function StudentExportView({
                 { key: 'guardianPhone', label: 'Telefoonka Waalidka' },
                 { key: 'guardianName', label: 'Magaca Waalidka' },
                 { key: 'status', label: 'Xaaladda (Status)' },
-                { key: 'feeStatus', label: 'Xaaladda Lacagta (Fee Status)' },
+                ...(canViewFinance
+                  ? [{ key: 'feeStatus', label: 'Xaaladda Lacagta (Fee Status)' }]
+                  : []),
                 { key: 'registrationDate', label: 'Taariikhda Qorista (Reg Date)' },
                 { key: 'lastUpdated', label: 'Ugu Dambeeyey (Last Updated)' }
               ].map((col) => (
