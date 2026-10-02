@@ -185,7 +185,13 @@ export default function StudentsView({
     address: '',
     section: '',
     rollNumber: '',
-    createdAt: ''
+    createdAt: '',
+    guardianRelationship: '',
+    guardianPhoneAlt: '',
+    nationalId: '',
+    previousSchool: '',
+    bloodGroup: '',
+    medicalNotes: ''
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [formSubmitting, setFormSubmitting] = useState(false);
@@ -303,22 +309,57 @@ export default function StudentsView({
     const cleanName = formData.fullName.trim().toLowerCase();
     const cleanClass = formData.class;
     const cleanPhone = formData.guardianPhone.trim();
+    const cleanAltPhone = formData.guardianPhoneAlt.trim();
     const cleanId = formData.id.trim().toLowerCase();
+    const cleanRoll = formData.rollNumber.trim().toLowerCase();
+    const cleanNationalId = formData.nationalId.trim().toLowerCase();
 
     const timer = setTimeout(() => {
       const match = students.find(s => {
         if (editingStudent && s.id === editingStudent.id) return false;
         const sameId = cleanId && s.id && s.id.toLowerCase() === cleanId;
-        const sameNameClass = s.fullName.trim().toLowerCase() === cleanName && s.class === cleanClass;
-        const samePhone = cleanPhone && cleanPhone.length > 6 && s.guardianPhone && s.guardianPhone === cleanPhone;
-        return sameId || sameNameClass || samePhone;
+        const sameNameClass =
+          s.fullName.trim().toLowerCase() === cleanName && s.class === cleanClass;
+        const samePhone =
+          cleanPhone &&
+          cleanPhone.length > 6 &&
+          s.guardianPhone &&
+          s.guardianPhone === cleanPhone;
+        const sameRoll =
+          cleanRoll &&
+          s.rollNumber &&
+          s.rollNumber.trim().toLowerCase() === cleanRoll;
+        const sameNationalId =
+          cleanNationalId &&
+          s.nationalId &&
+          s.nationalId.trim().toLowerCase() === cleanNationalId;
+        const sameAltPhone =
+          cleanAltPhone &&
+          cleanAltPhone.length > 6 &&
+          s.guardianPhoneAlt &&
+          s.guardianPhoneAlt === cleanAltPhone;
+        return Boolean(
+          sameId ||
+          sameNameClass ||
+          samePhone ||
+          sameRoll ||
+          sameNationalId ||
+          sameAltPhone
+        );
       });
 
       if (match) {
         let reason = '';
         if (cleanId && match.id.toLowerCase() === cleanId) reason = 'Student ID-gan horey ayaa loo isticmaalay';
         else if (match.fullName.trim().toLowerCase() === cleanName && match.class === cleanClass) reason = 'Magacan iyo fasalkan arday hore ayaa loogu diiwaangeliyey';
-        else if (cleanPhone && match.guardianPhone === cleanPhone) reason = 'Taleefankan waalidka waxaa u diiwaangashan arday kale';
+        else if (cleanPhone && match.guardianPhone === cleanPhone)
+          reason = 'Taleefankan waalidka waxaa u diiwaangashan arday kale';
+        else if (cleanRoll && match.rollNumber?.trim().toLowerCase() === cleanRoll)
+          reason = 'Roll Number-kan hore ayaa loo isticmaalay';
+        else if (cleanNationalId && match.nationalId?.trim().toLowerCase() === cleanNationalId)
+          reason = 'National ID-gan hore ayaa loo isticmaalay';
+        else if (cleanAltPhone && match.guardianPhoneAlt === cleanAltPhone)
+          reason = 'Telefoonkan labaad hore ayaa loo isticmaalay';
 
         setDuplicateWarning({
           found: true,
@@ -331,7 +372,18 @@ export default function StudentsView({
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [formData.fullName, formData.class, formData.guardianPhone, formData.id, showFormModal, editingStudent, students]);
+  }, [
+    formData.fullName,
+    formData.class,
+    formData.guardianPhone,
+    formData.guardianPhoneAlt,
+    formData.id,
+    formData.rollNumber,
+    formData.nationalId,
+    showFormModal,
+    editingStudent,
+    students
+  ]);
 
   // --- Effective Status based on SubSection ---
   const effectiveStatusFilter = useMemo(() => {
@@ -479,7 +531,13 @@ export default function StudentsView({
       address: '',
       section: 'A',
       rollNumber: '',
-      createdAt: new Date().toISOString().split('T')[0]
+      createdAt: new Date().toISOString().split('T')[0],
+      guardianRelationship: '',
+      guardianPhoneAlt: '',
+      nationalId: '',
+      previousSchool: '',
+      bloodGroup: '',
+      medicalNotes: ''
     });
     setFormErrors({});
     setFormStep('identity');
@@ -501,7 +559,13 @@ export default function StudentsView({
       address: student.address || '',
       section: student.section || '',
       rollNumber: student.rollNumber || '',
-      createdAt: student.createdAt || ''
+      createdAt: student.createdAt || '',
+      guardianRelationship: student.guardianRelationship || '',
+      guardianPhoneAlt: student.guardianPhoneAlt || '',
+      nationalId: student.nationalId || '',
+      previousSchool: student.previousSchool || '',
+      bloodGroup: student.bloodGroup || '',
+      medicalNotes: student.medicalNotes || ''
     });
     setFormErrors({});
     setFormStep('identity');
@@ -525,6 +589,17 @@ export default function StudentsView({
 
     if (formData.guardianPhone && !/^[0-9+()\s.-]{7,30}$/.test(formData.guardianPhone.trim())) {
       errors.guardianPhone = 'Lambarka telefoonka ma saxna (Invalid phone format)';
+    }
+
+    if (formData.guardianPhoneAlt && !/^[0-9+()\s.-]{7,30}$/.test(formData.guardianPhoneAlt.trim())) {
+      errors.guardianPhoneAlt = 'Telefoonka labaad ma saxna';
+    }
+
+    if (formData.dateOfBirth) {
+      const dob = new Date(formData.dateOfBirth + 'T00:00:00');
+      if (Number.isNaN(dob.getTime()) || dob > new Date()) {
+        errors.dateOfBirth = 'Taariikhda dhalashada ma saxna';
+      }
     }
 
     if (Object.keys(errors).length > 0) {
