@@ -78,7 +78,7 @@ export default function StudentProfileModal({
         : (canViewAudit
             ? (['overview', 'academic', 'attendance', 'activity'] as const)
             : (['overview', 'academic', 'attendance'] as const)),
-    [canViewFinance]
+    [canViewFinance, canViewAudit]
   );
 
   useEffect(() => {
