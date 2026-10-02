@@ -109,6 +109,15 @@ export default function StudentAddView({
     existingStudent?: any;
   }>({ found: false });
 
+  const availableSections = Array.from(
+    new Set(
+      classes
+        .filter((item) => item.className === formData.class)
+        .map((item) => String(item.section || '').trim())
+        .filter(Boolean)
+    )
+  );
+
   useEffect(() => {
     const cleanName = formData.fullName.trim().toLowerCase();
     const cleanClass = formData.class;
@@ -208,7 +217,17 @@ export default function StudentAddView({
     }, 350);
 
     return () => clearTimeout(timer);
-  }, [formData.id, formData.fullName, formData.class, formData.guardianPhone, existingStudents]);
+  }, [
+    formData.id,
+    formData.fullName,
+    formData.class,
+    formData.section,
+    formData.rollNumber,
+    formData.nationalId,
+    formData.guardianPhone,
+    formData.guardianPhoneAlt,
+    existingStudents
+  ]);
 
   const handlePhotoUpload = async (file: File) => {
     if (!file.type.startsWith('image/')) {
@@ -500,16 +519,31 @@ export default function StudentAddView({
               <select
                 value={formData.class}
                 onChange={(e) => {
-                  setFormData({ ...formData, class: e.target.value });
+                  const nextClass = e.target.value;
+                  const nextSections = Array.from(
+                    new Set(
+                      classes
+                        .filter((item) => item.className === nextClass)
+                        .map((item) => String(item.section || '').trim())
+                        .filter(Boolean)
+                    )
+                  );
+                  setFormData({
+                    ...formData,
+                    class: nextClass,
+                    section: nextSections.includes(formData.section)
+                      ? formData.section
+                      : nextSections[0] || ''
+                  });
                   if (formErrors.class) setFormErrors({ ...formErrors, class: '' });
                 }}
                 className="w-full ds-input"
                 required
               >
                 <option value="">-- Dooro Fasal --</option>
-                {classes.map((c) => (
-                  <option key={c.id} value={c.className}>
-                    {c.className}
+                {classes.map((item) => (
+                  <option key={item.id} value={item.className}>
+                    {item.className}{item.section ? ` · Section ${item.section}` : ''}
                   </option>
                 ))}
               </select>
@@ -519,13 +553,28 @@ export default function StudentAddView({
               <label className="font-semibold text-[var(--color-text-secondary)] block">
                 Qeybta / Section (Optional)
               </label>
-              <input
-                type="text"
-                value={formData.section}
-                onChange={(e) => setFormData({ ...formData, section: e.target.value })}
-                placeholder="Tusaale: A, B, C"
-                className="w-full ds-input"
-              />
+              {availableSections.length > 0 ? (
+                <select
+                  value={formData.section}
+                  onChange={(e) => setFormData({ ...formData, section: e.target.value })}
+                  className="w-full ds-input"
+                >
+                  <option value="">-- Dooro Section --</option>
+                  {availableSections.map((section) => (
+                    <option key={section} value={section}>
+                      Section {section}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  value={formData.section}
+                  onChange={(e) => setFormData({ ...formData, section: e.target.value })}
+                  placeholder="Tusaale: A, B, C"
+                  className="w-full ds-input"
+                />
+              )
             </div>
 
             <div className="space-y-1.5">
