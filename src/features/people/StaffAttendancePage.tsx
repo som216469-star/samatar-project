@@ -16,7 +16,7 @@ import { PageContainer, PageHeader } from '../../components/layout/PageLayout';
 import { Button, Card, StatCard, Badge, EmptyState } from '../../components/ui/primitives';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import * as XLSX from 'xlsx';
+import { downloadStudentSpreadsheet } from '../../lib/studentSpreadsheet';
 
 export interface StaffAttendanceViewProps {
   teachers: Teacher[];
@@ -153,7 +153,7 @@ export default function StaffAttendancePage({
     doc.save(`Staff_Attendance_${selectedDate}.pdf`);
   };
 
-  const exportExcel = () => {
+  const exportExcel = async () => {
     if (filteredEmployees.length === 0) return;
     const data = filteredEmployees.map((e) => ({
       ID: e.employeeId,
@@ -163,10 +163,11 @@ export default function StaffAttendancePage({
       Date: selectedDate,
       Status: getStatus(e.id)
     }));
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Attendance');
-    XLSX.writeFile(wb, `Staff_Attendance_${selectedDate}.xlsx`);
+    await downloadStudentSpreadsheet(
+      data as Record<string, unknown>[],
+      `Staff_Attendance_${selectedDate}.xlsx`,
+      'Attendance'
+    );
   };
 
   return (
