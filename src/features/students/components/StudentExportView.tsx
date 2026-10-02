@@ -220,7 +220,12 @@ export default function StudentExportView({
 
     if (format === 'pdf') {
       try {
-        const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+        const exportColumnCount = Object.values(selectedColumns).filter(Boolean).length + 1;
+        const doc = new jsPDF({
+          orientation: exportColumnCount > 7 ? 'landscape' : 'portrait',
+          unit: 'mm',
+          format: 'a4'
+        });
 
         doc.setFillColor(15, 23, 42);
         doc.rect(0, 0, 210, 28, 'F');
@@ -244,27 +249,56 @@ export default function StudentExportView({
         );
 
         const headers: string[] = ['#'];
-        if (selectedColumns.id) headers.push('ID');
-        if (selectedColumns.fullName) headers.push('NAME');
-        if (selectedColumns.class) headers.push('CLASS');
-        if (selectedColumns.section) headers.push('SECTION');
-        if (selectedColumns.rollNumber) headers.push('ROLL #');
-        if (selectedColumns.gender) headers.push('GENDER');
-        if (selectedColumns.guardianPhone) headers.push('PHONE');
-        if (selectedColumns.status) headers.push('STATUS');
-        if (selectedColumns.registrationDate) headers.push('REG DATE');
+        const pushColumn = (enabled: boolean, label: string) => {
+          if (enabled) headers.push(label);
+        };
+
+        pushColumn(selectedColumns.id, 'ID');
+        pushColumn(selectedColumns.fullName, 'NAME');
+        pushColumn(selectedColumns.class, 'CLASS');
+        pushColumn(selectedColumns.section, 'SECTION');
+        pushColumn(selectedColumns.rollNumber, 'ROLL #');
+        pushColumn(selectedColumns.gender, 'GENDER');
+        pushColumn(selectedColumns.guardianPhone, 'PHONE');
+        pushColumn(selectedColumns.guardianPhoneAlt, 'ALT PHONE');
+        pushColumn(selectedColumns.guardianName, 'GUARDIAN');
+        pushColumn(selectedColumns.guardianRelationship, 'RELATION');
+        pushColumn(selectedColumns.nationalId, 'NATIONAL ID');
+        pushColumn(selectedColumns.previousSchool, 'PREVIOUS SCHOOL');
+        pushColumn(selectedColumns.bloodGroup, 'BLOOD');
+        pushColumn(selectedColumns.medicalNotes, 'MEDICAL NOTES');
+        pushColumn(selectedColumns.status, 'STATUS');
+        if (canViewFinance && selectedColumns.feeStatus) headers.push('FEE STATUS');
+        pushColumn(selectedColumns.address, 'ADDRESS');
+        pushColumn(selectedColumns.registrationDate, 'REG DATE');
+        pushColumn(selectedColumns.lastUpdated, 'UPDATED');
 
         const tableBody = targetStudents.map((s, idx) => {
+          const fee = canViewFinance ? getStudentFeeStatus(s.id) : null;
           const row: any[] = [idx + 1];
+
           if (selectedColumns.id) row.push(s.id);
           if (selectedColumns.fullName) row.push(s.fullName);
           if (selectedColumns.class) row.push(s.class);
           if (selectedColumns.section) row.push(s.section || '-');
           if (selectedColumns.rollNumber) row.push(s.rollNumber || '-');
-          if (selectedColumns.gender) row.push(s.gender);
+          if (selectedColumns.gender) row.push(s.gender || '-');
           if (selectedColumns.guardianPhone) row.push(s.guardianPhone || '-');
+          if (selectedColumns.guardianPhoneAlt) row.push(s.guardianPhoneAlt || '-');
+          if (selectedColumns.guardianName) row.push(s.guardianName || '-');
+          if (selectedColumns.guardianRelationship) row.push(s.guardianRelationship || '-');
+          if (selectedColumns.nationalId) row.push(s.nationalId || '-');
+          if (selectedColumns.previousSchool) row.push(s.previousSchool || '-');
+          if (selectedColumns.bloodGroup) row.push(s.bloodGroup || '-');
+          if (selectedColumns.medicalNotes) row.push(s.medicalNotes || '-');
           if (selectedColumns.status) row.push((s.status || 'active').toUpperCase());
+          if (canViewFinance && selectedColumns.feeStatus && fee) {
+            row.push(`${fee.status} / Bal: ${settings.currency} ${fee.balance}`);
+          }
+          if (selectedColumns.address) row.push(s.address || '-');
           if (selectedColumns.registrationDate) row.push(s.createdAt || '-');
+          if (selectedColumns.lastUpdated) row.push((s.updatedAt || s.createdAt || '-').split('T')[0]);
+
           return row;
         });
 
@@ -281,9 +315,12 @@ export default function StudentExportView({
             cellPadding: 2.5
           },
           styles: {
-            fontSize: 8,
-            cellPadding: 2.5
+            fontSize: exportColumnCount > 12 ? 6.5 : 8,
+            cellPadding: exportColumnCount > 12 ? 1.5 : 2.5,
+            overflow: 'linebreak'
           },
+          margin: { left: 8, right: 8 },
+          tableWidth: 'auto',
           alternateRowStyles: {
             fillColor: [248, 250, 252]
           }
