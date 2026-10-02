@@ -721,6 +721,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                                   const ChildIcon = child.icon;
                                   const childActive = isChildActive(child);
                                   const childBadge = child.badgeKey ? badges[child.badgeKey] : undefined;
+
                                   return (
                                     <button
                                       key={child.id}
@@ -748,196 +749,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                                       </div>
                                       {childBadge !== undefined && (
                                         <span
-                                          className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
-                                            child.badgeTone === 'success'
-                                              ? 'bg-emerald-500/15 text-emerald-300'
-                                              : child.badgeTone === 'warning'
-                                              ? 'bg-amber-500/15 text-amber-300'
-                                              : 'bg-white/10 text-[var(--sidebar-text)]'
-                                          }`}
-                                        >
-                                          {childBadge}
-                                        </span>
-                                      )}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
-                    );
-                  }
-                  return (
-                      <>
-                        <div
-                          className={`group flex items-center rounded-[var(--radius-sm)] transition-colors ${
-                            active
-                              ? 'bg-[var(--sidebar-active-bg)] text-white font-semibold'
-                              : 'text-[var(--sidebar-text)] hover:bg-[var(--sidebar-hover-bg)] hover:text-white'
-                          }`}
-                        >
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (collapsed) {
-                                setSidebarCollapsed(false);
-                                setExpandedGroups((prev) => ({ ...prev, [item.id]: true }));
-                              } else {
-                                toggleExpandItem(item.id);
-                              }
-                            }}
-                            title={collapsed ? item.label : undefined}
-                            aria-expanded={isExpanded}
-                            className="flex-1 flex items-center justify-between gap-2.5 px-2.5 py-2 text-xs cursor-pointer min-w-0 text-left"
-                          >
-                            <div className="flex items-center gap-2.5 min-w-0">
-                              <Icon
-                                className={`w-4 h-4 shrink-0 ${active ? 'text-[var(--color-accent)]' : 'text-[var(--sidebar-text-muted)]'}`}
-                              />
-                              {!collapsed && <span className="truncate">{item.label}</span>}
-                            </div>
-
-                            {!collapsed && (
-                              <div className="flex items-center gap-1.5 shrink-0">
-                                {badgeVal !== undefined && badgeVal > 0 && (
-                                  <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-white/10 text-[var(--sidebar-text)]">
-                                    {badgeVal}
-                                  </span>
-                                )}
-                                <ChevronDown
-                                  className={`w-3.5 h-3.5 text-[var(--sidebar-text-muted)] transition-transform duration-150 ${isExpanded ? 'rotate-180 text-white' : ''}`}
-                                />
-                              </div>
-                            )}
-                          </button>
-
-                          {!collapsed && (
-                            <button
-                              type="button"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                toggleFavoriteNav(item.id);
-                              }}
-                              aria-label={favoriteNavIds.includes(item.id) ? `Unpin ${item.label}` : `Pin ${item.label}`}
-                              title={favoriteNavIds.includes(item.id) ? "Unpin from sidebar" : "Pin to sidebar"}
-                              className={`mr-1.5 p-1.5 rounded-[var(--radius-xs)] cursor-pointer transition-colors ${favoriteNavIds.includes(item.id) ? 'text-[var(--color-accent)] bg-[var(--color-brand-soft)]' : 'text-[var(--sidebar-text-muted)] hover:text-[var(--color-accent)] hover:bg-white/5 opacity-0 group-hover:opacity-100 focus-visible:opacity-100'}`}
-                            >
-                              <Star className={`w-3.5 h-3.5 ${favoriteNavIds.includes(item.id) ? 'fill-current' : ''}`} />
-                            </button>
-                          )}
-                        </div>
-
-                        <AnimatePresence initial={false}>
-                          {!collapsed && isExpanded && item.children && (
-                            <motion.div
-                              initial={{ height: 0, opacity: 0 }}
-                              animate={{ height: "auto", opacity: 1 }}
-                              exit={{ height: 0, opacity: 0 }}
-                              transition={{ duration: 0.16 }}
-                              className="overflow-hidden"
-                            >
-                              <div className="ml-4 pl-3 border-l border-white/10 my-1 space-y-0.5">
-                                {item.children.map((child) => {
-                                  const ChildIcon = child.icon;
-                                  const childActive = isChildActive(child);
-                                  const childBadge = child.badgeKey ? badges[child.badgeKey] : undefined;
-
-                                  return (
-                                    <button
-                                      key={child.id}
-                                      type="button"
-                                      onClick={() => {
-                                        onNavigate(child.tab, {
-                                          studentSubSection: child.studentSubSection,
-                                          financeSubSection: child.financeSubSection
-                                        });
-                                        if (isMobile) setMobileMenuOpen(false);
-                                      }}
-                                      className={`w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-[var(--radius-xs)] text-xs transition-colors cursor-pointer ${
-                                        childActive
-                                          ? 'bg-[var(--sidebar-active-bg)] text-white font-semibold border-l-2 border-[var(--color-accent)]'
-                                          : 'text-[var(--sidebar-text-muted)] hover:text-white hover:bg-white/5'
-                                      }`}
-                                    >
-                                      <div className="flex items-center gap-2 min-w-0">
-                                        <ChildIcon
-                                          className={`w-3.5 h-3.5 shrink-0 ${
-                                            childActive ? 'text-[var(--color-accent)]' : 'text-[var(--sidebar-text-muted)]'
-                                          }`}
-                                        />
-                                        <span className="truncate">{child.label}</span>
-                                      </div>
-
-                                      {childBadge !== undefined && (
-                                        <span
-                                          className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
-                                            child.badgeTone === 'success'
-                                              ? 'bg-emerald-500/15 text-emerald-300'
-                                              : child.badgeTone === 'warning'
-                                              ? 'bg-amber-500/15 text-amber-300'
-                                              : 'bg-white/10 text-[var(--sidebar-text)]'
-                                          }`}
-                                        >
-                                          {childBadge}
-                                        </span>
-                                      )}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </>
-                    );
-                  }
-                        {/* Collapsible Sub-items */}
-                        <AnimatePresence initial={false}>
-                          {!collapsed && isExpanded && item.children && (
-                            <motion.div
-                              initial={{ height: 0, opacity: 0 }}
-                              animate={{ height: 'auto', opacity: 1 }}
-                              exit={{ height: 0, opacity: 0 }}
-                              transition={{ duration: 0.16 }}
-                              className="overflow-hidden"
-                            >
-                              <div className="ml-4 pl-3 border-l border-white/10 my-1 space-y-0.5">
-                                {item.children.map((child) => {
-                                  const ChildIcon = child.icon;
-                                  const childActive = isChildActive(child);
-                                  const childBadge = child.badgeKey ? badges[child.badgeKey] : undefined;
-
-                                  return (
-                                    <button
-                                      key={child.id}
-                                      type="button"
-                                      onClick={() => {
-                                        onNavigate(child.tab, {
-                                          studentSubSection: child.studentSubSection,
-                                          financeSubSection: child.financeSubSection
-                                        });
-                                        if (isMobile) setMobileMenuOpen(false);
-                                      }}
-                                      className={`w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-[var(--radius-xs)] text-xs transition-colors cursor-pointer ${
-                                        childActive
-                                          ? 'bg-[var(--sidebar-active-bg)] text-white font-semibold border-l-2 border-[var(--color-accent)]'
-                                          : 'text-[var(--sidebar-text-muted)] hover:text-white hover:bg-white/5'
-                                      }`}
-                                    >
-                                      <div className="flex items-center gap-2 min-w-0">
-                                        <ChildIcon
-                                          className={`w-3.5 h-3.5 shrink-0 ${
-                                            childActive ? 'text-[var(--color-accent)]' : 'text-[var(--sidebar-text-muted)]'
-                                          }`}
-                                        />
-                                        <span className="truncate">{child.label}</span>
-                                      </div>
-
-                                      {childBadge !== undefined && (
-                                        <span
-                                          className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+                                          className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono ${
                                             child.badgeTone === 'success'
                                               ? 'bg-emerald-500/15 text-emerald-300'
                                               : child.badgeTone === 'warning'
@@ -960,7 +772,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                   }
 
                   return (
-                    <div className="group flex items-center rounded-[var(--radius-sm)]">
+                    <div key={item.id} className="group flex items-center rounded-[var(--radius-sm)]">
                       <button
                         type="button"
                         onClick={() => {
@@ -978,9 +790,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                         }`}
                       >
                         <Icon
-                          className={`w-4 h-4 shrink-0 ${
-                            active ? 'text-[var(--color-accent)]' : 'text-[var(--sidebar-text-muted)]'
-                          }`}
+                          className={`w-4 h-4 shrink-0 ${active ? 'text-[var(--color-accent)]' : 'text-[var(--sidebar-text-muted)]'}`}
                         />
                         {!collapsed && <span className="truncate">{item.label}</span>}
                       </button>
@@ -999,7 +809,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                               : 'text-[var(--sidebar-text-muted)] hover:text-[var(--color-accent)] hover:bg-white/5 opacity-0 group-hover:opacity-100 focus-visible:opacity-100'
                           }`}
                         >
-                          <Star className={`w-3.5 h-3.5 ${favoriteNavIds.includes(item.id) ? "fill-current" : ""}`} />
+                          <Star className={`w-3.5 h-3.5 ${favoriteNavIds.includes(item.id) ? 'fill-current' : ''}`} />
                         </button>
                       )}
                       {!collapsed && badgeVal !== undefined && badgeVal > 0 && (
