@@ -114,7 +114,7 @@ export default function StudentProfileModal({
   const absentDays = studentAttendance.filter(
     (a) => (a.status || '').toLowerCase() === 'absent'
   ).length;
-  const attendanceRate = totalMarked > 0 ? Math.round((presentDays / totalMarked) * 100) : 100;
+  const attendanceRate = totalMarked > 0 ? Math.round((presentDays / totalMarked) * 100) : null;
 
   // Fee stats
   const totalBilled = studentFees.reduce((sum, f) => sum + (Number(f.amount) || 0), 0);
@@ -122,12 +122,18 @@ export default function StudentProfileModal({
   const balanceDue = Math.max(0, totalBilled - totalPaid);
 
   // Academic stats
-  const totalScoreMarks = studentScores.reduce(
-    (sum, s) => sum + (Number(s.marksObtained) || 0),
-    0
-  );
+  const scorePercentages = studentScores
+    .map((s) => {
+      const maxMarks = Number(s.maxMarks) || 100;
+      const marksObtained = Number(s.marksObtained) || 0;
+      return maxMarks > 0 ? Math.max(0, Math.min(100, (marksObtained / maxMarks) * 100)) : null;
+    })
+    .filter((value): value is number => value !== null);
+
   const avgScore =
-    studentScores.length > 0 ? Math.round(totalScoreMarks / studentScores.length) : 0;
+    scorePercentages.length > 0
+      ? Math.round(scorePercentages.reduce((sum, value) => sum + value, 0) / scorePercentages.length)
+      : null;
 
   const exportReportCardPDF = () => {
     const doc = new jsPDF();
@@ -139,7 +145,7 @@ export default function StudentProfileModal({
       22
     );
     doc.text(
-      `Xiriirka Waalidka: ${student.guardianPhone || guardian?.phone || '-'} | Heerka Joogitaanka: ${attendanceRate}%`,
+      `Xiriirka Waalidka: ${student.guardianPhone || guardian?.phone || '-'} | Heerka Joogitaanka: ${attendanceRate === null ? 'N/A' : attendanceRate + '%'}`,
       14,
       28
     );
@@ -301,7 +307,7 @@ export default function StudentProfileModal({
                 Heerka Joogitaanka
               </span>
               <span className="text-base font-bold font-mono tabular-nums text-[var(--color-success)]">
-                {attendanceRate}%
+                {attendanceRate === null ? '—' : `${attendanceRate}%`}
               </span>
             </div>
             <div className="bg-[var(--color-surface)] p-3 rounded-lg border border-[var(--color-border)]">
@@ -309,7 +315,7 @@ export default function StudentProfileModal({
                 Celceliska Imtixaanka
               </span>
               <span className="text-base font-bold font-mono tabular-nums text-[var(--color-brand)]">
-                {avgScore}%
+                {avgScore === null ? '—' : `${avgScore}%`}
               </span>
             </div>
             <div className="bg-[var(--color-surface)] p-3 rounded-lg border border-[var(--color-border)]">
