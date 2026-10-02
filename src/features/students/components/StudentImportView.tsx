@@ -29,7 +29,7 @@ interface ParsedRow {
   studentId?: string;
   fullName: string;
   className: string;
-  gender: 'Male' | 'Female';
+  gender: 'Male' | 'Female' | '';
   guardianPhone: string;
   guardianName?: string;
   section?: string;
