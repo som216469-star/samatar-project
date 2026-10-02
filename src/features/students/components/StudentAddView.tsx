@@ -120,7 +120,7 @@ export default function StudentAddView({
 
   useEffect(() => {
     const cleanName = formData.fullName.trim().toLowerCase();
-    const cleanClass = formData.class;
+    const cleanClass = formData.class.trim().toLowerCase();
     const cleanPhone = formData.guardianPhone.trim();
     const cleanAltPhone = formData.guardianPhoneAlt.trim();
     const cleanId = formData.id.trim().toLowerCase();
