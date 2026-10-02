@@ -5,7 +5,7 @@ import { Button, Modal } from './ui/primitives';
 
 interface PWAInstallButtonProps {
   className?: string;
-  variant?: 'compact' | 'full';
+  variant?: 'compact' | 'full' | 'sidebar';
 }
 
 export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
@@ -27,6 +27,7 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
         onClick={install}
         icon={<Download className="w-3.5 h-3.5 text-emerald-500" />}
         className={className}
+        fullWidth={variant === 'sidebar'}
         title="Ku shub Taleefankaaga ama Computer-kaaga (Install App)"
       >
         {variant === 'full' ? 'Ku shub Qalabkaaga (Install App)' : 'Install App'}
@@ -43,6 +44,7 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
           onClick={() => setShowIOSGuide(true)}
           icon={<Smartphone className="w-3.5 h-3.5 text-emerald-500" />}
           className={className}
+          fullWidth={variant === 'sidebar'}
           title="Ku dar iPhone/iPad Home Screen"
         >
           {variant === 'full' ? 'Install on iPhone/iPad' : 'Install (iOS)'}
