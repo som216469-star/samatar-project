@@ -1724,6 +1724,31 @@ async function recordStudentAudit(
   }
 }
 
+function handleStudentSupabaseError(
+  res: express.Response,
+  error: any,
+  operation: string
+) {
+  const code = String(error?.code || '');
+  const message = String(error?.message || '');
+
+  if (code === '23514' && message.toLowerCase().includes('capacity')) {
+    return res.status(409).json({
+      error: 'Fasalka aad dooratay wuxuu gaaray capacity-giisa. Fadlan dooro fasal/section kale ama Archive ka dhig arday kale.',
+      code: 'CLASS_CAPACITY_EXCEEDED'
+    });
+  }
+
+  if (code === '23505') {
+    return res.status(409).json({
+      error: 'Xog arday oo isku mid ah ayaa jirta. Hubi Student ID, Roll Number, ama National ID.',
+      code: 'STUDENT_DUPLICATE'
+    });
+  }
+
+  return handleSupabaseError(res, error, operation);
+}
+
 async function getStudentDependencyIds(studentIds: string[], schoolId: string): Promise<Set<string>> {
   const dependentTables = [
     ["dugsiga_attendance", "student_id"],
@@ -2538,7 +2563,7 @@ app.post("/api/students/import", async (req, res) => {
     saveLocalDB(db);
     return res.status(201).json({ success: true, imported: insertRows.length, failed: 0 });
   } catch (e: any) {
-    return handleSupabaseError(res, e, "Bulk Import-ka Ardayda");
+    return handleStudentSupabaseError(res, e, "Bulk Import-ka Ardayda");
   }
 });
 
@@ -2635,7 +2660,7 @@ app.post("/api/students/bulk", async (req, res) => {
       ));
       return res.json({ success: true, count: updatedRows.length });
     } catch (e: any) {
-      return handleSupabaseError(res, e, "Hawsha guud ee ardayda (Bulk Students Operation)");
+      return handleStudentSupabaseError(res, e, "Hawsha guud ee ardayda (Bulk Students Operation)");
     }
   }
 
@@ -2762,7 +2787,7 @@ app.post("/api/students", async (req, res) => {
     saveLocalDB(db);
     return res.status(201).json(fullStudent);
   } catch (e: any) {
-    return handleSupabaseError(res, e, "Diiwaangelinta Ardayga (Add Student)");
+    return handleStudentSupabaseError(res, e, "Diiwaangelinta Ardayga (Add Student)");
   }
 });
 
@@ -2799,10 +2824,21 @@ app.put("/api/students/:id", async (req, res) => {
       ) {
         return res.status(400).json({ error: "Fasalka cusub kama jiro school-kan." });
       }
-      if (
+      const nextStatus = updates.status ?? current.status ?? 'active';
+      const becomesActive =
+        String(nextStatus).toLowerCase() !== 'archived' &&
+        String(current.status || 'active').toLowerCase() === 'archived';
+
+      const classChanged =
         updates.class !== undefined &&
-        String(nextClass).trim() !== String(current.class || "").trim()
-      ) {
+        String(nextClass).trim() !== String(current.class || '').trim();
+
+      const sectionChanged =
+        updates.section !== undefined &&
+        String(updates.section ?? '').trim() !== String(current.section || '').trim();
+
+      if ((classChanged || sectionChanged || becomesActive) &&
+          String(nextStatus).toLowerCase() !== 'archived') {
         const capacity = await assertStudentClassCapacity(
           schoolId,
           String(nextClass),
@@ -2878,7 +2914,7 @@ app.put("/api/students/:id", async (req, res) => {
     saveLocalDB(db);
     return res.json({ success: true });
   } catch (e: any) {
-    return handleSupabaseError(res, e, "Tafatirka Ardayga (Update Student)");
+    return handleStudentSupabaseError(res, e, "Tafatirka Ardayga (Update Student)");
   }
 });
 
@@ -2985,7 +3021,7 @@ app.delete("/api/students/:id", async (req, res) => {
     saveLocalDB(db);
     return res.json({ success: true });
   } catch (e: any) {
-    return handleSupabaseError(res, e, "Tirtirista Ardayga (Delete Student)");
+    return handleStudentSupabaseError(res, e, "Tirtirista Ardayga (Delete Student)");
   }
 });
 
