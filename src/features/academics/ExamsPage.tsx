@@ -25,7 +25,7 @@ import {
 } from '../../components/ui/primitives';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import * as XLSX from 'xlsx';
+import { readStudentSpreadsheet, downloadStudentSpreadsheet } from '../../lib/studentSpreadsheet';
 
 export interface ExamsViewProps {
   examScores: ExamScore[];
@@ -266,65 +266,87 @@ export default function ExamsPage({
         }
       });
 
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Exam_Template');
-    XLSX.writeFile(wb, 'Natiijooyinka_Template.xlsx');
+    void downloadStudentSpreadsheet(
+      rows as Record<string, unknown>[],
+      'Natiijooyinka_Template.xlsx',
+      'Exam_Template'
+    ).catch((error) => {
+      console.error('Exam template export failed:', error);
+      showToast('Template-ka Excel lama abuuri karin', 'error');
+    });
   };
 
-  const handleExcelImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleExcelImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
     const file = files[0];
-    const reader = new FileReader();
-    reader.onload = async (evt) => {
-      try {
-        const bstr = evt.target?.result;
-        const wb = XLSX.read(bstr, { type: 'binary' });
-        const wsname = wb.SheetNames[0];
-        const ws = wb.Sheets[wsname];
-        const data = XLSX.utils.sheet_to_json(ws);
+    e.target.value = '';
 
-        let importedCount = 0;
-        let errorCount = 0;
+    if (file.size > 10 * 1024 * 1024) {
+      showToast('Faylka kama badnaan karo 10MB.', 'error');
+      return;
+    }
 
-        for (const row of data as any[]) {
-          const studentId = row['Arday ID (Student ID)'] || row['studentId'];
-          const subjectName = row['Maaddada (Subject)'] || row['subjectName'];
-          const examName =
-            row['Imtixaanka (Exam Name)'] || row['examName'] || 'Imtixaanka Dhexe (Midterm)';
-          const term = row['Term-ka (Term)'] || row['term'] || 'Term 1';
-          const maxMarks = Number(
-            row['Dhibcaha Ugu Badan (Max Marks)'] || row['maxMarks'] || 100
-          );
-          const marksObtainedStr =
-            row['Dhibcaha la Helay (Marks Obtained)'] !== undefined
-              ? row['Dhibcaha la Helay (Marks Obtained)']
-              : row['marksObtained'];
+    try {
+      const data = await readStudentSpreadsheet(file);
+      if (data.length === 0) {
+        showToast('Faylka Excel waa faaruq.', 'warning');
+        return;
+      }
+      if (data.length > 1000) {
+        showToast('Hal mar kama badnaan karo 1000 natiijo.', 'error');
+        return;
+      }
 
-          if (
-            !studentId ||
-            !subjectName ||
-            marksObtainedStr === '' ||
-            marksObtainedStr === undefined
-          ) {
-            errorCount++;
-            continue;
+      let importedCount = 0;
+      let errorCount = 0;
+
+      for (const row of data) {
+        const get = (...keys: string[]) => {
+          for (const key of keys) {
+            const value = row[key];
+            if (value !== undefined && value !== null && String(value).trim() !== '') {
+              return String(value).trim();
+            }
           }
+          return '';
+        };
 
-          const marksObtained = Number(marksObtainedStr);
-          const examDate =
-            row['Taariikhda (Date - YYYY-MM-DD)'] ||
-            row['examDate'] ||
-            new Date().toISOString().split('T')[0];
+        const studentId = get('Arday ID (Student ID)', 'studentId', 'Student ID');
+        const subjectName = get('Maaddada (Subject)', 'subjectName', 'Subject');
+        const examName = get('Imtixaanka (Exam Name)', 'examName') || 'Imtixaanka Dhexe (Midterm)';
+        const term = get('Term-ka (Term)', 'term') || 'Term 1';
+        const maxMarks = Number(get('Dhibcaha Ugu Badan (Max Marks)', 'maxMarks') || 100);
+        const marksText = get('Dhibcaha la Helay (Marks Obtained)', 'marksObtained');
+        const examDate =
+          get('Taariikhda (Date - YYYY-MM-DD)', 'examDate') ||
+          new Date().toISOString().split('T')[0];
 
-          const student = students.find((s) => s.id === studentId);
-          if (!student) {
-            errorCount++;
-            continue;
-          }
+        if (!studentId || !subjectName || marksText === '') {
+          errorCount += 1;
+          continue;
+        }
 
-          const payload = {
+        const marksObtained = Number(marksText);
+        if (
+          !Number.isFinite(maxMarks) ||
+          maxMarks <= 0 ||
+          !Number.isFinite(marksObtained) ||
+          marksObtained < 0 ||
+          marksObtained > maxMarks
+        ) {
+          errorCount += 1;
+          continue;
+        }
+
+        const student = students.find((s) => s.id === studentId);
+        if (!student) {
+          errorCount += 1;
+          continue;
+        }
+
+        try {
+          await onAddExamScore({
             studentId,
             studentName: student.fullName,
             className: student.class,
@@ -334,29 +356,25 @@ export default function ExamsPage({
             maxMarks,
             marksObtained,
             grade: calculateGrade(marksObtained, maxMarks),
-            examDate:
-              typeof examDate === 'string'
-                ? examDate
-                : new Date().toISOString().split('T')[0]
-          };
-
-          await onAddExamScore(payload);
-          importedCount++;
+            examDate
+          });
+          importedCount += 1;
+        } catch {
+          errorCount += 1;
         }
-
-        showToast(
-          `Soo gelinta waa dhammaatay! La galiyey: ${importedCount} | Ka haray: ${errorCount}`,
-          'success'
-        );
-      } catch (err) {
-        console.error('Failing to parse excel:', err);
-        showToast(
-          'Faylka Excel lama akhrin karo. Fadlan hubi in template-ka saxda ah aad soo gelisay.',
-          'error'
-        );
       }
-    };
-    reader.readAsBinaryString(file);
+
+      showToast(
+        `Soo gelinta waa dhammaatay! La galiyey: ${importedCount} | Ka haray: ${errorCount}`,
+        errorCount > 0 ? 'warning' : 'success'
+      );
+    } catch (error) {
+      console.error('Exam spreadsheet import failed:', error);
+      showToast(
+        'Faylka Excel/CSV lama akhrin karo. Fadlan hubi template-ka.',
+        'error'
+      );
+    }
   };
 
   const exportExamsToPDF = () => {
