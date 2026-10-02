@@ -86,7 +86,7 @@ export default function StudentAddView({
     gender: 'Male' as 'Male' | 'Female',
     nationalId: '',
     class: classes[0]?.className || '',
-    section: 'A',
+    section: classes.find((item) => item.className === classes[0]?.className)?.section || '',
     rollNumber: '',
     enrollmentDate: new Date().toISOString().split('T')[0],
     guardianName: '',
