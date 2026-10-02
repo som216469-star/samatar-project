@@ -221,6 +221,52 @@ export function useInstitutionalData({
     }
   };
 
+  const handleApiImportStudents = async (
+    studentsToImport: any[]
+  ): Promise<{ success: boolean; imported: number; failed: number }> => {
+    if (!user) return { success: false, imported: 0, failed: studentsToImport.length };
+
+    if (!Array.isArray(studentsToImport) || studentsToImport.length === 0) {
+      showToast('Ma jiraan arday la soo gelinayo.', 'warning');
+      return { success: false, imported: 0, failed: 0 };
+    }
+
+    try {
+      const res = await apiFetch('/api/students/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ students: studentsToImport })
+      });
+
+      const payload = await res.json().catch(() => ({}));
+
+      if (res.ok) {
+        await fetchAllData();
+        return {
+          success: true,
+          imported: Number(payload.imported) || studentsToImport.length,
+          failed: Number(payload.failed) || 0
+        };
+      }
+
+      const failed = Number(payload.failed) || studentsToImport.length;
+      if (Array.isArray(payload.errors) && payload.errors.length > 0) {
+        const firstError = payload.errors[0]?.error;
+        showToast(firstError || payload.error || 'Import-ku wuu fashilmay.', 'error');
+      } else {
+        showToast(payload.error || 'Import-ku wuu fashilmay.', 'error');
+      }
+
+      return { success: false, imported: 0, failed };
+    } catch {
+      showToast(
+        'Import-ka lama samayn karo marka server-ku aanu la heli karin. Fadlan internet-ka hubi kadibna mar kale isku day.',
+        'error'
+      );
+      return { success: false, imported: 0, failed: studentsToImport.length };
+    }
+  };
+
   const handleApiUpdateStudent = async (id: string, updates: any): Promise<boolean> => {
     try {
       const res = await apiFetch(`/api/students/${id}`, {
@@ -1336,6 +1382,7 @@ export function useInstitutionalData({
     shellBadges,
     fetchAllData,
     handleApiAddStudent,
+    handleApiImportStudents,
     handleApiUpdateStudent,
     handleApiDeleteStudent,
     handleApiBulkUpdate,
