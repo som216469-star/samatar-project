@@ -27,9 +27,3620 @@ CREATE TABLE IF NOT EXISTS dugsiga_students (
   school_id TEXT NOT NULL,
   full_name TEXT NOT NULL,
   class TEXT NOT NULL,
-  gender TEXT NOT NULL,
-  guardian_phone TEXT NOT NULL,
+  gender TEXT NOT NULL CHECK (gender IN ('Male','Female')),
+  guardian_phone TEXT NOT NULL CHECK (guardian_phone = '' OR guardian_phone ~ '^[+0-9()[:space:].-]{7,30}
+  photo TEXT,
+  date_of_birth TEXT,
+  address TEXT,
+  guardian_name TEXT,
+  guardian_relationship TEXT,
+  guardian_phone_alt TEXT,
+  section TEXT,
+  roll_number TEXT,
+  national_id TEXT,
+  previous_school TEXT,
+  blood_group TEXT,
+  medical_notes TEXT,
+  created_at TEXT CHECK (created_at IS NULL OR created_at = '' OR created_at ~ '^\\d{4}-\\d{2}-\\d{2}
+
+-- 3. Classes Table (Fasallada Dugsiga)
+CREATE TABLE IF NOT EXISTS dugsiga_classes (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  class_name TEXT NOT NULL,
+  teacher_name TEXT,
+  room_number TEXT,
+  description TEXT,
+  section TEXT,
+  capacity INTEGER DEFAULT 30,
+  academic_year TEXT DEFAULT '2026-2027',
   status TEXT DEFAULT 'active',
+  created_at TEXT
+);
+
+-- 4. Subjects Table (Maadooyinka)
+CREATE TABLE IF NOT EXISTS dugsiga_subjects (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  subject_name TEXT NOT NULL,
+  subject_code TEXT,
+  class_name TEXT,
+  teacher_name TEXT,
+  category TEXT,
+  description TEXT,
+  pass_marks NUMERIC DEFAULT 50,
+  max_marks NUMERIC DEFAULT 100,
+  status TEXT DEFAULT 'active',
+  created_at TEXT
+);
+
+-- 5. Exam Scores Table (Natiijooyinka Imtixaanaadka)
+CREATE TABLE IF NOT EXISTS dugsiga_exam_scores (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  student_id TEXT NOT NULL,
+  student_name TEXT,
+  class_name TEXT NOT NULL,
+  subject_name TEXT NOT NULL,
+  exam_name TEXT NOT NULL,
+  term TEXT DEFAULT 'Term 1',
+  max_marks NUMERIC DEFAULT 100,
+  marks_obtained NUMERIC NOT NULL,
+  grade TEXT,
+  exam_date TEXT,
+  created_at TEXT
+);
+
+-- 6. Student Attendance Table (Xaadirinta Ardayda)
+CREATE TABLE IF NOT EXISTS dugsiga_attendance (
+  school_id TEXT NOT NULL,
+  date TEXT NOT NULL,
+  student_id TEXT NOT NULL,
+  status TEXT NOT NULL,
+  timestamp TEXT,
+  session_type TEXT DEFAULT 'before_break',
+  PRIMARY KEY (school_id, date, student_id, session_type)
+);
+
+-- 7. Legacy Monthly Fees Table (Fiiga Ardayda ee Hore)
+CREATE TABLE IF NOT EXISTS dugsiga_fees (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  student_id TEXT NOT NULL,
+  month TEXT NOT NULL,
+  year INTEGER NOT NULL,
+  amount NUMERIC NOT NULL,
+  paid_amount NUMERIC NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'unpaid',
+  created_at TEXT,
+  updated_at TEXT,
+  history JSONB DEFAULT '[]'::jsonb
+);
+
+-- 8. School Settings Table (Habaynta Guud ee Dugsiga)
+CREATE TABLE IF NOT EXISTS dugsiga_settings (
+  school_id TEXT NOT NULL,
+  key TEXT NOT NULL,
+  value JSONB,
+  PRIMARY KEY (school_id, key)
+);
+
+-- ----------------------------------------------------------------------------
+-- QAYBTA 2: MIISASKA CUSUB EE MAAMULKA & SHAQAALAHA (ACADEMIC & HR - UPGRADE 1)
+-- ----------------------------------------------------------------------------
+
+-- 9. Teachers Table (Diiwaanka Macallimiinta)
+CREATE TABLE IF NOT EXISTS dugsiga_teachers (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  teacher_id TEXT,
+  name TEXT NOT NULL,
+  photo TEXT,
+  gender TEXT DEFAULT 'Male',
+  date_of_birth TEXT,
+  phone TEXT,
+  email TEXT,
+  address TEXT,
+  qualification TEXT,
+  specialization TEXT,
+  hire_date TEXT,
+  employment_status TEXT DEFAULT 'Full-Time',
+  salary NUMERIC DEFAULT 0,
+  emergency_contact TEXT,
+  notes TEXT,
+  assigned_classes JSONB DEFAULT '[]'::jsonb,
+  assigned_subjects JSONB DEFAULT '[]'::jsonb,
+  status TEXT DEFAULT 'ACTIVE',
+  invitation_token TEXT,
+  invitation_expires_at TEXT,
+  invitation_sent_at TEXT,
+  activated_at TEXT,
+  created_at TEXT
+);
+
+-- 10. Staff Members Table (Shaqaalaha Kale ee Dugsiga)
+CREATE TABLE IF NOT EXISTS dugsiga_staff (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  employee_id TEXT,
+  name TEXT NOT NULL,
+  role TEXT NOT NULL,
+  department TEXT,
+  phone TEXT,
+  email TEXT,
+  hire_date TEXT,
+  salary NUMERIC DEFAULT 0,
+  employment_status TEXT DEFAULT 'Full-Time',
+  notes TEXT,
+  created_at TEXT
+);
+
+-- 11. Guardians Table (Waalidiinta & Mas'uuliyiinta)
+CREATE TABLE IF NOT EXISTS dugsiga_guardians (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  guardian_id TEXT,
+  name TEXT NOT NULL,
+  relationship TEXT DEFAULT 'Father',
+  phone TEXT NOT NULL,
+  whatsapp TEXT,
+  email TEXT,
+  address TEXT,
+  occupation TEXT,
+  emergency_contact TEXT,
+  student_ids JSONB DEFAULT '[]'::jsonb,
+  notes TEXT,
+  created_at TEXT
+);
+
+-- 12. Staff Attendance Table (Xaadirinta Shaqaalaha & Macallimiinta)
+CREATE TABLE IF NOT EXISTS dugsiga_staff_attendance (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  staff_id TEXT NOT NULL,
+  staff_name TEXT,
+  role TEXT,
+  date TEXT NOT NULL,
+  status TEXT NOT NULL,
+  timestamp TEXT,
+  notes TEXT
+);
+
+-- 13. Timetable Table (Jadwalka Xiisadaha Todobaadlaha ah)
+CREATE TABLE IF NOT EXISTS dugsiga_timetable (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  academic_year TEXT DEFAULT '2026-2027',
+  term TEXT DEFAULT 'Term 1',
+  class_name TEXT NOT NULL,
+  teacher_name TEXT NOT NULL,
+  subject_name TEXT NOT NULL,
+  room_number TEXT,
+  day TEXT NOT NULL,
+  start_time TEXT NOT NULL,
+  end_time TEXT NOT NULL
+);
+
+-- 14. Admissions Table (Codsiyada Ardayda Cusub)
+CREATE TABLE IF NOT EXISTS dugsiga_admissions (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  applicant_name TEXT NOT NULL,
+  gender TEXT DEFAULT 'Male',
+  date_of_birth TEXT,
+  desired_class TEXT NOT NULL,
+  guardian_name TEXT,
+  guardian_phone TEXT,
+  guardian_relationship TEXT,
+  admission_date TEXT,
+  status TEXT DEFAULT 'Pending',
+  notes TEXT,
+  student_id TEXT,
+  created_at TEXT
+);
+
+-- 15. Announcements Table (Ogeysiisyada Guud & Qaybaha)
+CREATE TABLE IF NOT EXISTS dugsiga_announcements (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  message TEXT NOT NULL,
+  audience TEXT DEFAULT 'Everyone',
+  target_class TEXT,
+  author TEXT,
+  priority TEXT DEFAULT 'Normal',
+  status TEXT DEFAULT 'Active',
+  publish_date TEXT,
+  expiry_date TEXT,
+  created_at TEXT
+);
+
+-- 16. Library Books Table (Kataloogga Buugaagta Maktabadda)
+CREATE TABLE IF NOT EXISTS dugsiga_library_books (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  isbn TEXT,
+  title TEXT NOT NULL,
+  author TEXT NOT NULL,
+  category TEXT,
+  total_copies INTEGER DEFAULT 1,
+  available_copies INTEGER DEFAULT 1,
+  location TEXT,
+  created_at TEXT
+);
+
+-- 17. Library Loans Table (Amaahashada & Soo Celinta Buugaagta)
+CREATE TABLE IF NOT EXISTS dugsiga_library_loans (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  book_id TEXT NOT NULL,
+  book_title TEXT,
+  borrower_type TEXT NOT NULL DEFAULT 'Student',
+  borrower_id TEXT NOT NULL,
+  borrower_name TEXT NOT NULL,
+  issue_date TEXT NOT NULL,
+  due_date TEXT NOT NULL,
+  return_date TEXT,
+  status TEXT DEFAULT 'Borrowed'
+);
+
+-- 18. Inventory Table (Hantida & Qalabka Dugsiga)
+CREATE TABLE IF NOT EXISTS dugsiga_inventory (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  item_name TEXT NOT NULL,
+  category TEXT DEFAULT 'Furniture',
+  quantity INTEGER DEFAULT 1,
+  location TEXT,
+  condition TEXT DEFAULT 'Good',
+  purchase_date TEXT,
+  purchase_cost NUMERIC DEFAULT 0,
+  assigned_to TEXT,
+  status TEXT DEFAULT 'Available',
+  notes TEXT
+);
+
+-- 19. Documents Table (Dukumentiyada & Faylalka Dugsiga)
+CREATE TABLE IF NOT EXISTS dugsiga_documents (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  category TEXT NOT NULL,
+  related_id TEXT,
+  related_name TEXT,
+  file_type TEXT,
+  file_size TEXT,
+  file_url TEXT,
+  upload_date TEXT,
+  notes TEXT
+);
+
+-- 20. Notifications Table (Ogeysiisyada Nidaamka & Farriimaha)
+CREATE TABLE IF NOT EXISTS dugsiga_notifications (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  message TEXT NOT NULL,
+  channel TEXT DEFAULT 'in_app',
+  recipient TEXT NOT NULL,
+  recipient_name TEXT,
+  status TEXT DEFAULT 'Sent',
+  created_at TEXT
+);
+
+-- ----------------------------------------------------------------------------
+-- STUDENT AUDIT LOG
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS dugsiga_student_audit (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  school_id TEXT NOT NULL,
+  student_id TEXT NOT NULL,
+  action TEXT NOT NULL CHECK (action IN ('created','updated','archived','restored','deleted')),
+  actor_email TEXT,
+  actor_role TEXT,
+  changed_fields JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+CREATE INDEX IF NOT EXISTS idx_dugsiga_student_audit_school_student
+  ON dugsiga_student_audit (school_id, student_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_dugsiga_student_audit_school_action
+  ON dugsiga_student_audit (school_id, action, created_at DESC);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_dugsiga_students_school_national_id
+  ON dugsiga_students (school_id, lower(btrim(national_id)))
+  WHERE national_id IS NOT NULL AND btrim(national_id) <> '';
+
+-- ----------------------------------------------------------------------------
+-- QAYBTA 3: MIISASKA CUSUB EE MAALIYADDA & XISAABAADKA (FINANCE & ACCOUNTING - UPGRADE 2)
+-- ----------------------------------------------------------------------------
+
+-- 21. Fee Structures Table (Qaab-Dhismeedka Khidmadaha Dugsiga)
+CREATE TABLE IF NOT EXISTS dugsiga_fee_structures (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  category TEXT NOT NULL,
+  amount NUMERIC NOT NULL DEFAULT 0,
+  class_name TEXT DEFAULT 'All Classes',
+  academic_year TEXT DEFAULT '2026-2027',
+  term TEXT DEFAULT 'All Terms',
+  description TEXT,
+  created_at TEXT
+);
+
+-- 22. Invoices Table (Qaansheekooyinka Ardayda / Biilasha)
+CREATE TABLE IF NOT EXISTS dugsiga_invoices (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  invoice_number TEXT NOT NULL,
+  student_id TEXT NOT NULL,
+  student_name TEXT,
+  class_name TEXT,
+  guardian_name TEXT,
+  guardian_phone TEXT,
+  items JSONB DEFAULT '[]'::jsonb,
+  subtotal NUMERIC NOT NULL DEFAULT 0,
+  discount NUMERIC NOT NULL DEFAULT 0,
+  total NUMERIC NOT NULL DEFAULT 0,
+  paid_amount NUMERIC NOT NULL DEFAULT 0,
+  balance NUMERIC NOT NULL DEFAULT 0,
+  issue_date TEXT NOT NULL,
+  due_date TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'Unpaid',
+  notes TEXT,
+  created_at TEXT,
+  updated_at TEXT
+);
+
+-- 23. Payments Table (Diiwaanka Lacag-Bixinta & Rasiidhada)
+CREATE TABLE IF NOT EXISTS dugsiga_payments (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  receipt_number TEXT NOT NULL,
+  invoice_id TEXT,
+  invoice_number TEXT,
+  student_id TEXT,
+  student_name TEXT,
+  class_name TEXT,
+  amount NUMERIC NOT NULL DEFAULT 0,
+  payment_date TEXT NOT NULL,
+  payment_method TEXT NOT NULL DEFAULT 'Cash',
+  reference TEXT,
+  remaining_balance NUMERIC DEFAULT 0,
+  received_by TEXT NOT NULL,
+  notes TEXT,
+  created_at TEXT
+);
+
+-- 24. Expenses Table (Kharashaadka Dugsiga & Ogolaanshaha)
+CREATE TABLE IF NOT EXISTS dugsiga_expenses (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  expense_id TEXT,
+  category TEXT NOT NULL,
+  description TEXT NOT NULL,
+  amount NUMERIC NOT NULL DEFAULT 0,
+  date TEXT NOT NULL,
+  payment_method TEXT NOT NULL DEFAULT 'Cash',
+  vendor_payee TEXT NOT NULL,
+  reference_number TEXT,
+  receipt_document TEXT,
+  created_by TEXT NOT NULL,
+  notes TEXT,
+  status TEXT NOT NULL DEFAULT 'Approved',
+  payroll_id TEXT,
+  created_at TEXT,
+  updated_at TEXT
+);
+
+-- 25. Income Table (Dakhliga Kale ee Aan Ahayn Lacagta Waxbarashada)
+CREATE TABLE IF NOT EXISTS dugsiga_income (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  income_id TEXT,
+  category TEXT NOT NULL,
+  description TEXT NOT NULL,
+  amount NUMERIC NOT NULL DEFAULT 0,
+  date TEXT NOT NULL,
+  payment_method TEXT NOT NULL DEFAULT 'Cash',
+  reference TEXT,
+  payer TEXT NOT NULL,
+  notes TEXT,
+  created_by TEXT NOT NULL,
+  payment_id TEXT,
+  created_at TEXT
+);
+
+-- 26. Budgets Table (Miisaaniyadda Qorshaysan vs Dhabta ah)
+CREATE TABLE IF NOT EXISTS dugsiga_budgets (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  academic_year TEXT NOT NULL DEFAULT '2026-2027',
+  period TEXT NOT NULL DEFAULT 'Annual',
+  category TEXT NOT NULL,
+  type TEXT NOT NULL DEFAULT 'Expense',
+  planned_amount NUMERIC NOT NULL DEFAULT 0,
+  actual_amount NUMERIC NOT NULL DEFAULT 0,
+  remaining_amount NUMERIC NOT NULL DEFAULT 0,
+  variance NUMERIC NOT NULL DEFAULT 0,
+  notes TEXT,
+  created_at TEXT
+);
+
+-- 27. Payroll Table (Mushahaarka Macallimiinta & Shaqaalaha)
+CREATE TABLE IF NOT EXISTS dugsiga_payroll (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  employee_type TEXT NOT NULL DEFAULT 'Teacher',
+  employee_id TEXT NOT NULL,
+  employee_name TEXT NOT NULL,
+  role_or_department TEXT,
+  basic_salary NUMERIC NOT NULL DEFAULT 0,
+  allowances NUMERIC NOT NULL DEFAULT 0,
+  deductions NUMERIC NOT NULL DEFAULT 0,
+  gross_salary NUMERIC NOT NULL DEFAULT 0,
+  net_salary NUMERIC NOT NULL DEFAULT 0,
+  payment_date TEXT NOT NULL,
+  payment_method TEXT NOT NULL DEFAULT 'EVC Plus',
+  payroll_period TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'Draft',
+  notes TEXT,
+  paid_at TEXT,
+  expense_id TEXT,
+  created_at TEXT,
+  updated_at TEXT
+);
+
+-- ----------------------------------------------------------------------------
+-- QAYBTA 4: SECURITY
+-- Backend-ku wuxuu isticmaalaa server-side service_role client.
+-- Direct client access (anon/authenticated) lama siinayo tables-kan.
+-- RLS waa ON dhammaan tables-ka; service_role wuxuu leeyahay bypassRLS.
+-- ----------------------------------------------------------------------------
+
+DO $
+DECLARE
+  tbl_name TEXT;
+  tables_list TEXT[] := ARRAY[
+    'dugsiga_users',
+    'dugsiga_students',
+    'dugsiga_classes',
+    'dugsiga_subjects',
+    'dugsiga_exam_scores',
+    'dugsiga_attendance',
+    'dugsiga_fees',
+    'dugsiga_settings',
+    'dugsiga_teachers',
+    'dugsiga_staff',
+    'dugsiga_guardians',
+    'dugsiga_staff_attendance',
+    'dugsiga_timetable',
+    'dugsiga_admissions',
+    'dugsiga_announcements',
+    'dugsiga_library_books',
+    'dugsiga_library_loans',
+    'dugsiga_inventory',
+    'dugsiga_documents',
+    'dugsiga_notifications',
+    'dugsiga_fee_structures',
+    'dugsiga_invoices',
+    'dugsiga_payments',
+    'dugsiga_expenses',
+    'dugsiga_income',
+    'dugsiga_budgets',
+    'dugsiga_payroll',
+     'dugsiga_student_audit'
+  ];
+BEGIN
+  FOREACH tbl_name IN ARRAY tables_list LOOP
+    EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', tbl_name);
+    EXECUTE format('REVOKE ALL ON TABLE public.%I FROM anon, authenticated', tbl_name);
+    EXECUTE format('GRANT ALL ON TABLE public.%I TO service_role', tbl_name);
+  END LOOP;
+END $;
+
+-- Mahadsanid! DUGSI PRO 2026 database-ku waa secure-by-default.
+),
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','inactive','archived')),
+  photo TEXT,
+  date_of_birth TEXT,
+  address TEXT,
+  guardian_name TEXT,
+  guardian_relationship TEXT,
+  guardian_phone_alt TEXT,
+  section TEXT,
+  roll_number TEXT,
+  national_id TEXT,
+  previous_school TEXT,
+  blood_group TEXT,
+  medical_notes TEXT,
+  created_at TEXT,
+  updated_at TEXT
+);
+
+-- 3. Classes Table (Fasallada Dugsiga)
+CREATE TABLE IF NOT EXISTS dugsiga_classes (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  class_name TEXT NOT NULL,
+  teacher_name TEXT,
+  room_number TEXT,
+  description TEXT,
+  section TEXT,
+  capacity INTEGER DEFAULT 30,
+  academic_year TEXT DEFAULT '2026-2027',
+  status TEXT DEFAULT 'active',
+  created_at TEXT
+);
+
+-- 4. Subjects Table (Maadooyinka)
+CREATE TABLE IF NOT EXISTS dugsiga_subjects (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  subject_name TEXT NOT NULL,
+  subject_code TEXT,
+  class_name TEXT,
+  teacher_name TEXT,
+  category TEXT,
+  description TEXT,
+  pass_marks NUMERIC DEFAULT 50,
+  max_marks NUMERIC DEFAULT 100,
+  status TEXT DEFAULT 'active',
+  created_at TEXT
+);
+
+-- 5. Exam Scores Table (Natiijooyinka Imtixaanaadka)
+CREATE TABLE IF NOT EXISTS dugsiga_exam_scores (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  student_id TEXT NOT NULL,
+  student_name TEXT,
+  class_name TEXT NOT NULL,
+  subject_name TEXT NOT NULL,
+  exam_name TEXT NOT NULL,
+  term TEXT DEFAULT 'Term 1',
+  max_marks NUMERIC DEFAULT 100,
+  marks_obtained NUMERIC NOT NULL,
+  grade TEXT,
+  exam_date TEXT,
+  created_at TEXT
+);
+
+-- 6. Student Attendance Table (Xaadirinta Ardayda)
+CREATE TABLE IF NOT EXISTS dugsiga_attendance (
+  school_id TEXT NOT NULL,
+  date TEXT NOT NULL,
+  student_id TEXT NOT NULL,
+  status TEXT NOT NULL,
+  timestamp TEXT,
+  session_type TEXT DEFAULT 'before_break',
+  PRIMARY KEY (school_id, date, student_id, session_type)
+);
+
+-- 7. Legacy Monthly Fees Table (Fiiga Ardayda ee Hore)
+CREATE TABLE IF NOT EXISTS dugsiga_fees (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  student_id TEXT NOT NULL,
+  month TEXT NOT NULL,
+  year INTEGER NOT NULL,
+  amount NUMERIC NOT NULL,
+  paid_amount NUMERIC NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'unpaid',
+  created_at TEXT,
+  updated_at TEXT,
+  history JSONB DEFAULT '[]'::jsonb
+);
+
+-- 8. School Settings Table (Habaynta Guud ee Dugsiga)
+CREATE TABLE IF NOT EXISTS dugsiga_settings (
+  school_id TEXT NOT NULL,
+  key TEXT NOT NULL,
+  value JSONB,
+  PRIMARY KEY (school_id, key)
+);
+
+-- ----------------------------------------------------------------------------
+-- QAYBTA 2: MIISASKA CUSUB EE MAAMULKA & SHAQAALAHA (ACADEMIC & HR - UPGRADE 1)
+-- ----------------------------------------------------------------------------
+
+-- 9. Teachers Table (Diiwaanka Macallimiinta)
+CREATE TABLE IF NOT EXISTS dugsiga_teachers (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  teacher_id TEXT,
+  name TEXT NOT NULL,
+  photo TEXT,
+  gender TEXT DEFAULT 'Male',
+  date_of_birth TEXT,
+  phone TEXT,
+  email TEXT,
+  address TEXT,
+  qualification TEXT,
+  specialization TEXT,
+  hire_date TEXT,
+  employment_status TEXT DEFAULT 'Full-Time',
+  salary NUMERIC DEFAULT 0,
+  emergency_contact TEXT,
+  notes TEXT,
+  assigned_classes JSONB DEFAULT '[]'::jsonb,
+  assigned_subjects JSONB DEFAULT '[]'::jsonb,
+  status TEXT DEFAULT 'ACTIVE',
+  invitation_token TEXT,
+  invitation_expires_at TEXT,
+  invitation_sent_at TEXT,
+  activated_at TEXT,
+  created_at TEXT
+);
+
+-- 10. Staff Members Table (Shaqaalaha Kale ee Dugsiga)
+CREATE TABLE IF NOT EXISTS dugsiga_staff (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  employee_id TEXT,
+  name TEXT NOT NULL,
+  role TEXT NOT NULL,
+  department TEXT,
+  phone TEXT,
+  email TEXT,
+  hire_date TEXT,
+  salary NUMERIC DEFAULT 0,
+  employment_status TEXT DEFAULT 'Full-Time',
+  notes TEXT,
+  created_at TEXT
+);
+
+-- 11. Guardians Table (Waalidiinta & Mas'uuliyiinta)
+CREATE TABLE IF NOT EXISTS dugsiga_guardians (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  guardian_id TEXT,
+  name TEXT NOT NULL,
+  relationship TEXT DEFAULT 'Father',
+  phone TEXT NOT NULL,
+  whatsapp TEXT,
+  email TEXT,
+  address TEXT,
+  occupation TEXT,
+  emergency_contact TEXT,
+  student_ids JSONB DEFAULT '[]'::jsonb,
+  notes TEXT,
+  created_at TEXT
+);
+
+-- 12. Staff Attendance Table (Xaadirinta Shaqaalaha & Macallimiinta)
+CREATE TABLE IF NOT EXISTS dugsiga_staff_attendance (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  staff_id TEXT NOT NULL,
+  staff_name TEXT,
+  role TEXT,
+  date TEXT NOT NULL,
+  status TEXT NOT NULL,
+  timestamp TEXT,
+  notes TEXT
+);
+
+-- 13. Timetable Table (Jadwalka Xiisadaha Todobaadlaha ah)
+CREATE TABLE IF NOT EXISTS dugsiga_timetable (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  academic_year TEXT DEFAULT '2026-2027',
+  term TEXT DEFAULT 'Term 1',
+  class_name TEXT NOT NULL,
+  teacher_name TEXT NOT NULL,
+  subject_name TEXT NOT NULL,
+  room_number TEXT,
+  day TEXT NOT NULL,
+  start_time TEXT NOT NULL,
+  end_time TEXT NOT NULL
+);
+
+-- 14. Admissions Table (Codsiyada Ardayda Cusub)
+CREATE TABLE IF NOT EXISTS dugsiga_admissions (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  applicant_name TEXT NOT NULL,
+  gender TEXT DEFAULT 'Male',
+  date_of_birth TEXT,
+  desired_class TEXT NOT NULL,
+  guardian_name TEXT,
+  guardian_phone TEXT,
+  guardian_relationship TEXT,
+  admission_date TEXT,
+  status TEXT DEFAULT 'Pending',
+  notes TEXT,
+  student_id TEXT,
+  created_at TEXT
+);
+
+-- 15. Announcements Table (Ogeysiisyada Guud & Qaybaha)
+CREATE TABLE IF NOT EXISTS dugsiga_announcements (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  message TEXT NOT NULL,
+  audience TEXT DEFAULT 'Everyone',
+  target_class TEXT,
+  author TEXT,
+  priority TEXT DEFAULT 'Normal',
+  status TEXT DEFAULT 'Active',
+  publish_date TEXT,
+  expiry_date TEXT,
+  created_at TEXT
+);
+
+-- 16. Library Books Table (Kataloogga Buugaagta Maktabadda)
+CREATE TABLE IF NOT EXISTS dugsiga_library_books (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  isbn TEXT,
+  title TEXT NOT NULL,
+  author TEXT NOT NULL,
+  category TEXT,
+  total_copies INTEGER DEFAULT 1,
+  available_copies INTEGER DEFAULT 1,
+  location TEXT,
+  created_at TEXT
+);
+
+-- 17. Library Loans Table (Amaahashada & Soo Celinta Buugaagta)
+CREATE TABLE IF NOT EXISTS dugsiga_library_loans (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  book_id TEXT NOT NULL,
+  book_title TEXT,
+  borrower_type TEXT NOT NULL DEFAULT 'Student',
+  borrower_id TEXT NOT NULL,
+  borrower_name TEXT NOT NULL,
+  issue_date TEXT NOT NULL,
+  due_date TEXT NOT NULL,
+  return_date TEXT,
+  status TEXT DEFAULT 'Borrowed'
+);
+
+-- 18. Inventory Table (Hantida & Qalabka Dugsiga)
+CREATE TABLE IF NOT EXISTS dugsiga_inventory (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  item_name TEXT NOT NULL,
+  category TEXT DEFAULT 'Furniture',
+  quantity INTEGER DEFAULT 1,
+  location TEXT,
+  condition TEXT DEFAULT 'Good',
+  purchase_date TEXT,
+  purchase_cost NUMERIC DEFAULT 0,
+  assigned_to TEXT,
+  status TEXT DEFAULT 'Available',
+  notes TEXT
+);
+
+-- 19. Documents Table (Dukumentiyada & Faylalka Dugsiga)
+CREATE TABLE IF NOT EXISTS dugsiga_documents (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  category TEXT NOT NULL,
+  related_id TEXT,
+  related_name TEXT,
+  file_type TEXT,
+  file_size TEXT,
+  file_url TEXT,
+  upload_date TEXT,
+  notes TEXT
+);
+
+-- 20. Notifications Table (Ogeysiisyada Nidaamka & Farriimaha)
+CREATE TABLE IF NOT EXISTS dugsiga_notifications (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  message TEXT NOT NULL,
+  channel TEXT DEFAULT 'in_app',
+  recipient TEXT NOT NULL,
+  recipient_name TEXT,
+  status TEXT DEFAULT 'Sent',
+  created_at TEXT
+);
+
+-- ----------------------------------------------------------------------------
+-- STUDENT AUDIT LOG
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS dugsiga_student_audit (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  school_id TEXT NOT NULL,
+  student_id TEXT NOT NULL,
+  action TEXT NOT NULL CHECK (action IN ('created','updated','archived','restored','deleted')),
+  actor_email TEXT,
+  actor_role TEXT,
+  changed_fields JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+CREATE INDEX IF NOT EXISTS idx_dugsiga_student_audit_school_student
+  ON dugsiga_student_audit (school_id, student_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_dugsiga_student_audit_school_action
+  ON dugsiga_student_audit (school_id, action, created_at DESC);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_dugsiga_students_school_national_id
+  ON dugsiga_students (school_id, lower(btrim(national_id)))
+  WHERE national_id IS NOT NULL AND btrim(national_id) <> '';
+
+-- ----------------------------------------------------------------------------
+-- QAYBTA 3: MIISASKA CUSUB EE MAALIYADDA & XISAABAADKA (FINANCE & ACCOUNTING - UPGRADE 2)
+-- ----------------------------------------------------------------------------
+
+-- 21. Fee Structures Table (Qaab-Dhismeedka Khidmadaha Dugsiga)
+CREATE TABLE IF NOT EXISTS dugsiga_fee_structures (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  category TEXT NOT NULL,
+  amount NUMERIC NOT NULL DEFAULT 0,
+  class_name TEXT DEFAULT 'All Classes',
+  academic_year TEXT DEFAULT '2026-2027',
+  term TEXT DEFAULT 'All Terms',
+  description TEXT,
+  created_at TEXT
+);
+
+-- 22. Invoices Table (Qaansheekooyinka Ardayda / Biilasha)
+CREATE TABLE IF NOT EXISTS dugsiga_invoices (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  invoice_number TEXT NOT NULL,
+  student_id TEXT NOT NULL,
+  student_name TEXT,
+  class_name TEXT,
+  guardian_name TEXT,
+  guardian_phone TEXT,
+  items JSONB DEFAULT '[]'::jsonb,
+  subtotal NUMERIC NOT NULL DEFAULT 0,
+  discount NUMERIC NOT NULL DEFAULT 0,
+  total NUMERIC NOT NULL DEFAULT 0,
+  paid_amount NUMERIC NOT NULL DEFAULT 0,
+  balance NUMERIC NOT NULL DEFAULT 0,
+  issue_date TEXT NOT NULL,
+  due_date TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'Unpaid',
+  notes TEXT,
+  created_at TEXT,
+  updated_at TEXT
+);
+
+-- 23. Payments Table (Diiwaanka Lacag-Bixinta & Rasiidhada)
+CREATE TABLE IF NOT EXISTS dugsiga_payments (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  receipt_number TEXT NOT NULL,
+  invoice_id TEXT,
+  invoice_number TEXT,
+  student_id TEXT,
+  student_name TEXT,
+  class_name TEXT,
+  amount NUMERIC NOT NULL DEFAULT 0,
+  payment_date TEXT NOT NULL,
+  payment_method TEXT NOT NULL DEFAULT 'Cash',
+  reference TEXT,
+  remaining_balance NUMERIC DEFAULT 0,
+  received_by TEXT NOT NULL,
+  notes TEXT,
+  created_at TEXT
+);
+
+-- 24. Expenses Table (Kharashaadka Dugsiga & Ogolaanshaha)
+CREATE TABLE IF NOT EXISTS dugsiga_expenses (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  expense_id TEXT,
+  category TEXT NOT NULL,
+  description TEXT NOT NULL,
+  amount NUMERIC NOT NULL DEFAULT 0,
+  date TEXT NOT NULL,
+  payment_method TEXT NOT NULL DEFAULT 'Cash',
+  vendor_payee TEXT NOT NULL,
+  reference_number TEXT,
+  receipt_document TEXT,
+  created_by TEXT NOT NULL,
+  notes TEXT,
+  status TEXT NOT NULL DEFAULT 'Approved',
+  payroll_id TEXT,
+  created_at TEXT,
+  updated_at TEXT
+);
+
+-- 25. Income Table (Dakhliga Kale ee Aan Ahayn Lacagta Waxbarashada)
+CREATE TABLE IF NOT EXISTS dugsiga_income (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  income_id TEXT,
+  category TEXT NOT NULL,
+  description TEXT NOT NULL,
+  amount NUMERIC NOT NULL DEFAULT 0,
+  date TEXT NOT NULL,
+  payment_method TEXT NOT NULL DEFAULT 'Cash',
+  reference TEXT,
+  payer TEXT NOT NULL,
+  notes TEXT,
+  created_by TEXT NOT NULL,
+  payment_id TEXT,
+  created_at TEXT
+);
+
+-- 26. Budgets Table (Miisaaniyadda Qorshaysan vs Dhabta ah)
+CREATE TABLE IF NOT EXISTS dugsiga_budgets (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  academic_year TEXT NOT NULL DEFAULT '2026-2027',
+  period TEXT NOT NULL DEFAULT 'Annual',
+  category TEXT NOT NULL,
+  type TEXT NOT NULL DEFAULT 'Expense',
+  planned_amount NUMERIC NOT NULL DEFAULT 0,
+  actual_amount NUMERIC NOT NULL DEFAULT 0,
+  remaining_amount NUMERIC NOT NULL DEFAULT 0,
+  variance NUMERIC NOT NULL DEFAULT 0,
+  notes TEXT,
+  created_at TEXT
+);
+
+-- 27. Payroll Table (Mushahaarka Macallimiinta & Shaqaalaha)
+CREATE TABLE IF NOT EXISTS dugsiga_payroll (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  employee_type TEXT NOT NULL DEFAULT 'Teacher',
+  employee_id TEXT NOT NULL,
+  employee_name TEXT NOT NULL,
+  role_or_department TEXT,
+  basic_salary NUMERIC NOT NULL DEFAULT 0,
+  allowances NUMERIC NOT NULL DEFAULT 0,
+  deductions NUMERIC NOT NULL DEFAULT 0,
+  gross_salary NUMERIC NOT NULL DEFAULT 0,
+  net_salary NUMERIC NOT NULL DEFAULT 0,
+  payment_date TEXT NOT NULL,
+  payment_method TEXT NOT NULL DEFAULT 'EVC Plus',
+  payroll_period TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'Draft',
+  notes TEXT,
+  paid_at TEXT,
+  expense_id TEXT,
+  created_at TEXT,
+  updated_at TEXT
+);
+
+-- ----------------------------------------------------------------------------
+-- QAYBTA 4: SECURITY
+-- Backend-ku wuxuu isticmaalaa server-side service_role client.
+-- Direct client access (anon/authenticated) lama siinayo tables-kan.
+-- RLS waa ON dhammaan tables-ka; service_role wuxuu leeyahay bypassRLS.
+-- ----------------------------------------------------------------------------
+
+DO $
+DECLARE
+  tbl_name TEXT;
+  tables_list TEXT[] := ARRAY[
+    'dugsiga_users',
+    'dugsiga_students',
+    'dugsiga_classes',
+    'dugsiga_subjects',
+    'dugsiga_exam_scores',
+    'dugsiga_attendance',
+    'dugsiga_fees',
+    'dugsiga_settings',
+    'dugsiga_teachers',
+    'dugsiga_staff',
+    'dugsiga_guardians',
+    'dugsiga_staff_attendance',
+    'dugsiga_timetable',
+    'dugsiga_admissions',
+    'dugsiga_announcements',
+    'dugsiga_library_books',
+    'dugsiga_library_loans',
+    'dugsiga_inventory',
+    'dugsiga_documents',
+    'dugsiga_notifications',
+    'dugsiga_fee_structures',
+    'dugsiga_invoices',
+    'dugsiga_payments',
+    'dugsiga_expenses',
+    'dugsiga_income',
+    'dugsiga_budgets',
+    'dugsiga_payroll',
+     'dugsiga_student_audit'
+  ];
+BEGIN
+  FOREACH tbl_name IN ARRAY tables_list LOOP
+    EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', tbl_name);
+    EXECUTE format('REVOKE ALL ON TABLE public.%I FROM anon, authenticated', tbl_name);
+    EXECUTE format('GRANT ALL ON TABLE public.%I TO service_role', tbl_name);
+  END LOOP;
+END $;
+
+-- Mahadsanid! DUGSI PRO 2026 database-ku waa secure-by-default.
+),
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+ALTER TABLE dugsiga_students
+  ADD CONSTRAINT dugsiga_students_full_name_valid
+    CHECK (char_length(btrim(full_name)) BETWEEN 1 AND 160),
+  ADD CONSTRAINT dugsiga_students_class_valid
+    CHECK (char_length(btrim(class)) BETWEEN 1 AND 120),
+  ADD CONSTRAINT dugsiga_students_guardian_phone_alt_valid
+    CHECK (guardian_phone_alt IS NULL OR guardian_phone_alt = '' OR guardian_phone_alt ~ '^[+0-9()[:space:].-]{7,30}
+
+-- 3. Classes Table (Fasallada Dugsiga)
+CREATE TABLE IF NOT EXISTS dugsiga_classes (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  class_name TEXT NOT NULL,
+  teacher_name TEXT,
+  room_number TEXT,
+  description TEXT,
+  section TEXT,
+  capacity INTEGER DEFAULT 30,
+  academic_year TEXT DEFAULT '2026-2027',
+  status TEXT DEFAULT 'active',
+  created_at TEXT
+);
+
+-- 4. Subjects Table (Maadooyinka)
+CREATE TABLE IF NOT EXISTS dugsiga_subjects (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  subject_name TEXT NOT NULL,
+  subject_code TEXT,
+  class_name TEXT,
+  teacher_name TEXT,
+  category TEXT,
+  description TEXT,
+  pass_marks NUMERIC DEFAULT 50,
+  max_marks NUMERIC DEFAULT 100,
+  status TEXT DEFAULT 'active',
+  created_at TEXT
+);
+
+-- 5. Exam Scores Table (Natiijooyinka Imtixaanaadka)
+CREATE TABLE IF NOT EXISTS dugsiga_exam_scores (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  student_id TEXT NOT NULL,
+  student_name TEXT,
+  class_name TEXT NOT NULL,
+  subject_name TEXT NOT NULL,
+  exam_name TEXT NOT NULL,
+  term TEXT DEFAULT 'Term 1',
+  max_marks NUMERIC DEFAULT 100,
+  marks_obtained NUMERIC NOT NULL,
+  grade TEXT,
+  exam_date TEXT,
+  created_at TEXT
+);
+
+-- 6. Student Attendance Table (Xaadirinta Ardayda)
+CREATE TABLE IF NOT EXISTS dugsiga_attendance (
+  school_id TEXT NOT NULL,
+  date TEXT NOT NULL,
+  student_id TEXT NOT NULL,
+  status TEXT NOT NULL,
+  timestamp TEXT,
+  session_type TEXT DEFAULT 'before_break',
+  PRIMARY KEY (school_id, date, student_id, session_type)
+);
+
+-- 7. Legacy Monthly Fees Table (Fiiga Ardayda ee Hore)
+CREATE TABLE IF NOT EXISTS dugsiga_fees (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  student_id TEXT NOT NULL,
+  month TEXT NOT NULL,
+  year INTEGER NOT NULL,
+  amount NUMERIC NOT NULL,
+  paid_amount NUMERIC NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'unpaid',
+  created_at TEXT,
+  updated_at TEXT,
+  history JSONB DEFAULT '[]'::jsonb
+);
+
+-- 8. School Settings Table (Habaynta Guud ee Dugsiga)
+CREATE TABLE IF NOT EXISTS dugsiga_settings (
+  school_id TEXT NOT NULL,
+  key TEXT NOT NULL,
+  value JSONB,
+  PRIMARY KEY (school_id, key)
+);
+
+-- ----------------------------------------------------------------------------
+-- QAYBTA 2: MIISASKA CUSUB EE MAAMULKA & SHAQAALAHA (ACADEMIC & HR - UPGRADE 1)
+-- ----------------------------------------------------------------------------
+
+-- 9. Teachers Table (Diiwaanka Macallimiinta)
+CREATE TABLE IF NOT EXISTS dugsiga_teachers (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  teacher_id TEXT,
+  name TEXT NOT NULL,
+  photo TEXT,
+  gender TEXT DEFAULT 'Male',
+  date_of_birth TEXT,
+  phone TEXT,
+  email TEXT,
+  address TEXT,
+  qualification TEXT,
+  specialization TEXT,
+  hire_date TEXT,
+  employment_status TEXT DEFAULT 'Full-Time',
+  salary NUMERIC DEFAULT 0,
+  emergency_contact TEXT,
+  notes TEXT,
+  assigned_classes JSONB DEFAULT '[]'::jsonb,
+  assigned_subjects JSONB DEFAULT '[]'::jsonb,
+  status TEXT DEFAULT 'ACTIVE',
+  invitation_token TEXT,
+  invitation_expires_at TEXT,
+  invitation_sent_at TEXT,
+  activated_at TEXT,
+  created_at TEXT
+);
+
+-- 10. Staff Members Table (Shaqaalaha Kale ee Dugsiga)
+CREATE TABLE IF NOT EXISTS dugsiga_staff (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  employee_id TEXT,
+  name TEXT NOT NULL,
+  role TEXT NOT NULL,
+  department TEXT,
+  phone TEXT,
+  email TEXT,
+  hire_date TEXT,
+  salary NUMERIC DEFAULT 0,
+  employment_status TEXT DEFAULT 'Full-Time',
+  notes TEXT,
+  created_at TEXT
+);
+
+-- 11. Guardians Table (Waalidiinta & Mas'uuliyiinta)
+CREATE TABLE IF NOT EXISTS dugsiga_guardians (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  guardian_id TEXT,
+  name TEXT NOT NULL,
+  relationship TEXT DEFAULT 'Father',
+  phone TEXT NOT NULL,
+  whatsapp TEXT,
+  email TEXT,
+  address TEXT,
+  occupation TEXT,
+  emergency_contact TEXT,
+  student_ids JSONB DEFAULT '[]'::jsonb,
+  notes TEXT,
+  created_at TEXT
+);
+
+-- 12. Staff Attendance Table (Xaadirinta Shaqaalaha & Macallimiinta)
+CREATE TABLE IF NOT EXISTS dugsiga_staff_attendance (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  staff_id TEXT NOT NULL,
+  staff_name TEXT,
+  role TEXT,
+  date TEXT NOT NULL,
+  status TEXT NOT NULL,
+  timestamp TEXT,
+  notes TEXT
+);
+
+-- 13. Timetable Table (Jadwalka Xiisadaha Todobaadlaha ah)
+CREATE TABLE IF NOT EXISTS dugsiga_timetable (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  academic_year TEXT DEFAULT '2026-2027',
+  term TEXT DEFAULT 'Term 1',
+  class_name TEXT NOT NULL,
+  teacher_name TEXT NOT NULL,
+  subject_name TEXT NOT NULL,
+  room_number TEXT,
+  day TEXT NOT NULL,
+  start_time TEXT NOT NULL,
+  end_time TEXT NOT NULL
+);
+
+-- 14. Admissions Table (Codsiyada Ardayda Cusub)
+CREATE TABLE IF NOT EXISTS dugsiga_admissions (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  applicant_name TEXT NOT NULL,
+  gender TEXT DEFAULT 'Male',
+  date_of_birth TEXT,
+  desired_class TEXT NOT NULL,
+  guardian_name TEXT,
+  guardian_phone TEXT,
+  guardian_relationship TEXT,
+  admission_date TEXT,
+  status TEXT DEFAULT 'Pending',
+  notes TEXT,
+  student_id TEXT,
+  created_at TEXT
+);
+
+-- 15. Announcements Table (Ogeysiisyada Guud & Qaybaha)
+CREATE TABLE IF NOT EXISTS dugsiga_announcements (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  message TEXT NOT NULL,
+  audience TEXT DEFAULT 'Everyone',
+  target_class TEXT,
+  author TEXT,
+  priority TEXT DEFAULT 'Normal',
+  status TEXT DEFAULT 'Active',
+  publish_date TEXT,
+  expiry_date TEXT,
+  created_at TEXT
+);
+
+-- 16. Library Books Table (Kataloogga Buugaagta Maktabadda)
+CREATE TABLE IF NOT EXISTS dugsiga_library_books (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  isbn TEXT,
+  title TEXT NOT NULL,
+  author TEXT NOT NULL,
+  category TEXT,
+  total_copies INTEGER DEFAULT 1,
+  available_copies INTEGER DEFAULT 1,
+  location TEXT,
+  created_at TEXT
+);
+
+-- 17. Library Loans Table (Amaahashada & Soo Celinta Buugaagta)
+CREATE TABLE IF NOT EXISTS dugsiga_library_loans (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  book_id TEXT NOT NULL,
+  book_title TEXT,
+  borrower_type TEXT NOT NULL DEFAULT 'Student',
+  borrower_id TEXT NOT NULL,
+  borrower_name TEXT NOT NULL,
+  issue_date TEXT NOT NULL,
+  due_date TEXT NOT NULL,
+  return_date TEXT,
+  status TEXT DEFAULT 'Borrowed'
+);
+
+-- 18. Inventory Table (Hantida & Qalabka Dugsiga)
+CREATE TABLE IF NOT EXISTS dugsiga_inventory (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  item_name TEXT NOT NULL,
+  category TEXT DEFAULT 'Furniture',
+  quantity INTEGER DEFAULT 1,
+  location TEXT,
+  condition TEXT DEFAULT 'Good',
+  purchase_date TEXT,
+  purchase_cost NUMERIC DEFAULT 0,
+  assigned_to TEXT,
+  status TEXT DEFAULT 'Available',
+  notes TEXT
+);
+
+-- 19. Documents Table (Dukumentiyada & Faylalka Dugsiga)
+CREATE TABLE IF NOT EXISTS dugsiga_documents (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  category TEXT NOT NULL,
+  related_id TEXT,
+  related_name TEXT,
+  file_type TEXT,
+  file_size TEXT,
+  file_url TEXT,
+  upload_date TEXT,
+  notes TEXT
+);
+
+-- 20. Notifications Table (Ogeysiisyada Nidaamka & Farriimaha)
+CREATE TABLE IF NOT EXISTS dugsiga_notifications (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  message TEXT NOT NULL,
+  channel TEXT DEFAULT 'in_app',
+  recipient TEXT NOT NULL,
+  recipient_name TEXT,
+  status TEXT DEFAULT 'Sent',
+  created_at TEXT
+);
+
+-- ----------------------------------------------------------------------------
+-- STUDENT AUDIT LOG
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS dugsiga_student_audit (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  school_id TEXT NOT NULL,
+  student_id TEXT NOT NULL,
+  action TEXT NOT NULL CHECK (action IN ('created','updated','archived','restored','deleted')),
+  actor_email TEXT,
+  actor_role TEXT,
+  changed_fields JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+CREATE INDEX IF NOT EXISTS idx_dugsiga_student_audit_school_student
+  ON dugsiga_student_audit (school_id, student_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_dugsiga_student_audit_school_action
+  ON dugsiga_student_audit (school_id, action, created_at DESC);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_dugsiga_students_school_national_id
+  ON dugsiga_students (school_id, lower(btrim(national_id)))
+  WHERE national_id IS NOT NULL AND btrim(national_id) <> '';
+
+-- ----------------------------------------------------------------------------
+-- QAYBTA 3: MIISASKA CUSUB EE MAALIYADDA & XISAABAADKA (FINANCE & ACCOUNTING - UPGRADE 2)
+-- ----------------------------------------------------------------------------
+
+-- 21. Fee Structures Table (Qaab-Dhismeedka Khidmadaha Dugsiga)
+CREATE TABLE IF NOT EXISTS dugsiga_fee_structures (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  category TEXT NOT NULL,
+  amount NUMERIC NOT NULL DEFAULT 0,
+  class_name TEXT DEFAULT 'All Classes',
+  academic_year TEXT DEFAULT '2026-2027',
+  term TEXT DEFAULT 'All Terms',
+  description TEXT,
+  created_at TEXT
+);
+
+-- 22. Invoices Table (Qaansheekooyinka Ardayda / Biilasha)
+CREATE TABLE IF NOT EXISTS dugsiga_invoices (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  invoice_number TEXT NOT NULL,
+  student_id TEXT NOT NULL,
+  student_name TEXT,
+  class_name TEXT,
+  guardian_name TEXT,
+  guardian_phone TEXT,
+  items JSONB DEFAULT '[]'::jsonb,
+  subtotal NUMERIC NOT NULL DEFAULT 0,
+  discount NUMERIC NOT NULL DEFAULT 0,
+  total NUMERIC NOT NULL DEFAULT 0,
+  paid_amount NUMERIC NOT NULL DEFAULT 0,
+  balance NUMERIC NOT NULL DEFAULT 0,
+  issue_date TEXT NOT NULL,
+  due_date TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'Unpaid',
+  notes TEXT,
+  created_at TEXT,
+  updated_at TEXT
+);
+
+-- 23. Payments Table (Diiwaanka Lacag-Bixinta & Rasiidhada)
+CREATE TABLE IF NOT EXISTS dugsiga_payments (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  receipt_number TEXT NOT NULL,
+  invoice_id TEXT,
+  invoice_number TEXT,
+  student_id TEXT,
+  student_name TEXT,
+  class_name TEXT,
+  amount NUMERIC NOT NULL DEFAULT 0,
+  payment_date TEXT NOT NULL,
+  payment_method TEXT NOT NULL DEFAULT 'Cash',
+  reference TEXT,
+  remaining_balance NUMERIC DEFAULT 0,
+  received_by TEXT NOT NULL,
+  notes TEXT,
+  created_at TEXT
+);
+
+-- 24. Expenses Table (Kharashaadka Dugsiga & Ogolaanshaha)
+CREATE TABLE IF NOT EXISTS dugsiga_expenses (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  expense_id TEXT,
+  category TEXT NOT NULL,
+  description TEXT NOT NULL,
+  amount NUMERIC NOT NULL DEFAULT 0,
+  date TEXT NOT NULL,
+  payment_method TEXT NOT NULL DEFAULT 'Cash',
+  vendor_payee TEXT NOT NULL,
+  reference_number TEXT,
+  receipt_document TEXT,
+  created_by TEXT NOT NULL,
+  notes TEXT,
+  status TEXT NOT NULL DEFAULT 'Approved',
+  payroll_id TEXT,
+  created_at TEXT,
+  updated_at TEXT
+);
+
+-- 25. Income Table (Dakhliga Kale ee Aan Ahayn Lacagta Waxbarashada)
+CREATE TABLE IF NOT EXISTS dugsiga_income (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  income_id TEXT,
+  category TEXT NOT NULL,
+  description TEXT NOT NULL,
+  amount NUMERIC NOT NULL DEFAULT 0,
+  date TEXT NOT NULL,
+  payment_method TEXT NOT NULL DEFAULT 'Cash',
+  reference TEXT,
+  payer TEXT NOT NULL,
+  notes TEXT,
+  created_by TEXT NOT NULL,
+  payment_id TEXT,
+  created_at TEXT
+);
+
+-- 26. Budgets Table (Miisaaniyadda Qorshaysan vs Dhabta ah)
+CREATE TABLE IF NOT EXISTS dugsiga_budgets (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  academic_year TEXT NOT NULL DEFAULT '2026-2027',
+  period TEXT NOT NULL DEFAULT 'Annual',
+  category TEXT NOT NULL,
+  type TEXT NOT NULL DEFAULT 'Expense',
+  planned_amount NUMERIC NOT NULL DEFAULT 0,
+  actual_amount NUMERIC NOT NULL DEFAULT 0,
+  remaining_amount NUMERIC NOT NULL DEFAULT 0,
+  variance NUMERIC NOT NULL DEFAULT 0,
+  notes TEXT,
+  created_at TEXT
+);
+
+-- 27. Payroll Table (Mushahaarka Macallimiinta & Shaqaalaha)
+CREATE TABLE IF NOT EXISTS dugsiga_payroll (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  employee_type TEXT NOT NULL DEFAULT 'Teacher',
+  employee_id TEXT NOT NULL,
+  employee_name TEXT NOT NULL,
+  role_or_department TEXT,
+  basic_salary NUMERIC NOT NULL DEFAULT 0,
+  allowances NUMERIC NOT NULL DEFAULT 0,
+  deductions NUMERIC NOT NULL DEFAULT 0,
+  gross_salary NUMERIC NOT NULL DEFAULT 0,
+  net_salary NUMERIC NOT NULL DEFAULT 0,
+  payment_date TEXT NOT NULL,
+  payment_method TEXT NOT NULL DEFAULT 'EVC Plus',
+  payroll_period TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'Draft',
+  notes TEXT,
+  paid_at TEXT,
+  expense_id TEXT,
+  created_at TEXT,
+  updated_at TEXT
+);
+
+-- ----------------------------------------------------------------------------
+-- QAYBTA 4: SECURITY
+-- Backend-ku wuxuu isticmaalaa server-side service_role client.
+-- Direct client access (anon/authenticated) lama siinayo tables-kan.
+-- RLS waa ON dhammaan tables-ka; service_role wuxuu leeyahay bypassRLS.
+-- ----------------------------------------------------------------------------
+
+DO $
+DECLARE
+  tbl_name TEXT;
+  tables_list TEXT[] := ARRAY[
+    'dugsiga_users',
+    'dugsiga_students',
+    'dugsiga_classes',
+    'dugsiga_subjects',
+    'dugsiga_exam_scores',
+    'dugsiga_attendance',
+    'dugsiga_fees',
+    'dugsiga_settings',
+    'dugsiga_teachers',
+    'dugsiga_staff',
+    'dugsiga_guardians',
+    'dugsiga_staff_attendance',
+    'dugsiga_timetable',
+    'dugsiga_admissions',
+    'dugsiga_announcements',
+    'dugsiga_library_books',
+    'dugsiga_library_loans',
+    'dugsiga_inventory',
+    'dugsiga_documents',
+    'dugsiga_notifications',
+    'dugsiga_fee_structures',
+    'dugsiga_invoices',
+    'dugsiga_payments',
+    'dugsiga_expenses',
+    'dugsiga_income',
+    'dugsiga_budgets',
+    'dugsiga_payroll',
+     'dugsiga_student_audit'
+  ];
+BEGIN
+  FOREACH tbl_name IN ARRAY tables_list LOOP
+    EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', tbl_name);
+    EXECUTE format('REVOKE ALL ON TABLE public.%I FROM anon, authenticated', tbl_name);
+    EXECUTE format('GRANT ALL ON TABLE public.%I TO service_role', tbl_name);
+  END LOOP;
+END $;
+
+-- Mahadsanid! DUGSI PRO 2026 database-ku waa secure-by-default.
+),
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','inactive','archived')),
+  photo TEXT,
+  date_of_birth TEXT,
+  address TEXT,
+  guardian_name TEXT,
+  guardian_relationship TEXT,
+  guardian_phone_alt TEXT,
+  section TEXT,
+  roll_number TEXT,
+  national_id TEXT,
+  previous_school TEXT,
+  blood_group TEXT,
+  medical_notes TEXT,
+  created_at TEXT,
+  updated_at TEXT
+);
+
+-- 3. Classes Table (Fasallada Dugsiga)
+CREATE TABLE IF NOT EXISTS dugsiga_classes (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  class_name TEXT NOT NULL,
+  teacher_name TEXT,
+  room_number TEXT,
+  description TEXT,
+  section TEXT,
+  capacity INTEGER DEFAULT 30,
+  academic_year TEXT DEFAULT '2026-2027',
+  status TEXT DEFAULT 'active',
+  created_at TEXT
+);
+
+-- 4. Subjects Table (Maadooyinka)
+CREATE TABLE IF NOT EXISTS dugsiga_subjects (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  subject_name TEXT NOT NULL,
+  subject_code TEXT,
+  class_name TEXT,
+  teacher_name TEXT,
+  category TEXT,
+  description TEXT,
+  pass_marks NUMERIC DEFAULT 50,
+  max_marks NUMERIC DEFAULT 100,
+  status TEXT DEFAULT 'active',
+  created_at TEXT
+);
+
+-- 5. Exam Scores Table (Natiijooyinka Imtixaanaadka)
+CREATE TABLE IF NOT EXISTS dugsiga_exam_scores (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  student_id TEXT NOT NULL,
+  student_name TEXT,
+  class_name TEXT NOT NULL,
+  subject_name TEXT NOT NULL,
+  exam_name TEXT NOT NULL,
+  term TEXT DEFAULT 'Term 1',
+  max_marks NUMERIC DEFAULT 100,
+  marks_obtained NUMERIC NOT NULL,
+  grade TEXT,
+  exam_date TEXT,
+  created_at TEXT
+);
+
+-- 6. Student Attendance Table (Xaadirinta Ardayda)
+CREATE TABLE IF NOT EXISTS dugsiga_attendance (
+  school_id TEXT NOT NULL,
+  date TEXT NOT NULL,
+  student_id TEXT NOT NULL,
+  status TEXT NOT NULL,
+  timestamp TEXT,
+  session_type TEXT DEFAULT 'before_break',
+  PRIMARY KEY (school_id, date, student_id, session_type)
+);
+
+-- 7. Legacy Monthly Fees Table (Fiiga Ardayda ee Hore)
+CREATE TABLE IF NOT EXISTS dugsiga_fees (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  student_id TEXT NOT NULL,
+  month TEXT NOT NULL,
+  year INTEGER NOT NULL,
+  amount NUMERIC NOT NULL,
+  paid_amount NUMERIC NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'unpaid',
+  created_at TEXT,
+  updated_at TEXT,
+  history JSONB DEFAULT '[]'::jsonb
+);
+
+-- 8. School Settings Table (Habaynta Guud ee Dugsiga)
+CREATE TABLE IF NOT EXISTS dugsiga_settings (
+  school_id TEXT NOT NULL,
+  key TEXT NOT NULL,
+  value JSONB,
+  PRIMARY KEY (school_id, key)
+);
+
+-- ----------------------------------------------------------------------------
+-- QAYBTA 2: MIISASKA CUSUB EE MAAMULKA & SHAQAALAHA (ACADEMIC & HR - UPGRADE 1)
+-- ----------------------------------------------------------------------------
+
+-- 9. Teachers Table (Diiwaanka Macallimiinta)
+CREATE TABLE IF NOT EXISTS dugsiga_teachers (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  teacher_id TEXT,
+  name TEXT NOT NULL,
+  photo TEXT,
+  gender TEXT DEFAULT 'Male',
+  date_of_birth TEXT,
+  phone TEXT,
+  email TEXT,
+  address TEXT,
+  qualification TEXT,
+  specialization TEXT,
+  hire_date TEXT,
+  employment_status TEXT DEFAULT 'Full-Time',
+  salary NUMERIC DEFAULT 0,
+  emergency_contact TEXT,
+  notes TEXT,
+  assigned_classes JSONB DEFAULT '[]'::jsonb,
+  assigned_subjects JSONB DEFAULT '[]'::jsonb,
+  status TEXT DEFAULT 'ACTIVE',
+  invitation_token TEXT,
+  invitation_expires_at TEXT,
+  invitation_sent_at TEXT,
+  activated_at TEXT,
+  created_at TEXT
+);
+
+-- 10. Staff Members Table (Shaqaalaha Kale ee Dugsiga)
+CREATE TABLE IF NOT EXISTS dugsiga_staff (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  employee_id TEXT,
+  name TEXT NOT NULL,
+  role TEXT NOT NULL,
+  department TEXT,
+  phone TEXT,
+  email TEXT,
+  hire_date TEXT,
+  salary NUMERIC DEFAULT 0,
+  employment_status TEXT DEFAULT 'Full-Time',
+  notes TEXT,
+  created_at TEXT
+);
+
+-- 11. Guardians Table (Waalidiinta & Mas'uuliyiinta)
+CREATE TABLE IF NOT EXISTS dugsiga_guardians (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  guardian_id TEXT,
+  name TEXT NOT NULL,
+  relationship TEXT DEFAULT 'Father',
+  phone TEXT NOT NULL,
+  whatsapp TEXT,
+  email TEXT,
+  address TEXT,
+  occupation TEXT,
+  emergency_contact TEXT,
+  student_ids JSONB DEFAULT '[]'::jsonb,
+  notes TEXT,
+  created_at TEXT
+);
+
+-- 12. Staff Attendance Table (Xaadirinta Shaqaalaha & Macallimiinta)
+CREATE TABLE IF NOT EXISTS dugsiga_staff_attendance (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  staff_id TEXT NOT NULL,
+  staff_name TEXT,
+  role TEXT,
+  date TEXT NOT NULL,
+  status TEXT NOT NULL,
+  timestamp TEXT,
+  notes TEXT
+);
+
+-- 13. Timetable Table (Jadwalka Xiisadaha Todobaadlaha ah)
+CREATE TABLE IF NOT EXISTS dugsiga_timetable (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  academic_year TEXT DEFAULT '2026-2027',
+  term TEXT DEFAULT 'Term 1',
+  class_name TEXT NOT NULL,
+  teacher_name TEXT NOT NULL,
+  subject_name TEXT NOT NULL,
+  room_number TEXT,
+  day TEXT NOT NULL,
+  start_time TEXT NOT NULL,
+  end_time TEXT NOT NULL
+);
+
+-- 14. Admissions Table (Codsiyada Ardayda Cusub)
+CREATE TABLE IF NOT EXISTS dugsiga_admissions (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  applicant_name TEXT NOT NULL,
+  gender TEXT DEFAULT 'Male',
+  date_of_birth TEXT,
+  desired_class TEXT NOT NULL,
+  guardian_name TEXT,
+  guardian_phone TEXT,
+  guardian_relationship TEXT,
+  admission_date TEXT,
+  status TEXT DEFAULT 'Pending',
+  notes TEXT,
+  student_id TEXT,
+  created_at TEXT
+);
+
+-- 15. Announcements Table (Ogeysiisyada Guud & Qaybaha)
+CREATE TABLE IF NOT EXISTS dugsiga_announcements (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  message TEXT NOT NULL,
+  audience TEXT DEFAULT 'Everyone',
+  target_class TEXT,
+  author TEXT,
+  priority TEXT DEFAULT 'Normal',
+  status TEXT DEFAULT 'Active',
+  publish_date TEXT,
+  expiry_date TEXT,
+  created_at TEXT
+);
+
+-- 16. Library Books Table (Kataloogga Buugaagta Maktabadda)
+CREATE TABLE IF NOT EXISTS dugsiga_library_books (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  isbn TEXT,
+  title TEXT NOT NULL,
+  author TEXT NOT NULL,
+  category TEXT,
+  total_copies INTEGER DEFAULT 1,
+  available_copies INTEGER DEFAULT 1,
+  location TEXT,
+  created_at TEXT
+);
+
+-- 17. Library Loans Table (Amaahashada & Soo Celinta Buugaagta)
+CREATE TABLE IF NOT EXISTS dugsiga_library_loans (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  book_id TEXT NOT NULL,
+  book_title TEXT,
+  borrower_type TEXT NOT NULL DEFAULT 'Student',
+  borrower_id TEXT NOT NULL,
+  borrower_name TEXT NOT NULL,
+  issue_date TEXT NOT NULL,
+  due_date TEXT NOT NULL,
+  return_date TEXT,
+  status TEXT DEFAULT 'Borrowed'
+);
+
+-- 18. Inventory Table (Hantida & Qalabka Dugsiga)
+CREATE TABLE IF NOT EXISTS dugsiga_inventory (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  item_name TEXT NOT NULL,
+  category TEXT DEFAULT 'Furniture',
+  quantity INTEGER DEFAULT 1,
+  location TEXT,
+  condition TEXT DEFAULT 'Good',
+  purchase_date TEXT,
+  purchase_cost NUMERIC DEFAULT 0,
+  assigned_to TEXT,
+  status TEXT DEFAULT 'Available',
+  notes TEXT
+);
+
+-- 19. Documents Table (Dukumentiyada & Faylalka Dugsiga)
+CREATE TABLE IF NOT EXISTS dugsiga_documents (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  category TEXT NOT NULL,
+  related_id TEXT,
+  related_name TEXT,
+  file_type TEXT,
+  file_size TEXT,
+  file_url TEXT,
+  upload_date TEXT,
+  notes TEXT
+);
+
+-- 20. Notifications Table (Ogeysiisyada Nidaamka & Farriimaha)
+CREATE TABLE IF NOT EXISTS dugsiga_notifications (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  message TEXT NOT NULL,
+  channel TEXT DEFAULT 'in_app',
+  recipient TEXT NOT NULL,
+  recipient_name TEXT,
+  status TEXT DEFAULT 'Sent',
+  created_at TEXT
+);
+
+-- ----------------------------------------------------------------------------
+-- STUDENT AUDIT LOG
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS dugsiga_student_audit (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  school_id TEXT NOT NULL,
+  student_id TEXT NOT NULL,
+  action TEXT NOT NULL CHECK (action IN ('created','updated','archived','restored','deleted')),
+  actor_email TEXT,
+  actor_role TEXT,
+  changed_fields JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+CREATE INDEX IF NOT EXISTS idx_dugsiga_student_audit_school_student
+  ON dugsiga_student_audit (school_id, student_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_dugsiga_student_audit_school_action
+  ON dugsiga_student_audit (school_id, action, created_at DESC);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_dugsiga_students_school_national_id
+  ON dugsiga_students (school_id, lower(btrim(national_id)))
+  WHERE national_id IS NOT NULL AND btrim(national_id) <> '';
+
+-- ----------------------------------------------------------------------------
+-- QAYBTA 3: MIISASKA CUSUB EE MAALIYADDA & XISAABAADKA (FINANCE & ACCOUNTING - UPGRADE 2)
+-- ----------------------------------------------------------------------------
+
+-- 21. Fee Structures Table (Qaab-Dhismeedka Khidmadaha Dugsiga)
+CREATE TABLE IF NOT EXISTS dugsiga_fee_structures (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  category TEXT NOT NULL,
+  amount NUMERIC NOT NULL DEFAULT 0,
+  class_name TEXT DEFAULT 'All Classes',
+  academic_year TEXT DEFAULT '2026-2027',
+  term TEXT DEFAULT 'All Terms',
+  description TEXT,
+  created_at TEXT
+);
+
+-- 22. Invoices Table (Qaansheekooyinka Ardayda / Biilasha)
+CREATE TABLE IF NOT EXISTS dugsiga_invoices (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  invoice_number TEXT NOT NULL,
+  student_id TEXT NOT NULL,
+  student_name TEXT,
+  class_name TEXT,
+  guardian_name TEXT,
+  guardian_phone TEXT,
+  items JSONB DEFAULT '[]'::jsonb,
+  subtotal NUMERIC NOT NULL DEFAULT 0,
+  discount NUMERIC NOT NULL DEFAULT 0,
+  total NUMERIC NOT NULL DEFAULT 0,
+  paid_amount NUMERIC NOT NULL DEFAULT 0,
+  balance NUMERIC NOT NULL DEFAULT 0,
+  issue_date TEXT NOT NULL,
+  due_date TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'Unpaid',
+  notes TEXT,
+  created_at TEXT,
+  updated_at TEXT
+);
+
+-- 23. Payments Table (Diiwaanka Lacag-Bixinta & Rasiidhada)
+CREATE TABLE IF NOT EXISTS dugsiga_payments (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  receipt_number TEXT NOT NULL,
+  invoice_id TEXT,
+  invoice_number TEXT,
+  student_id TEXT,
+  student_name TEXT,
+  class_name TEXT,
+  amount NUMERIC NOT NULL DEFAULT 0,
+  payment_date TEXT NOT NULL,
+  payment_method TEXT NOT NULL DEFAULT 'Cash',
+  reference TEXT,
+  remaining_balance NUMERIC DEFAULT 0,
+  received_by TEXT NOT NULL,
+  notes TEXT,
+  created_at TEXT
+);
+
+-- 24. Expenses Table (Kharashaadka Dugsiga & Ogolaanshaha)
+CREATE TABLE IF NOT EXISTS dugsiga_expenses (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  expense_id TEXT,
+  category TEXT NOT NULL,
+  description TEXT NOT NULL,
+  amount NUMERIC NOT NULL DEFAULT 0,
+  date TEXT NOT NULL,
+  payment_method TEXT NOT NULL DEFAULT 'Cash',
+  vendor_payee TEXT NOT NULL,
+  reference_number TEXT,
+  receipt_document TEXT,
+  created_by TEXT NOT NULL,
+  notes TEXT,
+  status TEXT NOT NULL DEFAULT 'Approved',
+  payroll_id TEXT,
+  created_at TEXT,
+  updated_at TEXT
+);
+
+-- 25. Income Table (Dakhliga Kale ee Aan Ahayn Lacagta Waxbarashada)
+CREATE TABLE IF NOT EXISTS dugsiga_income (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  income_id TEXT,
+  category TEXT NOT NULL,
+  description TEXT NOT NULL,
+  amount NUMERIC NOT NULL DEFAULT 0,
+  date TEXT NOT NULL,
+  payment_method TEXT NOT NULL DEFAULT 'Cash',
+  reference TEXT,
+  payer TEXT NOT NULL,
+  notes TEXT,
+  created_by TEXT NOT NULL,
+  payment_id TEXT,
+  created_at TEXT
+);
+
+-- 26. Budgets Table (Miisaaniyadda Qorshaysan vs Dhabta ah)
+CREATE TABLE IF NOT EXISTS dugsiga_budgets (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  academic_year TEXT NOT NULL DEFAULT '2026-2027',
+  period TEXT NOT NULL DEFAULT 'Annual',
+  category TEXT NOT NULL,
+  type TEXT NOT NULL DEFAULT 'Expense',
+  planned_amount NUMERIC NOT NULL DEFAULT 0,
+  actual_amount NUMERIC NOT NULL DEFAULT 0,
+  remaining_amount NUMERIC NOT NULL DEFAULT 0,
+  variance NUMERIC NOT NULL DEFAULT 0,
+  notes TEXT,
+  created_at TEXT
+);
+
+-- 27. Payroll Table (Mushahaarka Macallimiinta & Shaqaalaha)
+CREATE TABLE IF NOT EXISTS dugsiga_payroll (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  employee_type TEXT NOT NULL DEFAULT 'Teacher',
+  employee_id TEXT NOT NULL,
+  employee_name TEXT NOT NULL,
+  role_or_department TEXT,
+  basic_salary NUMERIC NOT NULL DEFAULT 0,
+  allowances NUMERIC NOT NULL DEFAULT 0,
+  deductions NUMERIC NOT NULL DEFAULT 0,
+  gross_salary NUMERIC NOT NULL DEFAULT 0,
+  net_salary NUMERIC NOT NULL DEFAULT 0,
+  payment_date TEXT NOT NULL,
+  payment_method TEXT NOT NULL DEFAULT 'EVC Plus',
+  payroll_period TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'Draft',
+  notes TEXT,
+  paid_at TEXT,
+  expense_id TEXT,
+  created_at TEXT,
+  updated_at TEXT
+);
+
+-- ----------------------------------------------------------------------------
+-- QAYBTA 4: SECURITY
+-- Backend-ku wuxuu isticmaalaa server-side service_role client.
+-- Direct client access (anon/authenticated) lama siinayo tables-kan.
+-- RLS waa ON dhammaan tables-ka; service_role wuxuu leeyahay bypassRLS.
+-- ----------------------------------------------------------------------------
+
+DO $
+DECLARE
+  tbl_name TEXT;
+  tables_list TEXT[] := ARRAY[
+    'dugsiga_users',
+    'dugsiga_students',
+    'dugsiga_classes',
+    'dugsiga_subjects',
+    'dugsiga_exam_scores',
+    'dugsiga_attendance',
+    'dugsiga_fees',
+    'dugsiga_settings',
+    'dugsiga_teachers',
+    'dugsiga_staff',
+    'dugsiga_guardians',
+    'dugsiga_staff_attendance',
+    'dugsiga_timetable',
+    'dugsiga_admissions',
+    'dugsiga_announcements',
+    'dugsiga_library_books',
+    'dugsiga_library_loans',
+    'dugsiga_inventory',
+    'dugsiga_documents',
+    'dugsiga_notifications',
+    'dugsiga_fee_structures',
+    'dugsiga_invoices',
+    'dugsiga_payments',
+    'dugsiga_expenses',
+    'dugsiga_income',
+    'dugsiga_budgets',
+    'dugsiga_payroll',
+     'dugsiga_student_audit'
+  ];
+BEGIN
+  FOREACH tbl_name IN ARRAY tables_list LOOP
+    EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', tbl_name);
+    EXECUTE format('REVOKE ALL ON TABLE public.%I FROM anon, authenticated', tbl_name);
+    EXECUTE format('GRANT ALL ON TABLE public.%I TO service_role', tbl_name);
+  END LOOP;
+END $;
+
+-- Mahadsanid! DUGSI PRO 2026 database-ku waa secure-by-default.
+),
+  ADD CONSTRAINT dugsiga_students_dob_valid
+    CHECK (date_of_birth IS NULL OR date_of_birth = '' OR date_of_birth ~ '^\\d{4}-\\d{2}-\\d{2}
+
+-- 3. Classes Table (Fasallada Dugsiga)
+CREATE TABLE IF NOT EXISTS dugsiga_classes (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  class_name TEXT NOT NULL,
+  teacher_name TEXT,
+  room_number TEXT,
+  description TEXT,
+  section TEXT,
+  capacity INTEGER DEFAULT 30,
+  academic_year TEXT DEFAULT '2026-2027',
+  status TEXT DEFAULT 'active',
+  created_at TEXT
+);
+
+-- 4. Subjects Table (Maadooyinka)
+CREATE TABLE IF NOT EXISTS dugsiga_subjects (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  subject_name TEXT NOT NULL,
+  subject_code TEXT,
+  class_name TEXT,
+  teacher_name TEXT,
+  category TEXT,
+  description TEXT,
+  pass_marks NUMERIC DEFAULT 50,
+  max_marks NUMERIC DEFAULT 100,
+  status TEXT DEFAULT 'active',
+  created_at TEXT
+);
+
+-- 5. Exam Scores Table (Natiijooyinka Imtixaanaadka)
+CREATE TABLE IF NOT EXISTS dugsiga_exam_scores (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  student_id TEXT NOT NULL,
+  student_name TEXT,
+  class_name TEXT NOT NULL,
+  subject_name TEXT NOT NULL,
+  exam_name TEXT NOT NULL,
+  term TEXT DEFAULT 'Term 1',
+  max_marks NUMERIC DEFAULT 100,
+  marks_obtained NUMERIC NOT NULL,
+  grade TEXT,
+  exam_date TEXT,
+  created_at TEXT
+);
+
+-- 6. Student Attendance Table (Xaadirinta Ardayda)
+CREATE TABLE IF NOT EXISTS dugsiga_attendance (
+  school_id TEXT NOT NULL,
+  date TEXT NOT NULL,
+  student_id TEXT NOT NULL,
+  status TEXT NOT NULL,
+  timestamp TEXT,
+  session_type TEXT DEFAULT 'before_break',
+  PRIMARY KEY (school_id, date, student_id, session_type)
+);
+
+-- 7. Legacy Monthly Fees Table (Fiiga Ardayda ee Hore)
+CREATE TABLE IF NOT EXISTS dugsiga_fees (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  student_id TEXT NOT NULL,
+  month TEXT NOT NULL,
+  year INTEGER NOT NULL,
+  amount NUMERIC NOT NULL,
+  paid_amount NUMERIC NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'unpaid',
+  created_at TEXT,
+  updated_at TEXT,
+  history JSONB DEFAULT '[]'::jsonb
+);
+
+-- 8. School Settings Table (Habaynta Guud ee Dugsiga)
+CREATE TABLE IF NOT EXISTS dugsiga_settings (
+  school_id TEXT NOT NULL,
+  key TEXT NOT NULL,
+  value JSONB,
+  PRIMARY KEY (school_id, key)
+);
+
+-- ----------------------------------------------------------------------------
+-- QAYBTA 2: MIISASKA CUSUB EE MAAMULKA & SHAQAALAHA (ACADEMIC & HR - UPGRADE 1)
+-- ----------------------------------------------------------------------------
+
+-- 9. Teachers Table (Diiwaanka Macallimiinta)
+CREATE TABLE IF NOT EXISTS dugsiga_teachers (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  teacher_id TEXT,
+  name TEXT NOT NULL,
+  photo TEXT,
+  gender TEXT DEFAULT 'Male',
+  date_of_birth TEXT,
+  phone TEXT,
+  email TEXT,
+  address TEXT,
+  qualification TEXT,
+  specialization TEXT,
+  hire_date TEXT,
+  employment_status TEXT DEFAULT 'Full-Time',
+  salary NUMERIC DEFAULT 0,
+  emergency_contact TEXT,
+  notes TEXT,
+  assigned_classes JSONB DEFAULT '[]'::jsonb,
+  assigned_subjects JSONB DEFAULT '[]'::jsonb,
+  status TEXT DEFAULT 'ACTIVE',
+  invitation_token TEXT,
+  invitation_expires_at TEXT,
+  invitation_sent_at TEXT,
+  activated_at TEXT,
+  created_at TEXT
+);
+
+-- 10. Staff Members Table (Shaqaalaha Kale ee Dugsiga)
+CREATE TABLE IF NOT EXISTS dugsiga_staff (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  employee_id TEXT,
+  name TEXT NOT NULL,
+  role TEXT NOT NULL,
+  department TEXT,
+  phone TEXT,
+  email TEXT,
+  hire_date TEXT,
+  salary NUMERIC DEFAULT 0,
+  employment_status TEXT DEFAULT 'Full-Time',
+  notes TEXT,
+  created_at TEXT
+);
+
+-- 11. Guardians Table (Waalidiinta & Mas'uuliyiinta)
+CREATE TABLE IF NOT EXISTS dugsiga_guardians (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  guardian_id TEXT,
+  name TEXT NOT NULL,
+  relationship TEXT DEFAULT 'Father',
+  phone TEXT NOT NULL,
+  whatsapp TEXT,
+  email TEXT,
+  address TEXT,
+  occupation TEXT,
+  emergency_contact TEXT,
+  student_ids JSONB DEFAULT '[]'::jsonb,
+  notes TEXT,
+  created_at TEXT
+);
+
+-- 12. Staff Attendance Table (Xaadirinta Shaqaalaha & Macallimiinta)
+CREATE TABLE IF NOT EXISTS dugsiga_staff_attendance (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  staff_id TEXT NOT NULL,
+  staff_name TEXT,
+  role TEXT,
+  date TEXT NOT NULL,
+  status TEXT NOT NULL,
+  timestamp TEXT,
+  notes TEXT
+);
+
+-- 13. Timetable Table (Jadwalka Xiisadaha Todobaadlaha ah)
+CREATE TABLE IF NOT EXISTS dugsiga_timetable (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  academic_year TEXT DEFAULT '2026-2027',
+  term TEXT DEFAULT 'Term 1',
+  class_name TEXT NOT NULL,
+  teacher_name TEXT NOT NULL,
+  subject_name TEXT NOT NULL,
+  room_number TEXT,
+  day TEXT NOT NULL,
+  start_time TEXT NOT NULL,
+  end_time TEXT NOT NULL
+);
+
+-- 14. Admissions Table (Codsiyada Ardayda Cusub)
+CREATE TABLE IF NOT EXISTS dugsiga_admissions (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  applicant_name TEXT NOT NULL,
+  gender TEXT DEFAULT 'Male',
+  date_of_birth TEXT,
+  desired_class TEXT NOT NULL,
+  guardian_name TEXT,
+  guardian_phone TEXT,
+  guardian_relationship TEXT,
+  admission_date TEXT,
+  status TEXT DEFAULT 'Pending',
+  notes TEXT,
+  student_id TEXT,
+  created_at TEXT
+);
+
+-- 15. Announcements Table (Ogeysiisyada Guud & Qaybaha)
+CREATE TABLE IF NOT EXISTS dugsiga_announcements (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  message TEXT NOT NULL,
+  audience TEXT DEFAULT 'Everyone',
+  target_class TEXT,
+  author TEXT,
+  priority TEXT DEFAULT 'Normal',
+  status TEXT DEFAULT 'Active',
+  publish_date TEXT,
+  expiry_date TEXT,
+  created_at TEXT
+);
+
+-- 16. Library Books Table (Kataloogga Buugaagta Maktabadda)
+CREATE TABLE IF NOT EXISTS dugsiga_library_books (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  isbn TEXT,
+  title TEXT NOT NULL,
+  author TEXT NOT NULL,
+  category TEXT,
+  total_copies INTEGER DEFAULT 1,
+  available_copies INTEGER DEFAULT 1,
+  location TEXT,
+  created_at TEXT
+);
+
+-- 17. Library Loans Table (Amaahashada & Soo Celinta Buugaagta)
+CREATE TABLE IF NOT EXISTS dugsiga_library_loans (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  book_id TEXT NOT NULL,
+  book_title TEXT,
+  borrower_type TEXT NOT NULL DEFAULT 'Student',
+  borrower_id TEXT NOT NULL,
+  borrower_name TEXT NOT NULL,
+  issue_date TEXT NOT NULL,
+  due_date TEXT NOT NULL,
+  return_date TEXT,
+  status TEXT DEFAULT 'Borrowed'
+);
+
+-- 18. Inventory Table (Hantida & Qalabka Dugsiga)
+CREATE TABLE IF NOT EXISTS dugsiga_inventory (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  item_name TEXT NOT NULL,
+  category TEXT DEFAULT 'Furniture',
+  quantity INTEGER DEFAULT 1,
+  location TEXT,
+  condition TEXT DEFAULT 'Good',
+  purchase_date TEXT,
+  purchase_cost NUMERIC DEFAULT 0,
+  assigned_to TEXT,
+  status TEXT DEFAULT 'Available',
+  notes TEXT
+);
+
+-- 19. Documents Table (Dukumentiyada & Faylalka Dugsiga)
+CREATE TABLE IF NOT EXISTS dugsiga_documents (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  category TEXT NOT NULL,
+  related_id TEXT,
+  related_name TEXT,
+  file_type TEXT,
+  file_size TEXT,
+  file_url TEXT,
+  upload_date TEXT,
+  notes TEXT
+);
+
+-- 20. Notifications Table (Ogeysiisyada Nidaamka & Farriimaha)
+CREATE TABLE IF NOT EXISTS dugsiga_notifications (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  message TEXT NOT NULL,
+  channel TEXT DEFAULT 'in_app',
+  recipient TEXT NOT NULL,
+  recipient_name TEXT,
+  status TEXT DEFAULT 'Sent',
+  created_at TEXT
+);
+
+-- ----------------------------------------------------------------------------
+-- STUDENT AUDIT LOG
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS dugsiga_student_audit (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  school_id TEXT NOT NULL,
+  student_id TEXT NOT NULL,
+  action TEXT NOT NULL CHECK (action IN ('created','updated','archived','restored','deleted')),
+  actor_email TEXT,
+  actor_role TEXT,
+  changed_fields JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+CREATE INDEX IF NOT EXISTS idx_dugsiga_student_audit_school_student
+  ON dugsiga_student_audit (school_id, student_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_dugsiga_student_audit_school_action
+  ON dugsiga_student_audit (school_id, action, created_at DESC);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_dugsiga_students_school_national_id
+  ON dugsiga_students (school_id, lower(btrim(national_id)))
+  WHERE national_id IS NOT NULL AND btrim(national_id) <> '';
+
+-- ----------------------------------------------------------------------------
+-- QAYBTA 3: MIISASKA CUSUB EE MAALIYADDA & XISAABAADKA (FINANCE & ACCOUNTING - UPGRADE 2)
+-- ----------------------------------------------------------------------------
+
+-- 21. Fee Structures Table (Qaab-Dhismeedka Khidmadaha Dugsiga)
+CREATE TABLE IF NOT EXISTS dugsiga_fee_structures (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  category TEXT NOT NULL,
+  amount NUMERIC NOT NULL DEFAULT 0,
+  class_name TEXT DEFAULT 'All Classes',
+  academic_year TEXT DEFAULT '2026-2027',
+  term TEXT DEFAULT 'All Terms',
+  description TEXT,
+  created_at TEXT
+);
+
+-- 22. Invoices Table (Qaansheekooyinka Ardayda / Biilasha)
+CREATE TABLE IF NOT EXISTS dugsiga_invoices (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  invoice_number TEXT NOT NULL,
+  student_id TEXT NOT NULL,
+  student_name TEXT,
+  class_name TEXT,
+  guardian_name TEXT,
+  guardian_phone TEXT,
+  items JSONB DEFAULT '[]'::jsonb,
+  subtotal NUMERIC NOT NULL DEFAULT 0,
+  discount NUMERIC NOT NULL DEFAULT 0,
+  total NUMERIC NOT NULL DEFAULT 0,
+  paid_amount NUMERIC NOT NULL DEFAULT 0,
+  balance NUMERIC NOT NULL DEFAULT 0,
+  issue_date TEXT NOT NULL,
+  due_date TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'Unpaid',
+  notes TEXT,
+  created_at TEXT,
+  updated_at TEXT
+);
+
+-- 23. Payments Table (Diiwaanka Lacag-Bixinta & Rasiidhada)
+CREATE TABLE IF NOT EXISTS dugsiga_payments (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  receipt_number TEXT NOT NULL,
+  invoice_id TEXT,
+  invoice_number TEXT,
+  student_id TEXT,
+  student_name TEXT,
+  class_name TEXT,
+  amount NUMERIC NOT NULL DEFAULT 0,
+  payment_date TEXT NOT NULL,
+  payment_method TEXT NOT NULL DEFAULT 'Cash',
+  reference TEXT,
+  remaining_balance NUMERIC DEFAULT 0,
+  received_by TEXT NOT NULL,
+  notes TEXT,
+  created_at TEXT
+);
+
+-- 24. Expenses Table (Kharashaadka Dugsiga & Ogolaanshaha)
+CREATE TABLE IF NOT EXISTS dugsiga_expenses (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  expense_id TEXT,
+  category TEXT NOT NULL,
+  description TEXT NOT NULL,
+  amount NUMERIC NOT NULL DEFAULT 0,
+  date TEXT NOT NULL,
+  payment_method TEXT NOT NULL DEFAULT 'Cash',
+  vendor_payee TEXT NOT NULL,
+  reference_number TEXT,
+  receipt_document TEXT,
+  created_by TEXT NOT NULL,
+  notes TEXT,
+  status TEXT NOT NULL DEFAULT 'Approved',
+  payroll_id TEXT,
+  created_at TEXT,
+  updated_at TEXT
+);
+
+-- 25. Income Table (Dakhliga Kale ee Aan Ahayn Lacagta Waxbarashada)
+CREATE TABLE IF NOT EXISTS dugsiga_income (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  income_id TEXT,
+  category TEXT NOT NULL,
+  description TEXT NOT NULL,
+  amount NUMERIC NOT NULL DEFAULT 0,
+  date TEXT NOT NULL,
+  payment_method TEXT NOT NULL DEFAULT 'Cash',
+  reference TEXT,
+  payer TEXT NOT NULL,
+  notes TEXT,
+  created_by TEXT NOT NULL,
+  payment_id TEXT,
+  created_at TEXT
+);
+
+-- 26. Budgets Table (Miisaaniyadda Qorshaysan vs Dhabta ah)
+CREATE TABLE IF NOT EXISTS dugsiga_budgets (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  academic_year TEXT NOT NULL DEFAULT '2026-2027',
+  period TEXT NOT NULL DEFAULT 'Annual',
+  category TEXT NOT NULL,
+  type TEXT NOT NULL DEFAULT 'Expense',
+  planned_amount NUMERIC NOT NULL DEFAULT 0,
+  actual_amount NUMERIC NOT NULL DEFAULT 0,
+  remaining_amount NUMERIC NOT NULL DEFAULT 0,
+  variance NUMERIC NOT NULL DEFAULT 0,
+  notes TEXT,
+  created_at TEXT
+);
+
+-- 27. Payroll Table (Mushahaarka Macallimiinta & Shaqaalaha)
+CREATE TABLE IF NOT EXISTS dugsiga_payroll (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  employee_type TEXT NOT NULL DEFAULT 'Teacher',
+  employee_id TEXT NOT NULL,
+  employee_name TEXT NOT NULL,
+  role_or_department TEXT,
+  basic_salary NUMERIC NOT NULL DEFAULT 0,
+  allowances NUMERIC NOT NULL DEFAULT 0,
+  deductions NUMERIC NOT NULL DEFAULT 0,
+  gross_salary NUMERIC NOT NULL DEFAULT 0,
+  net_salary NUMERIC NOT NULL DEFAULT 0,
+  payment_date TEXT NOT NULL,
+  payment_method TEXT NOT NULL DEFAULT 'EVC Plus',
+  payroll_period TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'Draft',
+  notes TEXT,
+  paid_at TEXT,
+  expense_id TEXT,
+  created_at TEXT,
+  updated_at TEXT
+);
+
+-- ----------------------------------------------------------------------------
+-- QAYBTA 4: SECURITY
+-- Backend-ku wuxuu isticmaalaa server-side service_role client.
+-- Direct client access (anon/authenticated) lama siinayo tables-kan.
+-- RLS waa ON dhammaan tables-ka; service_role wuxuu leeyahay bypassRLS.
+-- ----------------------------------------------------------------------------
+
+DO $
+DECLARE
+  tbl_name TEXT;
+  tables_list TEXT[] := ARRAY[
+    'dugsiga_users',
+    'dugsiga_students',
+    'dugsiga_classes',
+    'dugsiga_subjects',
+    'dugsiga_exam_scores',
+    'dugsiga_attendance',
+    'dugsiga_fees',
+    'dugsiga_settings',
+    'dugsiga_teachers',
+    'dugsiga_staff',
+    'dugsiga_guardians',
+    'dugsiga_staff_attendance',
+    'dugsiga_timetable',
+    'dugsiga_admissions',
+    'dugsiga_announcements',
+    'dugsiga_library_books',
+    'dugsiga_library_loans',
+    'dugsiga_inventory',
+    'dugsiga_documents',
+    'dugsiga_notifications',
+    'dugsiga_fee_structures',
+    'dugsiga_invoices',
+    'dugsiga_payments',
+    'dugsiga_expenses',
+    'dugsiga_income',
+    'dugsiga_budgets',
+    'dugsiga_payroll',
+     'dugsiga_student_audit'
+  ];
+BEGIN
+  FOREACH tbl_name IN ARRAY tables_list LOOP
+    EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', tbl_name);
+    EXECUTE format('REVOKE ALL ON TABLE public.%I FROM anon, authenticated', tbl_name);
+    EXECUTE format('GRANT ALL ON TABLE public.%I TO service_role', tbl_name);
+  END LOOP;
+END $;
+
+-- Mahadsanid! DUGSI PRO 2026 database-ku waa secure-by-default.
+),
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','inactive','archived')),
+  photo TEXT,
+  date_of_birth TEXT,
+  address TEXT,
+  guardian_name TEXT,
+  guardian_relationship TEXT,
+  guardian_phone_alt TEXT,
+  section TEXT,
+  roll_number TEXT,
+  national_id TEXT,
+  previous_school TEXT,
+  blood_group TEXT,
+  medical_notes TEXT,
+  created_at TEXT,
+  updated_at TEXT
+);
+
+-- 3. Classes Table (Fasallada Dugsiga)
+CREATE TABLE IF NOT EXISTS dugsiga_classes (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  class_name TEXT NOT NULL,
+  teacher_name TEXT,
+  room_number TEXT,
+  description TEXT,
+  section TEXT,
+  capacity INTEGER DEFAULT 30,
+  academic_year TEXT DEFAULT '2026-2027',
+  status TEXT DEFAULT 'active',
+  created_at TEXT
+);
+
+-- 4. Subjects Table (Maadooyinka)
+CREATE TABLE IF NOT EXISTS dugsiga_subjects (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  subject_name TEXT NOT NULL,
+  subject_code TEXT,
+  class_name TEXT,
+  teacher_name TEXT,
+  category TEXT,
+  description TEXT,
+  pass_marks NUMERIC DEFAULT 50,
+  max_marks NUMERIC DEFAULT 100,
+  status TEXT DEFAULT 'active',
+  created_at TEXT
+);
+
+-- 5. Exam Scores Table (Natiijooyinka Imtixaanaadka)
+CREATE TABLE IF NOT EXISTS dugsiga_exam_scores (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  student_id TEXT NOT NULL,
+  student_name TEXT,
+  class_name TEXT NOT NULL,
+  subject_name TEXT NOT NULL,
+  exam_name TEXT NOT NULL,
+  term TEXT DEFAULT 'Term 1',
+  max_marks NUMERIC DEFAULT 100,
+  marks_obtained NUMERIC NOT NULL,
+  grade TEXT,
+  exam_date TEXT,
+  created_at TEXT
+);
+
+-- 6. Student Attendance Table (Xaadirinta Ardayda)
+CREATE TABLE IF NOT EXISTS dugsiga_attendance (
+  school_id TEXT NOT NULL,
+  date TEXT NOT NULL,
+  student_id TEXT NOT NULL,
+  status TEXT NOT NULL,
+  timestamp TEXT,
+  session_type TEXT DEFAULT 'before_break',
+  PRIMARY KEY (school_id, date, student_id, session_type)
+);
+
+-- 7. Legacy Monthly Fees Table (Fiiga Ardayda ee Hore)
+CREATE TABLE IF NOT EXISTS dugsiga_fees (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  student_id TEXT NOT NULL,
+  month TEXT NOT NULL,
+  year INTEGER NOT NULL,
+  amount NUMERIC NOT NULL,
+  paid_amount NUMERIC NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'unpaid',
+  created_at TEXT,
+  updated_at TEXT,
+  history JSONB DEFAULT '[]'::jsonb
+);
+
+-- 8. School Settings Table (Habaynta Guud ee Dugsiga)
+CREATE TABLE IF NOT EXISTS dugsiga_settings (
+  school_id TEXT NOT NULL,
+  key TEXT NOT NULL,
+  value JSONB,
+  PRIMARY KEY (school_id, key)
+);
+
+-- ----------------------------------------------------------------------------
+-- QAYBTA 2: MIISASKA CUSUB EE MAAMULKA & SHAQAALAHA (ACADEMIC & HR - UPGRADE 1)
+-- ----------------------------------------------------------------------------
+
+-- 9. Teachers Table (Diiwaanka Macallimiinta)
+CREATE TABLE IF NOT EXISTS dugsiga_teachers (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  teacher_id TEXT,
+  name TEXT NOT NULL,
+  photo TEXT,
+  gender TEXT DEFAULT 'Male',
+  date_of_birth TEXT,
+  phone TEXT,
+  email TEXT,
+  address TEXT,
+  qualification TEXT,
+  specialization TEXT,
+  hire_date TEXT,
+  employment_status TEXT DEFAULT 'Full-Time',
+  salary NUMERIC DEFAULT 0,
+  emergency_contact TEXT,
+  notes TEXT,
+  assigned_classes JSONB DEFAULT '[]'::jsonb,
+  assigned_subjects JSONB DEFAULT '[]'::jsonb,
+  status TEXT DEFAULT 'ACTIVE',
+  invitation_token TEXT,
+  invitation_expires_at TEXT,
+  invitation_sent_at TEXT,
+  activated_at TEXT,
+  created_at TEXT
+);
+
+-- 10. Staff Members Table (Shaqaalaha Kale ee Dugsiga)
+CREATE TABLE IF NOT EXISTS dugsiga_staff (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  employee_id TEXT,
+  name TEXT NOT NULL,
+  role TEXT NOT NULL,
+  department TEXT,
+  phone TEXT,
+  email TEXT,
+  hire_date TEXT,
+  salary NUMERIC DEFAULT 0,
+  employment_status TEXT DEFAULT 'Full-Time',
+  notes TEXT,
+  created_at TEXT
+);
+
+-- 11. Guardians Table (Waalidiinta & Mas'uuliyiinta)
+CREATE TABLE IF NOT EXISTS dugsiga_guardians (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  guardian_id TEXT,
+  name TEXT NOT NULL,
+  relationship TEXT DEFAULT 'Father',
+  phone TEXT NOT NULL,
+  whatsapp TEXT,
+  email TEXT,
+  address TEXT,
+  occupation TEXT,
+  emergency_contact TEXT,
+  student_ids JSONB DEFAULT '[]'::jsonb,
+  notes TEXT,
+  created_at TEXT
+);
+
+-- 12. Staff Attendance Table (Xaadirinta Shaqaalaha & Macallimiinta)
+CREATE TABLE IF NOT EXISTS dugsiga_staff_attendance (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  staff_id TEXT NOT NULL,
+  staff_name TEXT,
+  role TEXT,
+  date TEXT NOT NULL,
+  status TEXT NOT NULL,
+  timestamp TEXT,
+  notes TEXT
+);
+
+-- 13. Timetable Table (Jadwalka Xiisadaha Todobaadlaha ah)
+CREATE TABLE IF NOT EXISTS dugsiga_timetable (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  academic_year TEXT DEFAULT '2026-2027',
+  term TEXT DEFAULT 'Term 1',
+  class_name TEXT NOT NULL,
+  teacher_name TEXT NOT NULL,
+  subject_name TEXT NOT NULL,
+  room_number TEXT,
+  day TEXT NOT NULL,
+  start_time TEXT NOT NULL,
+  end_time TEXT NOT NULL
+);
+
+-- 14. Admissions Table (Codsiyada Ardayda Cusub)
+CREATE TABLE IF NOT EXISTS dugsiga_admissions (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  applicant_name TEXT NOT NULL,
+  gender TEXT DEFAULT 'Male',
+  date_of_birth TEXT,
+  desired_class TEXT NOT NULL,
+  guardian_name TEXT,
+  guardian_phone TEXT,
+  guardian_relationship TEXT,
+  admission_date TEXT,
+  status TEXT DEFAULT 'Pending',
+  notes TEXT,
+  student_id TEXT,
+  created_at TEXT
+);
+
+-- 15. Announcements Table (Ogeysiisyada Guud & Qaybaha)
+CREATE TABLE IF NOT EXISTS dugsiga_announcements (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  message TEXT NOT NULL,
+  audience TEXT DEFAULT 'Everyone',
+  target_class TEXT,
+  author TEXT,
+  priority TEXT DEFAULT 'Normal',
+  status TEXT DEFAULT 'Active',
+  publish_date TEXT,
+  expiry_date TEXT,
+  created_at TEXT
+);
+
+-- 16. Library Books Table (Kataloogga Buugaagta Maktabadda)
+CREATE TABLE IF NOT EXISTS dugsiga_library_books (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  isbn TEXT,
+  title TEXT NOT NULL,
+  author TEXT NOT NULL,
+  category TEXT,
+  total_copies INTEGER DEFAULT 1,
+  available_copies INTEGER DEFAULT 1,
+  location TEXT,
+  created_at TEXT
+);
+
+-- 17. Library Loans Table (Amaahashada & Soo Celinta Buugaagta)
+CREATE TABLE IF NOT EXISTS dugsiga_library_loans (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  book_id TEXT NOT NULL,
+  book_title TEXT,
+  borrower_type TEXT NOT NULL DEFAULT 'Student',
+  borrower_id TEXT NOT NULL,
+  borrower_name TEXT NOT NULL,
+  issue_date TEXT NOT NULL,
+  due_date TEXT NOT NULL,
+  return_date TEXT,
+  status TEXT DEFAULT 'Borrowed'
+);
+
+-- 18. Inventory Table (Hantida & Qalabka Dugsiga)
+CREATE TABLE IF NOT EXISTS dugsiga_inventory (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  item_name TEXT NOT NULL,
+  category TEXT DEFAULT 'Furniture',
+  quantity INTEGER DEFAULT 1,
+  location TEXT,
+  condition TEXT DEFAULT 'Good',
+  purchase_date TEXT,
+  purchase_cost NUMERIC DEFAULT 0,
+  assigned_to TEXT,
+  status TEXT DEFAULT 'Available',
+  notes TEXT
+);
+
+-- 19. Documents Table (Dukumentiyada & Faylalka Dugsiga)
+CREATE TABLE IF NOT EXISTS dugsiga_documents (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  category TEXT NOT NULL,
+  related_id TEXT,
+  related_name TEXT,
+  file_type TEXT,
+  file_size TEXT,
+  file_url TEXT,
+  upload_date TEXT,
+  notes TEXT
+);
+
+-- 20. Notifications Table (Ogeysiisyada Nidaamka & Farriimaha)
+CREATE TABLE IF NOT EXISTS dugsiga_notifications (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  message TEXT NOT NULL,
+  channel TEXT DEFAULT 'in_app',
+  recipient TEXT NOT NULL,
+  recipient_name TEXT,
+  status TEXT DEFAULT 'Sent',
+  created_at TEXT
+);
+
+-- ----------------------------------------------------------------------------
+-- STUDENT AUDIT LOG
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS dugsiga_student_audit (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  school_id TEXT NOT NULL,
+  student_id TEXT NOT NULL,
+  action TEXT NOT NULL CHECK (action IN ('created','updated','archived','restored','deleted')),
+  actor_email TEXT,
+  actor_role TEXT,
+  changed_fields JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+CREATE INDEX IF NOT EXISTS idx_dugsiga_student_audit_school_student
+  ON dugsiga_student_audit (school_id, student_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_dugsiga_student_audit_school_action
+  ON dugsiga_student_audit (school_id, action, created_at DESC);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_dugsiga_students_school_national_id
+  ON dugsiga_students (school_id, lower(btrim(national_id)))
+  WHERE national_id IS NOT NULL AND btrim(national_id) <> '';
+
+-- ----------------------------------------------------------------------------
+-- QAYBTA 3: MIISASKA CUSUB EE MAALIYADDA & XISAABAADKA (FINANCE & ACCOUNTING - UPGRADE 2)
+-- ----------------------------------------------------------------------------
+
+-- 21. Fee Structures Table (Qaab-Dhismeedka Khidmadaha Dugsiga)
+CREATE TABLE IF NOT EXISTS dugsiga_fee_structures (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  category TEXT NOT NULL,
+  amount NUMERIC NOT NULL DEFAULT 0,
+  class_name TEXT DEFAULT 'All Classes',
+  academic_year TEXT DEFAULT '2026-2027',
+  term TEXT DEFAULT 'All Terms',
+  description TEXT,
+  created_at TEXT
+);
+
+-- 22. Invoices Table (Qaansheekooyinka Ardayda / Biilasha)
+CREATE TABLE IF NOT EXISTS dugsiga_invoices (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  invoice_number TEXT NOT NULL,
+  student_id TEXT NOT NULL,
+  student_name TEXT,
+  class_name TEXT,
+  guardian_name TEXT,
+  guardian_phone TEXT,
+  items JSONB DEFAULT '[]'::jsonb,
+  subtotal NUMERIC NOT NULL DEFAULT 0,
+  discount NUMERIC NOT NULL DEFAULT 0,
+  total NUMERIC NOT NULL DEFAULT 0,
+  paid_amount NUMERIC NOT NULL DEFAULT 0,
+  balance NUMERIC NOT NULL DEFAULT 0,
+  issue_date TEXT NOT NULL,
+  due_date TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'Unpaid',
+  notes TEXT,
+  created_at TEXT,
+  updated_at TEXT
+);
+
+-- 23. Payments Table (Diiwaanka Lacag-Bixinta & Rasiidhada)
+CREATE TABLE IF NOT EXISTS dugsiga_payments (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  receipt_number TEXT NOT NULL,
+  invoice_id TEXT,
+  invoice_number TEXT,
+  student_id TEXT,
+  student_name TEXT,
+  class_name TEXT,
+  amount NUMERIC NOT NULL DEFAULT 0,
+  payment_date TEXT NOT NULL,
+  payment_method TEXT NOT NULL DEFAULT 'Cash',
+  reference TEXT,
+  remaining_balance NUMERIC DEFAULT 0,
+  received_by TEXT NOT NULL,
+  notes TEXT,
+  created_at TEXT
+);
+
+-- 24. Expenses Table (Kharashaadka Dugsiga & Ogolaanshaha)
+CREATE TABLE IF NOT EXISTS dugsiga_expenses (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  expense_id TEXT,
+  category TEXT NOT NULL,
+  description TEXT NOT NULL,
+  amount NUMERIC NOT NULL DEFAULT 0,
+  date TEXT NOT NULL,
+  payment_method TEXT NOT NULL DEFAULT 'Cash',
+  vendor_payee TEXT NOT NULL,
+  reference_number TEXT,
+  receipt_document TEXT,
+  created_by TEXT NOT NULL,
+  notes TEXT,
+  status TEXT NOT NULL DEFAULT 'Approved',
+  payroll_id TEXT,
+  created_at TEXT,
+  updated_at TEXT
+);
+
+-- 25. Income Table (Dakhliga Kale ee Aan Ahayn Lacagta Waxbarashada)
+CREATE TABLE IF NOT EXISTS dugsiga_income (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  income_id TEXT,
+  category TEXT NOT NULL,
+  description TEXT NOT NULL,
+  amount NUMERIC NOT NULL DEFAULT 0,
+  date TEXT NOT NULL,
+  payment_method TEXT NOT NULL DEFAULT 'Cash',
+  reference TEXT,
+  payer TEXT NOT NULL,
+  notes TEXT,
+  created_by TEXT NOT NULL,
+  payment_id TEXT,
+  created_at TEXT
+);
+
+-- 26. Budgets Table (Miisaaniyadda Qorshaysan vs Dhabta ah)
+CREATE TABLE IF NOT EXISTS dugsiga_budgets (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  academic_year TEXT NOT NULL DEFAULT '2026-2027',
+  period TEXT NOT NULL DEFAULT 'Annual',
+  category TEXT NOT NULL,
+  type TEXT NOT NULL DEFAULT 'Expense',
+  planned_amount NUMERIC NOT NULL DEFAULT 0,
+  actual_amount NUMERIC NOT NULL DEFAULT 0,
+  remaining_amount NUMERIC NOT NULL DEFAULT 0,
+  variance NUMERIC NOT NULL DEFAULT 0,
+  notes TEXT,
+  created_at TEXT
+);
+
+-- 27. Payroll Table (Mushahaarka Macallimiinta & Shaqaalaha)
+CREATE TABLE IF NOT EXISTS dugsiga_payroll (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  employee_type TEXT NOT NULL DEFAULT 'Teacher',
+  employee_id TEXT NOT NULL,
+  employee_name TEXT NOT NULL,
+  role_or_department TEXT,
+  basic_salary NUMERIC NOT NULL DEFAULT 0,
+  allowances NUMERIC NOT NULL DEFAULT 0,
+  deductions NUMERIC NOT NULL DEFAULT 0,
+  gross_salary NUMERIC NOT NULL DEFAULT 0,
+  net_salary NUMERIC NOT NULL DEFAULT 0,
+  payment_date TEXT NOT NULL,
+  payment_method TEXT NOT NULL DEFAULT 'EVC Plus',
+  payroll_period TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'Draft',
+  notes TEXT,
+  paid_at TEXT,
+  expense_id TEXT,
+  created_at TEXT,
+  updated_at TEXT
+);
+
+-- ----------------------------------------------------------------------------
+-- QAYBTA 4: SECURITY
+-- Backend-ku wuxuu isticmaalaa server-side service_role client.
+-- Direct client access (anon/authenticated) lama siinayo tables-kan.
+-- RLS waa ON dhammaan tables-ka; service_role wuxuu leeyahay bypassRLS.
+-- ----------------------------------------------------------------------------
+
+DO $
+DECLARE
+  tbl_name TEXT;
+  tables_list TEXT[] := ARRAY[
+    'dugsiga_users',
+    'dugsiga_students',
+    'dugsiga_classes',
+    'dugsiga_subjects',
+    'dugsiga_exam_scores',
+    'dugsiga_attendance',
+    'dugsiga_fees',
+    'dugsiga_settings',
+    'dugsiga_teachers',
+    'dugsiga_staff',
+    'dugsiga_guardians',
+    'dugsiga_staff_attendance',
+    'dugsiga_timetable',
+    'dugsiga_admissions',
+    'dugsiga_announcements',
+    'dugsiga_library_books',
+    'dugsiga_library_loans',
+    'dugsiga_inventory',
+    'dugsiga_documents',
+    'dugsiga_notifications',
+    'dugsiga_fee_structures',
+    'dugsiga_invoices',
+    'dugsiga_payments',
+    'dugsiga_expenses',
+    'dugsiga_income',
+    'dugsiga_budgets',
+    'dugsiga_payroll',
+     'dugsiga_student_audit'
+  ];
+BEGIN
+  FOREACH tbl_name IN ARRAY tables_list LOOP
+    EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', tbl_name);
+    EXECUTE format('REVOKE ALL ON TABLE public.%I FROM anon, authenticated', tbl_name);
+    EXECUTE format('GRANT ALL ON TABLE public.%I TO service_role', tbl_name);
+  END LOOP;
+END $;
+
+-- Mahadsanid! DUGSI PRO 2026 database-ku waa secure-by-default.
+),
+  ADD CONSTRAINT dugsiga_students_section_length_valid
+    CHECK (section IS NULL OR char_length(section) <= 50),
+  ADD CONSTRAINT dugsiga_students_roll_length_valid
+    CHECK (roll_number IS NULL OR char_length(roll_number) <= 50),
+  ADD CONSTRAINT dugsiga_students_national_id_length_valid
+    CHECK (national_id IS NULL OR char_length(national_id) <= 80);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_dugsiga_students_school_class_section_roll
+  ON dugsiga_students (
+    school_id,
+    lower(btrim(class)),
+    lower(btrim(coalesce(section,''))),
+    lower(btrim(roll_number))
+  )
+  WHERE roll_number IS NOT NULL AND btrim(roll_number) <> '';
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_dugsiga_students_school_national_id
+  ON dugsiga_students (school_id, lower(btrim(national_id)))
+  WHERE national_id IS NOT NULL AND btrim(national_id) <> '';
+
+CREATE INDEX IF NOT EXISTS idx_dugsiga_students_school_status_class
+  ON dugsiga_students (school_id, status, class);
+
+CREATE INDEX IF NOT EXISTS idx_dugsiga_students_school_search_name
+  ON dugsiga_students (school_id, lower(full_name));
+
+CREATE INDEX IF NOT EXISTS idx_dugsiga_students_school_class_name
+  ON dugsiga_students (school_id, lower(class), lower(full_name));
+
+CREATE INDEX IF NOT EXISTS idx_dugsiga_students_school_updated_at
+  ON dugsiga_students (school_id, updated_at DESC);
+
+-- 3. Classes Table (Fasallada Dugsiga)
+CREATE TABLE IF NOT EXISTS dugsiga_classes (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  class_name TEXT NOT NULL,
+  teacher_name TEXT,
+  room_number TEXT,
+  description TEXT,
+  section TEXT,
+  capacity INTEGER DEFAULT 30,
+  academic_year TEXT DEFAULT '2026-2027',
+  status TEXT DEFAULT 'active',
+  created_at TEXT
+);
+
+-- 4. Subjects Table (Maadooyinka)
+CREATE TABLE IF NOT EXISTS dugsiga_subjects (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  subject_name TEXT NOT NULL,
+  subject_code TEXT,
+  class_name TEXT,
+  teacher_name TEXT,
+  category TEXT,
+  description TEXT,
+  pass_marks NUMERIC DEFAULT 50,
+  max_marks NUMERIC DEFAULT 100,
+  status TEXT DEFAULT 'active',
+  created_at TEXT
+);
+
+-- 5. Exam Scores Table (Natiijooyinka Imtixaanaadka)
+CREATE TABLE IF NOT EXISTS dugsiga_exam_scores (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  student_id TEXT NOT NULL,
+  student_name TEXT,
+  class_name TEXT NOT NULL,
+  subject_name TEXT NOT NULL,
+  exam_name TEXT NOT NULL,
+  term TEXT DEFAULT 'Term 1',
+  max_marks NUMERIC DEFAULT 100,
+  marks_obtained NUMERIC NOT NULL,
+  grade TEXT,
+  exam_date TEXT,
+  created_at TEXT
+);
+
+-- 6. Student Attendance Table (Xaadirinta Ardayda)
+CREATE TABLE IF NOT EXISTS dugsiga_attendance (
+  school_id TEXT NOT NULL,
+  date TEXT NOT NULL,
+  student_id TEXT NOT NULL,
+  status TEXT NOT NULL,
+  timestamp TEXT,
+  session_type TEXT DEFAULT 'before_break',
+  PRIMARY KEY (school_id, date, student_id, session_type)
+);
+
+-- 7. Legacy Monthly Fees Table (Fiiga Ardayda ee Hore)
+CREATE TABLE IF NOT EXISTS dugsiga_fees (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  student_id TEXT NOT NULL,
+  month TEXT NOT NULL,
+  year INTEGER NOT NULL,
+  amount NUMERIC NOT NULL,
+  paid_amount NUMERIC NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'unpaid',
+  created_at TEXT,
+  updated_at TEXT,
+  history JSONB DEFAULT '[]'::jsonb
+);
+
+-- 8. School Settings Table (Habaynta Guud ee Dugsiga)
+CREATE TABLE IF NOT EXISTS dugsiga_settings (
+  school_id TEXT NOT NULL,
+  key TEXT NOT NULL,
+  value JSONB,
+  PRIMARY KEY (school_id, key)
+);
+
+-- ----------------------------------------------------------------------------
+-- QAYBTA 2: MIISASKA CUSUB EE MAAMULKA & SHAQAALAHA (ACADEMIC & HR - UPGRADE 1)
+-- ----------------------------------------------------------------------------
+
+-- 9. Teachers Table (Diiwaanka Macallimiinta)
+CREATE TABLE IF NOT EXISTS dugsiga_teachers (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  teacher_id TEXT,
+  name TEXT NOT NULL,
+  photo TEXT,
+  gender TEXT DEFAULT 'Male',
+  date_of_birth TEXT,
+  phone TEXT,
+  email TEXT,
+  address TEXT,
+  qualification TEXT,
+  specialization TEXT,
+  hire_date TEXT,
+  employment_status TEXT DEFAULT 'Full-Time',
+  salary NUMERIC DEFAULT 0,
+  emergency_contact TEXT,
+  notes TEXT,
+  assigned_classes JSONB DEFAULT '[]'::jsonb,
+  assigned_subjects JSONB DEFAULT '[]'::jsonb,
+  status TEXT DEFAULT 'ACTIVE',
+  invitation_token TEXT,
+  invitation_expires_at TEXT,
+  invitation_sent_at TEXT,
+  activated_at TEXT,
+  created_at TEXT
+);
+
+-- 10. Staff Members Table (Shaqaalaha Kale ee Dugsiga)
+CREATE TABLE IF NOT EXISTS dugsiga_staff (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  employee_id TEXT,
+  name TEXT NOT NULL,
+  role TEXT NOT NULL,
+  department TEXT,
+  phone TEXT,
+  email TEXT,
+  hire_date TEXT,
+  salary NUMERIC DEFAULT 0,
+  employment_status TEXT DEFAULT 'Full-Time',
+  notes TEXT,
+  created_at TEXT
+);
+
+-- 11. Guardians Table (Waalidiinta & Mas'uuliyiinta)
+CREATE TABLE IF NOT EXISTS dugsiga_guardians (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  guardian_id TEXT,
+  name TEXT NOT NULL,
+  relationship TEXT DEFAULT 'Father',
+  phone TEXT NOT NULL,
+  whatsapp TEXT,
+  email TEXT,
+  address TEXT,
+  occupation TEXT,
+  emergency_contact TEXT,
+  student_ids JSONB DEFAULT '[]'::jsonb,
+  notes TEXT,
+  created_at TEXT
+);
+
+-- 12. Staff Attendance Table (Xaadirinta Shaqaalaha & Macallimiinta)
+CREATE TABLE IF NOT EXISTS dugsiga_staff_attendance (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  staff_id TEXT NOT NULL,
+  staff_name TEXT,
+  role TEXT,
+  date TEXT NOT NULL,
+  status TEXT NOT NULL,
+  timestamp TEXT,
+  notes TEXT
+);
+
+-- 13. Timetable Table (Jadwalka Xiisadaha Todobaadlaha ah)
+CREATE TABLE IF NOT EXISTS dugsiga_timetable (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  academic_year TEXT DEFAULT '2026-2027',
+  term TEXT DEFAULT 'Term 1',
+  class_name TEXT NOT NULL,
+  teacher_name TEXT NOT NULL,
+  subject_name TEXT NOT NULL,
+  room_number TEXT,
+  day TEXT NOT NULL,
+  start_time TEXT NOT NULL,
+  end_time TEXT NOT NULL
+);
+
+-- 14. Admissions Table (Codsiyada Ardayda Cusub)
+CREATE TABLE IF NOT EXISTS dugsiga_admissions (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  applicant_name TEXT NOT NULL,
+  gender TEXT DEFAULT 'Male',
+  date_of_birth TEXT,
+  desired_class TEXT NOT NULL,
+  guardian_name TEXT,
+  guardian_phone TEXT,
+  guardian_relationship TEXT,
+  admission_date TEXT,
+  status TEXT DEFAULT 'Pending',
+  notes TEXT,
+  student_id TEXT,
+  created_at TEXT
+);
+
+-- 15. Announcements Table (Ogeysiisyada Guud & Qaybaha)
+CREATE TABLE IF NOT EXISTS dugsiga_announcements (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  message TEXT NOT NULL,
+  audience TEXT DEFAULT 'Everyone',
+  target_class TEXT,
+  author TEXT,
+  priority TEXT DEFAULT 'Normal',
+  status TEXT DEFAULT 'Active',
+  publish_date TEXT,
+  expiry_date TEXT,
+  created_at TEXT
+);
+
+-- 16. Library Books Table (Kataloogga Buugaagta Maktabadda)
+CREATE TABLE IF NOT EXISTS dugsiga_library_books (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  isbn TEXT,
+  title TEXT NOT NULL,
+  author TEXT NOT NULL,
+  category TEXT,
+  total_copies INTEGER DEFAULT 1,
+  available_copies INTEGER DEFAULT 1,
+  location TEXT,
+  created_at TEXT
+);
+
+-- 17. Library Loans Table (Amaahashada & Soo Celinta Buugaagta)
+CREATE TABLE IF NOT EXISTS dugsiga_library_loans (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  book_id TEXT NOT NULL,
+  book_title TEXT,
+  borrower_type TEXT NOT NULL DEFAULT 'Student',
+  borrower_id TEXT NOT NULL,
+  borrower_name TEXT NOT NULL,
+  issue_date TEXT NOT NULL,
+  due_date TEXT NOT NULL,
+  return_date TEXT,
+  status TEXT DEFAULT 'Borrowed'
+);
+
+-- 18. Inventory Table (Hantida & Qalabka Dugsiga)
+CREATE TABLE IF NOT EXISTS dugsiga_inventory (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  item_name TEXT NOT NULL,
+  category TEXT DEFAULT 'Furniture',
+  quantity INTEGER DEFAULT 1,
+  location TEXT,
+  condition TEXT DEFAULT 'Good',
+  purchase_date TEXT,
+  purchase_cost NUMERIC DEFAULT 0,
+  assigned_to TEXT,
+  status TEXT DEFAULT 'Available',
+  notes TEXT
+);
+
+-- 19. Documents Table (Dukumentiyada & Faylalka Dugsiga)
+CREATE TABLE IF NOT EXISTS dugsiga_documents (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  category TEXT NOT NULL,
+  related_id TEXT,
+  related_name TEXT,
+  file_type TEXT,
+  file_size TEXT,
+  file_url TEXT,
+  upload_date TEXT,
+  notes TEXT
+);
+
+-- 20. Notifications Table (Ogeysiisyada Nidaamka & Farriimaha)
+CREATE TABLE IF NOT EXISTS dugsiga_notifications (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  message TEXT NOT NULL,
+  channel TEXT DEFAULT 'in_app',
+  recipient TEXT NOT NULL,
+  recipient_name TEXT,
+  status TEXT DEFAULT 'Sent',
+  created_at TEXT
+);
+
+-- ----------------------------------------------------------------------------
+-- STUDENT AUDIT LOG
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS dugsiga_student_audit (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  school_id TEXT NOT NULL,
+  student_id TEXT NOT NULL,
+  action TEXT NOT NULL CHECK (action IN ('created','updated','archived','restored','deleted')),
+  actor_email TEXT,
+  actor_role TEXT,
+  changed_fields JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+CREATE INDEX IF NOT EXISTS idx_dugsiga_student_audit_school_student
+  ON dugsiga_student_audit (school_id, student_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_dugsiga_student_audit_school_action
+  ON dugsiga_student_audit (school_id, action, created_at DESC);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_dugsiga_students_school_national_id
+  ON dugsiga_students (school_id, lower(btrim(national_id)))
+  WHERE national_id IS NOT NULL AND btrim(national_id) <> '';
+
+-- ----------------------------------------------------------------------------
+-- QAYBTA 3: MIISASKA CUSUB EE MAALIYADDA & XISAABAADKA (FINANCE & ACCOUNTING - UPGRADE 2)
+-- ----------------------------------------------------------------------------
+
+-- 21. Fee Structures Table (Qaab-Dhismeedka Khidmadaha Dugsiga)
+CREATE TABLE IF NOT EXISTS dugsiga_fee_structures (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  category TEXT NOT NULL,
+  amount NUMERIC NOT NULL DEFAULT 0,
+  class_name TEXT DEFAULT 'All Classes',
+  academic_year TEXT DEFAULT '2026-2027',
+  term TEXT DEFAULT 'All Terms',
+  description TEXT,
+  created_at TEXT
+);
+
+-- 22. Invoices Table (Qaansheekooyinka Ardayda / Biilasha)
+CREATE TABLE IF NOT EXISTS dugsiga_invoices (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  invoice_number TEXT NOT NULL,
+  student_id TEXT NOT NULL,
+  student_name TEXT,
+  class_name TEXT,
+  guardian_name TEXT,
+  guardian_phone TEXT,
+  items JSONB DEFAULT '[]'::jsonb,
+  subtotal NUMERIC NOT NULL DEFAULT 0,
+  discount NUMERIC NOT NULL DEFAULT 0,
+  total NUMERIC NOT NULL DEFAULT 0,
+  paid_amount NUMERIC NOT NULL DEFAULT 0,
+  balance NUMERIC NOT NULL DEFAULT 0,
+  issue_date TEXT NOT NULL,
+  due_date TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'Unpaid',
+  notes TEXT,
+  created_at TEXT,
+  updated_at TEXT
+);
+
+-- 23. Payments Table (Diiwaanka Lacag-Bixinta & Rasiidhada)
+CREATE TABLE IF NOT EXISTS dugsiga_payments (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  receipt_number TEXT NOT NULL,
+  invoice_id TEXT,
+  invoice_number TEXT,
+  student_id TEXT,
+  student_name TEXT,
+  class_name TEXT,
+  amount NUMERIC NOT NULL DEFAULT 0,
+  payment_date TEXT NOT NULL,
+  payment_method TEXT NOT NULL DEFAULT 'Cash',
+  reference TEXT,
+  remaining_balance NUMERIC DEFAULT 0,
+  received_by TEXT NOT NULL,
+  notes TEXT,
+  created_at TEXT
+);
+
+-- 24. Expenses Table (Kharashaadka Dugsiga & Ogolaanshaha)
+CREATE TABLE IF NOT EXISTS dugsiga_expenses (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  expense_id TEXT,
+  category TEXT NOT NULL,
+  description TEXT NOT NULL,
+  amount NUMERIC NOT NULL DEFAULT 0,
+  date TEXT NOT NULL,
+  payment_method TEXT NOT NULL DEFAULT 'Cash',
+  vendor_payee TEXT NOT NULL,
+  reference_number TEXT,
+  receipt_document TEXT,
+  created_by TEXT NOT NULL,
+  notes TEXT,
+  status TEXT NOT NULL DEFAULT 'Approved',
+  payroll_id TEXT,
+  created_at TEXT,
+  updated_at TEXT
+);
+
+-- 25. Income Table (Dakhliga Kale ee Aan Ahayn Lacagta Waxbarashada)
+CREATE TABLE IF NOT EXISTS dugsiga_income (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  income_id TEXT,
+  category TEXT NOT NULL,
+  description TEXT NOT NULL,
+  amount NUMERIC NOT NULL DEFAULT 0,
+  date TEXT NOT NULL,
+  payment_method TEXT NOT NULL DEFAULT 'Cash',
+  reference TEXT,
+  payer TEXT NOT NULL,
+  notes TEXT,
+  created_by TEXT NOT NULL,
+  payment_id TEXT,
+  created_at TEXT
+);
+
+-- 26. Budgets Table (Miisaaniyadda Qorshaysan vs Dhabta ah)
+CREATE TABLE IF NOT EXISTS dugsiga_budgets (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  academic_year TEXT NOT NULL DEFAULT '2026-2027',
+  period TEXT NOT NULL DEFAULT 'Annual',
+  category TEXT NOT NULL,
+  type TEXT NOT NULL DEFAULT 'Expense',
+  planned_amount NUMERIC NOT NULL DEFAULT 0,
+  actual_amount NUMERIC NOT NULL DEFAULT 0,
+  remaining_amount NUMERIC NOT NULL DEFAULT 0,
+  variance NUMERIC NOT NULL DEFAULT 0,
+  notes TEXT,
+  created_at TEXT
+);
+
+-- 27. Payroll Table (Mushahaarka Macallimiinta & Shaqaalaha)
+CREATE TABLE IF NOT EXISTS dugsiga_payroll (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  employee_type TEXT NOT NULL DEFAULT 'Teacher',
+  employee_id TEXT NOT NULL,
+  employee_name TEXT NOT NULL,
+  role_or_department TEXT,
+  basic_salary NUMERIC NOT NULL DEFAULT 0,
+  allowances NUMERIC NOT NULL DEFAULT 0,
+  deductions NUMERIC NOT NULL DEFAULT 0,
+  gross_salary NUMERIC NOT NULL DEFAULT 0,
+  net_salary NUMERIC NOT NULL DEFAULT 0,
+  payment_date TEXT NOT NULL,
+  payment_method TEXT NOT NULL DEFAULT 'EVC Plus',
+  payroll_period TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'Draft',
+  notes TEXT,
+  paid_at TEXT,
+  expense_id TEXT,
+  created_at TEXT,
+  updated_at TEXT
+);
+
+-- ----------------------------------------------------------------------------
+-- QAYBTA 4: SECURITY
+-- Backend-ku wuxuu isticmaalaa server-side service_role client.
+-- Direct client access (anon/authenticated) lama siinayo tables-kan.
+-- RLS waa ON dhammaan tables-ka; service_role wuxuu leeyahay bypassRLS.
+-- ----------------------------------------------------------------------------
+
+DO $
+DECLARE
+  tbl_name TEXT;
+  tables_list TEXT[] := ARRAY[
+    'dugsiga_users',
+    'dugsiga_students',
+    'dugsiga_classes',
+    'dugsiga_subjects',
+    'dugsiga_exam_scores',
+    'dugsiga_attendance',
+    'dugsiga_fees',
+    'dugsiga_settings',
+    'dugsiga_teachers',
+    'dugsiga_staff',
+    'dugsiga_guardians',
+    'dugsiga_staff_attendance',
+    'dugsiga_timetable',
+    'dugsiga_admissions',
+    'dugsiga_announcements',
+    'dugsiga_library_books',
+    'dugsiga_library_loans',
+    'dugsiga_inventory',
+    'dugsiga_documents',
+    'dugsiga_notifications',
+    'dugsiga_fee_structures',
+    'dugsiga_invoices',
+    'dugsiga_payments',
+    'dugsiga_expenses',
+    'dugsiga_income',
+    'dugsiga_budgets',
+    'dugsiga_payroll',
+     'dugsiga_student_audit'
+  ];
+BEGIN
+  FOREACH tbl_name IN ARRAY tables_list LOOP
+    EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', tbl_name);
+    EXECUTE format('REVOKE ALL ON TABLE public.%I FROM anon, authenticated', tbl_name);
+    EXECUTE format('GRANT ALL ON TABLE public.%I TO service_role', tbl_name);
+  END LOOP;
+END $;
+
+-- Mahadsanid! DUGSI PRO 2026 database-ku waa secure-by-default.
+),
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','inactive','archived')),
   photo TEXT,
   date_of_birth TEXT,
   address TEXT,
