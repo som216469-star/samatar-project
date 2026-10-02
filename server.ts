@@ -1242,31 +1242,31 @@ const STUDENT_MAX_BULK = 200;
 
 function cleanStudentString(value: unknown, field: string, maxLength: number, required = false): { ok: boolean; value: string; error?: string } {
   if (value === undefined || value === null) {
-    if (required) return { ok: false, value: "", error: \`\${field} waa qasab.\` };
+    if (required) return { ok: false, value: "", error: `${field} waa qasab.` };
     return { ok: true, value: "" };
   }
   if (typeof value !== "string") {
-    return { ok: false, value: "", error: \`\${field} waa inuu noqdaa qoraal sax ah.\` };
+    return { ok: false, value: "", error: `${field} waa inuu noqdaa qoraal sax ah.` };
   }
   const normalized = value.trim();
   if (required && !normalized) {
-    return { ok: false, value: "", error: \`\${field} waa qasab.\` };
+    return { ok: false, value: "", error: `${field} waa qasab.` };
   }
   if (normalized.length > maxLength) {
-    return { ok: false, value: "", error: \`\${field} kama badnaan karo \${maxLength} xaraf.\` };
+    return { ok: false, value: "", error: `${field} kama badnaan karo ${maxLength} xaraf.` };
   }
   return { ok: true, value: normalized };
 }
 
 function isValidDateOnly(value: string): boolean {
-  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(value)) return false;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const [year, month, day] = value.split("-").map(Number);
   const d = new Date(Date.UTC(year, month - 1, day));
   return d.getUTCFullYear() === year && d.getUTCMonth() === month - 1 && d.getUTCDate() === day;
 }
 
 function isValidStudentPhone(value: string): boolean {
-  return !value || /^[+0-9()\\s.-]{7,30}$/.test(value);
+  return !value || /^[+0-9()\s.-]{7,30}$/.test(value);
 }
 
 function isSafeStudentId(value: string): boolean {
