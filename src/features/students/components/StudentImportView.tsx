@@ -518,14 +518,14 @@ export default function StudentImportView({
               </h3>
               <p className="text-xs text-[var(--color-text-muted)]">
                 Faylasha la taageero:{' '}
-                <span className="font-mono text-[var(--color-text-secondary)]">.xlsx, .xls, .csv</span>
+                <span className="font-mono text-[var(--color-text-secondary)]">.xlsx, .csv</span>
               </p>
             </div>
             <label className="px-5 py-2.5 rounded-lg bg-[var(--color-brand)] hover:bg-[var(--color-brand-hover)] text-white text-xs font-semibold transition-colors cursor-pointer shadow-xs">
               <span>Dooro Fayl Kombiyuutarkaaga</span>
               <input
                 type="file"
-                accept=".xlsx, .xls, .csv"
+                accept=".xlsx, .csv"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (file) handleFile(file);
