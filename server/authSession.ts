@@ -22,8 +22,12 @@ export interface SessionPayload {
 // Short-lived stateless signed sessions work across Cloud Run instances/restarts.
 // Use a dedicated SESSION_SECRET in production; SUPABASE_SECRET_KEY is only a fallback
 // so existing deployments continue to work until SESSION_SECRET is configured.
-const rawSessionSecret =
-  (process.env.SESSION_SECRET || process.env.SUPABASE_SECRET_KEY || "").trim();
+const rawSessionSecret = (
+  process.env.SESSION_SECRET ||
+  process.env.SUPABASE_SECRET_KEY ||
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  ""
+).trim();
 
 if (!rawSessionSecret) {
   console.warn(
