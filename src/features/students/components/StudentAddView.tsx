@@ -246,38 +246,76 @@ export default function StudentAddView({
 
   const validate = (): boolean => {
     const errs: Record<string, string> = {};
-    if (!formData.fullName.trim()) {
+    const fullName = formData.fullName.trim();
+    const guardianPhone = formData.guardianPhone.trim();
+    const guardianPhoneAlt = formData.guardianPhoneAlt.trim();
+    const nationalId = formData.nationalId.trim();
+
+    if (!fullName) {
       errs.fullName = 'Magaca oo buuxa waa qasab (Full Name is required)';
-    } else if (formData.fullName.trim().split(/\s+/).length < 2) {
+    } else if (fullName.split(/\s+/).length < 2) {
       errs.fullName = 'Fadlan qor ugu yaraan 2 magac (At least two names)';
+    } else if (fullName.length > 160) {
+      errs.fullName = 'Magaca ardaygu kama badnaan karo 160 xaraf';
     }
+
     if (!formData.class) {
       errs.class = 'Fasalka waa qasab (Class is required)';
-    } else if (availableSections.length > 0 && !formData.section.trim()) {
-      errs.section = 'Section-ka waa qasab fasalkan.';
+    } else if (
+      classes.length > 0 &&
+      !classes.some(
+        (item) =>
+          item.className.trim().toLowerCase() === formData.class.trim().toLowerCase()
+      )
+    ) {
+      errs.class = 'Fasalka la doortay kuma jiro school-ka';
+    } else if (availableSections.length > 0) {
+      const selectedSection = formData.section.trim().toLowerCase();
+      if (!selectedSection) {
+        errs.section = 'Section-ka waa qasab fasalkan';
+      } else if (!availableSections.some((section) => section.toLowerCase() === selectedSection)) {
+        errs.section = 'Section-ka la doortay kuma jiro fasalkan';
+      }
     }
-    if (!formData.guardianPhone.trim()) {
+
+    if (!guardianPhone) {
       errs.guardianPhone = 'Telefoonka waalidka waa qasab (Guardian phone is required)';
-    } else if (!/^[+0-9()\s.-]{7,30}$/.test(formData.guardianPhone.trim())) {
+    } else if (!/^[+0-9()\s.-]{7,30}$/.test(guardianPhone)) {
       errs.guardianPhone = 'Fadlan geli lambar telefoon sax ah';
     }
 
-    if (formData.guardianPhoneAlt && !/^[+0-9()\s.-]{7,30}$/.test(formData.guardianPhoneAlt.trim())) {
+    if (guardianPhoneAlt && !/^[+0-9()\s.-]{7,30}$/.test(guardianPhoneAlt)) {
       errs.guardianPhoneAlt = 'Telefoonka labaad ma saxna';
     }
 
+    if (nationalId.length > 80) {
+      errs.nationalId = 'National ID kama badnaan karo 80 xaraf';
+    }
+
     if (formData.dateOfBirth) {
-      const parsedDob = new Date(formData.dateOfBirth + 'T00:00:00');
-      if (Number.isNaN(parsedDob.getTime()) || parsedDob > new Date()) {
-        errs.dateOfBirth = 'Taariikhda dhalashada ma saxna';
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(formData.dateOfBirth)) {
+        errs.dateOfBirth = 'Date of Birth waa inuu noqdaa YYYY-MM-DD';
+      } else {
+        const parsedDob = new Date(formData.dateOfBirth + 'T00:00:00');
+        if (Number.isNaN(parsedDob.getTime()) || parsedDob > new Date()) {
+          errs.dateOfBirth = 'Taariikhda dhalashada ma saxna';
+        }
       }
     }
 
     if (formData.enrollmentDate) {
-      const parsedEnrollmentDate = new Date(formData.enrollmentDate + 'T00:00:00');
-      if (Number.isNaN(parsedEnrollmentDate.getTime()) || parsedEnrollmentDate > new Date()) {
-        errs.enrollmentDate = 'Taariikhda diiwaangelintu ma saxna';
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(formData.enrollmentDate)) {
+        errs.enrollmentDate = 'Taariikhda diiwaangelintu waa in ay noqotaa YYYY-MM-DD';
+      } else {
+        const parsedEnrollmentDate = new Date(formData.enrollmentDate + 'T00:00:00');
+        if (Number.isNaN(parsedEnrollmentDate.getTime()) || parsedEnrollmentDate > new Date()) {
+          errs.enrollmentDate = 'Taariikhda diiwaangelintu ma saxna';
+        }
       }
+    }
+
+    if (formData.rollNumber.trim().length > 50) {
+      errs.rollNumber = 'Roll Number kama badnaan karo 50 xaraf';
     }
 
     setFormErrors(errs);
@@ -288,7 +326,6 @@ export default function StudentAddView({
     }
     return true;
   };
-
   const handleSubmit = async (e: React.FormEvent, addAnother = false) => {
     e.preventDefault();
     if (!validate()) return;
