@@ -476,6 +476,15 @@ export default function StudentsView({
         const matchesNationalId = student.nationalId
           ? String(student.nationalId).toLowerCase().includes(query)
           : false;
+        const matchesAltPhone = student.guardianPhoneAlt
+          ? String(student.guardianPhoneAlt).toLowerCase().includes(query)
+          : false;
+        const matchesEmergency = student.emergencyContact
+          ? String(student.emergencyContact).toLowerCase().includes(query)
+          : false;
+        const matchesDob = student.dateOfBirth
+          ? String(student.dateOfBirth).toLowerCase().includes(query)
+          : false;
 
         if (
           !matchesName &&
@@ -485,7 +494,10 @@ export default function StudentsView({
           !matchesGuardian &&
           !matchesRoll &&
           !matchesSection &&
-          !matchesNationalId
+          !matchesNationalId &&
+          !matchesAltPhone &&
+          !matchesEmergency &&
+          !matchesDob
         ) {
           return false;
         }
