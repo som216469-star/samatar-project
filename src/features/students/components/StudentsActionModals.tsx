@@ -645,8 +645,9 @@ export const StudentsActionModals: React.FC<StudentsActionModalsProps> = ({
             <div className="p-3 bg-[var(--color-danger-soft)] border border-[var(--color-danger-border)] rounded-lg text-[var(--color-danger)] space-y-1">
               <p className="font-bold">Digniin Weyn:</p>
               <p>
-                Hawshani waxay tirtiri doontaa dhammaan xogta {selectedStudentIdsCount} arday,
-                biilashooda, iyo xaadirkooda. Tani dib uma noqonayso!
+                Delete-ku waa permanent marka ardaygu aanu lahayn xog ku xiran.
+                Haddii uu leeyahay attendance, fees, exams, invoices, payments, library loans ama admissions,
+                nidaamku wuu diidi doonaa Delete waxaana lagu talinayaa Archive.
               </p>
             </div>
           )}
