@@ -40,7 +40,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Student, SchoolClass, FeeRecord, AttendanceRecord, ExamScore } from '../../types';
-import { StudentSubSection } from '../../app/navigationConfig';
+import { StudentSubSection, getStudentPermissions } from '../../app/navigationConfig';
 import { PageContainer, PageHeader } from '../../components/layout/PageLayout';
 import { Button } from '../../components/ui/primitives';
 import StudentProfileModal from './components/StudentProfileModal';
@@ -90,6 +90,7 @@ interface StudentsViewProps {
   theme?: 'light' | 'dark';
   subSection?: StudentSubSection;
   onNavigateSubSection?: (sub: StudentSubSection) => void;
+  userRole?: string;
 }
 
 export default function StudentsView({
@@ -109,8 +110,13 @@ export default function StudentsView({
   showToast,
   theme = 'dark',
   subSection = 'all',
-  onNavigateSubSection
+  onNavigateSubSection,
+  userRole = 'admin'
 }: StudentsViewProps) {
+  const studentPermissions = useMemo(
+    () => getStudentPermissions(userRole),
+    [userRole]
+  );
   // --- View & Layout States ---
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
   const [showFiltersDrawer, setShowFiltersDrawer] = useState(false);
@@ -1147,10 +1153,40 @@ export default function StudentsView({
     selectedRegDateFilter !== 'all'
   ].filter(Boolean).length;
 
+  if (!studentPermissions.canView) {
+    return (
+      <PageContainer className="max-w-3xl mx-auto">
+        <PageHeader
+          breadcrumbs={[{ label: 'Students' }]}
+          title="Access Restricted"
+          description="Akoonkaaga ma laha rukhsad uu ku arko module-ka Students."
+        />
+        <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-8 text-center">
+          <p className="text-sm font-semibold text-[var(--color-text-primary)]">
+            Rukhsad kuma lihid (Forbidden)
+          </p>
+          <p className="text-xs text-[var(--color-text-muted)] mt-1">
+            Fadlan la xiriir maamulka dugsiga haddii aad u baahan tahay access.
+          </p>
+        </div>
+      </PageContainer>
+    );
+  }
+
   // =========================================================================
   // DEDICATED SUBSECTION PAGES: ADD, IMPORT, EXPORT
   // =========================================================================
   if (subSection === 'add') {
+    if (!studentPermissions.canCreate) {
+      return (
+        <PageContainer className="max-w-3xl mx-auto">
+          <PageHeader breadcrumbs={[{ label: 'Students' }]} title="Access Restricted" />
+          <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-8 text-center text-xs text-[var(--color-text-secondary)]">
+            Akoonkaaga ma laha rukhsadda lagu daro arday cusub.
+          </div>
+        </PageContainer>
+      );
+    }
     return (
       <StudentAddView
         classes={classes}
@@ -1170,6 +1206,16 @@ export default function StudentsView({
   }
 
   if (subSection === 'import') {
+    if (!studentPermissions.canBulkManage) {
+      return (
+        <PageContainer className="max-w-3xl mx-auto">
+          <PageHeader breadcrumbs={[{ label: 'Students' }]} title="Access Restricted" />
+          <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-8 text-center text-xs text-[var(--color-text-secondary)]">
+            Bulk import-ka ardayda waxaa heli kara maamulka dugsiga oo keliya.
+          </div>
+        </PageContainer>
+      );
+    }
     return (
       <StudentImportView
         existingStudents={students}
@@ -1200,6 +1246,16 @@ export default function StudentsView({
   }
 
   if (subSection === 'export') {
+    if (!studentPermissions.canExport) {
+      return (
+        <PageContainer className="max-w-3xl mx-auto">
+          <PageHeader breadcrumbs={[{ label: 'Students' }]} title="Access Restricted" />
+          <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-8 text-center text-xs text-[var(--color-text-secondary)]">
+            Export-ka ardayda ma lihid rukhsad.
+          </div>
+        </PageContainer>
+      );
+    }
     return (
       <StudentExportView
         students={students}
@@ -1284,7 +1340,7 @@ export default function StudentsView({
             </div>
 
             {/* Import Students */}
-            <Button
+            {studentPermissions.canBulkManage && <Button
               variant="secondary"
               size="sm"
               leftIcon={<Upload className="w-3.5 h-3.5" />}
@@ -1299,10 +1355,10 @@ export default function StudentsView({
               }}
             >
               Soo Geli (Import)
-            </Button>
+            </Button>}
 
             {/* Export Students */}
-            <Button
+            {studentPermissions.canExport && <Button
               variant="secondary"
               size="sm"
               leftIcon={<Download className="w-3.5 h-3.5" />}
@@ -1315,10 +1371,10 @@ export default function StudentsView({
               }}
             >
               Dhoofi (Export)
-            </Button>
+            </Button>}
 
             {/* Add Student Primary CTA */}
-            <Button
+            {studentPermissions.canCreate && <Button
               variant="primary"
               size="md"
               leftIcon={<UserPlus className="w-4 h-4" />}
@@ -1331,7 +1387,7 @@ export default function StudentsView({
               }}
             >
               Ku dar Arday (Add Student)
-            </Button>
+            </Button>}
           </div>
         }
       />
@@ -1503,11 +1559,24 @@ export default function StudentsView({
           subjects={subjects}
           currency={settings.currency}
           onClose={handleCloseProfile}
-          onEditStudent={(st) => {
-            handleCloseProfile();
-            handleOpenEditModal(st);
-          }}
-          onStatusChange={async (st, newStatus) => {
+          onEditStudent={
+            studentPermissions.canUpdate
+              ? (st) => {
+                  handleCloseProfile();
+                  handleOpenEditModal(st);
+                }
+              : undefined
+          }
+          onStatusChange={
+            studentPermissions.canUpdate
+              ? async (st, newStatus) => {
+                  await handleQuickStatusChange(st, newStatus);
+                  setSelectedProfileStudent({ ...st, status: newStatus });
+                }
+              : undefined
+          }
+        />
+        {false && selectedProfileStudent && (
             const success = await handleQuickStatusChange(st, newStatus);
             if (success) {
               setSelectedProfileStudent({ ...st, status: newStatus });
@@ -1576,6 +1645,10 @@ export default function StudentsView({
         onDownloadTemplate={downloadTemplate}
         onExcelUpload={handleExcelUpload}
         onCommitImport={handleCommitImport}
+        canBulkManage={studentPermissions.canBulkManage}
+        canDeleteStudents={studentPermissions.canDelete}
+        canCreateStudents={studentPermissions.canCreate}
+        canUpdateStudents={studentPermissions.canUpdate}
         bulkActionModal={bulkActionModal}
         onCloseBulkActionModal={() => setBulkActionModal({ isOpen: false, action: null })}
         selectedStudentIdsCount={selectedStudentIds.length}
