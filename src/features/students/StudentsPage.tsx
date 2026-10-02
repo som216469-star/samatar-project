@@ -37,7 +37,6 @@ import {
   List
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Student, SchoolClass, FeeRecord, AttendanceRecord, ExamScore } from '../../types';
@@ -53,6 +52,7 @@ import { StudentFormModal } from './components/StudentFormModal';
 import { StudentsActionModals } from './components/StudentsActionModals';
 import { StudentsStatsOverview } from './components/StudentsStatsOverview';
 import { StudentsFilterToolbar } from './components/StudentsFilterToolbar';
+import { readStudentSpreadsheet } from '../../lib/studentSpreadsheet';
 import {
   compressImage,
   exportStudentsToExcel,
@@ -766,256 +766,259 @@ export default function StudentsView({
     downloadStudentsExcelTemplate(classes, showToast);
   };
 
-  // --- Excel Import Parsing & Validation ---
-  const handleExcelUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // --- Spreadsheet Import Parsing & Validation ---
+  const handleExcelUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
+
     const file = files[0];
+    e.target.value = '';
 
     if (file.size > 10 * 1024 * 1024) {
       showToast("Faylka kama badnaan karo 10MB.", "error");
-      e.target.value = '';
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (evt) => {
-      try {
-        const bstr = evt.target?.result;
-        const wb = XLSX.read(bstr, { type: 'binary' });
-        const wsname = wb.SheetNames[0];
-        const ws = wb.Sheets[wsname];
-        const rawData = XLSX.utils.sheet_to_json(ws);
+    try {
+      const rawData = await readStudentSpreadsheet(file);
 
-        if (!rawData || rawData.length === 0) {
-          showToast("Faylka Excel waa faaruq (File is empty)", "warning");
-          return;
-        }
-
-        if (rawData.length > 500) {
-          showToast("Hal import kama badnaan karo 500 arday.", "error");
-          return;
-        }
-
-        const classNamesSet = new Set(classes.map((item) => item.className.toLowerCase().trim()));
-        const existingNamesSet = new Set(
-          students.map((s) => `${String(s.fullName || '').toLowerCase().trim()}|${String(s.class || '').toLowerCase().trim()}`)
-        );
-        const existingRollSet = new Set(
-          students
-            .map((s) => {
-              const roll = String(s.rollNumber || '').toLowerCase().trim();
-              const cls = String(s.class || '').toLowerCase().trim();
-              const section = String(s.section || '').toLowerCase().trim();
-              return roll ? `${cls}::${section}::${roll}` : '';
-            })
-            .filter(Boolean)
-        );
-        const existingNationalIdSet = new Set(
-          students.map((s) => String(s.nationalId || '').toLowerCase().trim()).filter(Boolean)
-        );
-        const parsedRows: any[] = [];
-        const seenNames = new Set<string>();
-        const seenRolls = new Set<string>();
-        const seenNationalIds = new Set<string>();
-        let valid = 0;
-        let errors = 0;
-
-        rawData.forEach((row: any, index: number) => {
-          const rowNum = index + 2;
-          const fullName = String(
-            row["Magaca Ardayga (Full Name) *"] ||
-            row["Magaca Ardayga (Full Name)"] ||
-            row["fullName"] ||
-            row["Full Name"] ||
-            ""
-          ).trim();
-          const className = String(
-            row["Fasalka (Class) *"] ||
-            row["Fasalka (Class)"] ||
-            row["class"] ||
-            row["Class"] ||
-            ""
-          ).trim();
-          const studentId = String(
-            row["Student ID (Optional)"] ||
-            row["Student ID"] ||
-            row["id"] ||
-            ""
-          ).trim();
-          const section = String(row["Section"] || row["Qeybta (Section)"] || "").trim();
-          const rollNumber = String(row["Roll Number"] || row["RollNumber"] || "").trim();
-          const genderRaw = String(
-            row["Lab/Dhedig (Gender - Male/Female)"] ||
-            row["gender"] ||
-            "Male"
-          ).trim();
-          const genderKey = genderRaw.toLowerCase();
-          const gender =
-            genderKey === "female" ||
-            genderKey === "f" ||
-            genderKey === "dhedig" ||
-            genderKey === "d"
-              ? "Female"
-              : genderKey === "male" ||
-                genderKey === "m" ||
-                genderKey === "lab"
-              ? "Male"
-              : "";
-
-          const guardianPhone = String(
-            row["Telefoonka Waalidka (Guardian Phone)"] ||
-            row["Telefoonka Waalidka (Guardian Phone) *"] ||
-            row["guardianPhone"] ||
-            ""
-          ).trim();
-          const guardianName = String(
-            row["Magaca Waalidka (Guardian Name)"] ||
-            row["guardianName"] ||
-            ""
-          ).trim();
-          const guardianRelationship = String(
-            row["Xiriirka Waalidka (Relationship)"] ||
-            row["Guardian Relationship"] ||
-            row["guardianRelationship"] ||
-            ""
-          ).trim();
-          const guardianPhoneAlt = String(
-            row["Telefoon Labaad (Guardian Phone Alt)"] ||
-            row["Guardian Phone Alt"] ||
-            row["guardianPhoneAlt"] ||
-            ""
-          ).trim();
-          const address = String(row["Address"] || row["address"] || "").trim();
-          const dateOfBirth = String(
-            row["Date of Birth"] ||
-            row["dateOfBirth"] ||
-            ""
-          ).trim();
-          const nationalId = String(row["National ID"] || row["nationalId"] || "").trim();
-          const previousSchool = String(
-            row["Previous School"] ||
-            row["Iskuulkii Hore (Previous School)"] ||
-            row["previousSchool"] ||
-            ""
-          ).trim();
-          const bloodGroup = String(row["Blood Group"] || row["bloodGroup"] || "").trim();
-          const medicalNotes = String(
-            row["Medical Notes"] ||
-            row["Xusuusin Caafimaad"] ||
-            row["medicalNotes"] ||
-            ""
-          ).trim();
-          const statusRaw = String(
-            row["Status (active/inactive/archived)"] ||
-            row["status"] ||
-            "active"
-          ).toLowerCase().trim();
-          const status =
-            statusRaw === "active" || statusRaw === "inactive" || statusRaw === "archived"
-              ? statusRaw
-              : "";
-
-          const rowErrors: string[] = [];
-          const nameClassKey = `${fullName.toLowerCase()}|${className.toLowerCase()}`;
-          const rollKey = rollNumber.toLowerCase();
-          const sectionKey = section.toLowerCase();
-          const nationalKey = nationalId.toLowerCase();
-
-          if (!fullName) rowErrors.push("Magaca ardayga waa maqan yahay");
-          else if (fullName.split(/\s+/).filter(Boolean).length < 2) {
-            rowErrors.push("Magaca ardayga waa inuu leeyahay ugu yaraan 2 magac");
-          }
-
-          if (!className) {
-            rowErrors.push("Fasalka waa maqan yahay");
-          } else if (classes.length > 0 && !classNamesSet.has(className.toLowerCase())) {
-            rowErrors.push(`Fasalka '${className}' kama jiro nidaamka`);
-          }
-
-          if (!gender) rowErrors.push("Gender-ka waa inuu noqdaa Male ama Female");
-          if (!guardianPhone) rowErrors.push("Telefoonka waalidka waa qasab");
-          else if (!/^[+0-9()\s.-]{7,30}$/.test(guardianPhone)) {
-            rowErrors.push("Telefoonka waalidka ma saxna");
-          }
-          if (guardianPhoneAlt && !/^[+0-9()\s.-]{7,30}$/.test(guardianPhoneAlt)) {
-            rowErrors.push("Telefoonka labaad ma saxna");
-          }
-          if (!status) rowErrors.push("Status-ku ma saxna");
-          if (dateOfBirth) {
-            const dob = new Date(dateOfBirth + "T00:00:00");
-            if (Number.isNaN(dob.getTime()) || dob > new Date()) {
-              rowErrors.push("Date of Birth ma saxna");
-            }
-          }
-
-          if (existingNamesSet.has(nameClassKey) || seenNames.has(nameClassKey)) {
-            rowErrors.push("Ardaygan horey ayaa loogu diiwaangeliyey fasalkan");
-          }
-          const scopedRollKey = `${className.toLowerCase()}::${sectionKey}::${rollKey}`;
-          if (rollKey && (existingRollSet.has(scopedRollKey) || seenRolls.has(scopedRollKey))) {
-            rowErrors.push("Roll Number-kan hore ayaa loo isticmaalay fasalkan iyo section-kan");
-          }
-          if (
-            nationalKey &&
-            (existingNationalIdSet.has(nationalKey) || seenNationalIds.has(nationalKey))
-          ) {
-            rowErrors.push("National ID-gan hore ayaa loo isticmaalay");
-          }
-
-          const isValid = rowErrors.length === 0;
-          if (isValid) {
-            valid++;
-            seenNames.add(nameClassKey);
-            if (rollKey) seenRolls.add(scopedRollKey);
-            if (nationalKey) seenNationalIds.add(nationalKey);
-          } else {
-            errors++;
-          }
-
-          parsedRows.push({
-            rowNum,
-            isValid,
-            errors: rowErrors,
-            data: {
-              id:
-                studentId ||
-                (typeof crypto !== "undefined" && "randomUUID" in crypto
-                  ? "STD-" + crypto.randomUUID().slice(0, 8).toUpperCase()
-                  : "STD-" + Date.now().toString(36).toUpperCase()),
-              fullName,
-              class: className,
-              section,
-              rollNumber,
-              gender: gender || "Male",
-              guardianPhone,
-              guardianName,
-              guardianRelationship,
-              guardianPhoneAlt,
-              address,
-              dateOfBirth,
-              nationalId,
-              previousSchool,
-              bloodGroup,
-              medicalNotes,
-              status: status || "active",
-              createdAt: new Date().toISOString().split("T")[0]
-            }
-          });
-        });
-
-        setImportRows(parsedRows);
-        setImportValidCount(valid);
-        setImportErrorCount(errors);
-        setImportStep('preview');
-      } catch (err) {
-        console.error(err);
-        showToast("Faylka Excel lama akhrin karo", "error");
+      if (!rawData || rawData.length === 0) {
+        showToast("Faylka waa faaruq.", "warning");
+        return;
       }
-    };
-    reader.readAsBinaryString(file);
-    // Reset file input value
-    e.target.value = '';
+
+      if (rawData.length > 500) {
+        showToast("Hal import kama badnaan karo 500 arday.", "error");
+        return;
+      }
+
+      const classNamesSet = new Set(
+        classes.map((item) => String(item.className || '').toLowerCase().trim())
+      );
+      const existingNamesSet = new Set(
+        students.map(
+          (s) =>
+            `${String(s.fullName || '').toLowerCase().trim()}|${String(s.class || '').toLowerCase().trim()}`
+        )
+      );
+      const existingRollSet = new Set(
+        students
+          .map((s) => {
+            const roll = String(s.rollNumber || '').toLowerCase().trim();
+            const cls = String(s.class || '').toLowerCase().trim();
+            const section = String(s.section || '').toLowerCase().trim();
+            return roll ? `${cls}::${section}::${roll}` : '';
+          })
+          .filter(Boolean)
+      );
+      const existingNationalIdSet = new Set(
+        students
+          .map((s) => String(s.nationalId || '').toLowerCase().trim())
+          .filter(Boolean)
+      );
+
+      const parsedRows: any[] = [];
+      const seenNames = new Set<string>();
+      const seenRolls = new Set<string>();
+      const seenNationalIds = new Set<string>();
+      let valid = 0;
+      let errors = 0;
+
+      rawData.forEach((row: Record<string, unknown>, index: number) => {
+        const rowNum = index + 2;
+        const get = (...keys: string[]) => {
+          for (const key of keys) {
+            const value = row[key];
+            if (value !== undefined && value !== null && String(value).trim() !== '') {
+              return String(value).trim();
+            }
+          }
+          return '';
+        };
+
+        const fullName = get(
+          "Magaca Ardayga (Full Name) *",
+          "Magaca Ardayga (Full Name)",
+          "fullName",
+          "Full Name",
+          "Name"
+        );
+        const className = get(
+          "Fasalka (Class) *",
+          "Fasalka (Class)",
+          "class",
+          "Class",
+          "Grade"
+        );
+        const studentId = get("Student ID (Optional)", "Student ID", "id");
+        const section = get("Section", "Qeybta (Section)");
+        const rollNumber = get("Roll Number", "RollNumber");
+
+        const genderRaw = get(
+          "Lab/Dhedig (Gender - Male/Female)",
+          "Lab/Dhedig (Gender - Male/Female) *",
+          "gender",
+          "Gender"
+        ).toLowerCase();
+        const gender =
+          genderRaw === "female" ||
+          genderRaw === "f" ||
+          genderRaw === "dhedig" ||
+          genderRaw === "d"
+            ? "Female"
+            : genderRaw === "male" ||
+              genderRaw === "m" ||
+              genderRaw === "lab" ||
+              !genderRaw
+            ? "Male"
+            : "";
+
+        const guardianPhone = get(
+          "Telefoonka Waalidka (Guardian Phone)",
+          "Telefoonka Waalidka (Guardian Phone) *",
+          "guardianPhone"
+        );
+        const guardianName = get(
+          "Magaca Waalidka (Guardian Name)",
+          "guardianName",
+          "Guardian Name"
+        );
+        const guardianRelationship = get(
+          "Xiriirka Waalidka (Relationship)",
+          "Guardian Relationship",
+          "guardianRelationship"
+        );
+        const guardianPhoneAlt = get(
+          "Telefoon Labaad (Guardian Phone Alt)",
+          "Guardian Phone Alt",
+          "guardianPhoneAlt"
+        );
+        const address = get("Address", "Cinwaanka (Address)", "address");
+        const dateOfBirth = get("Date of Birth", "dateOfBirth");
+        const nationalId = get("National ID", "nationalId");
+        const previousSchool = get(
+          "Previous School",
+          "Iskuulkii Hore (Previous School)",
+          "previousSchool"
+        );
+        const bloodGroup = get("Blood Group", "bloodGroup");
+        const medicalNotes = get(
+          "Medical Notes",
+          "Xusuusin Caafimaad",
+          "medicalNotes"
+        );
+
+        const statusRaw = get(
+          "Status (active/inactive/archived)",
+          "status"
+        ).toLowerCase();
+        const status =
+          statusRaw === "inactive" || statusRaw === "archived" || statusRaw === "active"
+            ? statusRaw
+            : "active";
+
+        const rowErrors: string[] = [];
+        const nameClassKey =
+          `${fullName.toLowerCase()}|${className.toLowerCase()}`;
+        const rollKey = rollNumber.toLowerCase();
+        const sectionKey = section.toLowerCase();
+        const scopedRollKey =
+          `${className.toLowerCase()}::${sectionKey}::${rollKey}`;
+        const nationalKey = nationalId.toLowerCase();
+
+        if (!fullName) rowErrors.push("Magaca ardayga waa maqan yahay");
+        else if (fullName.split(/\\s+/).filter(Boolean).length < 2) {
+          rowErrors.push("Magaca ardayga waa inuu leeyahay ugu yaraan 2 magac");
+        }
+
+        if (!className) {
+          rowErrors.push("Fasalka waa maqan yahay");
+        } else if (!classNamesSet.has(className.toLowerCase())) {
+          rowErrors.push(`Fasalka '${className}' kama jiro nidaamka`);
+        }
+
+        if (!gender) rowErrors.push("Gender-ka waa inuu noqdaa Male ama Female");
+        if (!guardianPhone) rowErrors.push("Telefoonka waalidka waa qasab");
+        else if (!/^[+0-9()\\s.-]{7,30}$/.test(guardianPhone)) {
+          rowErrors.push("Telefoonka waalidka ma saxna");
+        }
+        if (guardianPhoneAlt && !/^[+0-9()\\s.-]{7,30}$/.test(guardianPhoneAlt)) {
+          rowErrors.push("Telefoonka labaad ma saxna");
+        }
+        if (nationalId.length > 80) rowErrors.push("National ID aad buu u dheer yahay");
+        if (medicalNotes.length > 2000) rowErrors.push("Medical Notes aad bay u dheer yihiin");
+        if (dateOfBirth) {
+          const parsedDob = new Date(dateOfBirth + "T00:00:00");
+          if (Number.isNaN(parsedDob.getTime()) || parsedDob > new Date()) {
+            rowErrors.push("Date of Birth ma saxna");
+          }
+        }
+
+        if (existingNamesSet.has(nameClassKey) || seenNames.has(nameClassKey)) {
+          rowErrors.push("Ardaygan horey ayaa loogu diiwaangeliyey fasalkan");
+        }
+        if (rollKey && (existingRollSet.has(scopedRollKey) || seenRolls.has(scopedRollKey))) {
+          rowErrors.push("Roll Number-kan hore ayaa loo isticmaalay fasalkan iyo section-kan");
+        }
+        if (
+          nationalKey &&
+          (existingNationalIdSet.has(nationalKey) || seenNationalIds.has(nationalKey))
+        ) {
+          rowErrors.push("National ID-gan hore ayaa loo isticmaalay");
+        }
+
+        const isValid = rowErrors.length === 0;
+        if (isValid) {
+          valid += 1;
+          seenNames.add(nameClassKey);
+          if (rollKey) seenRolls.add(scopedRollKey);
+          if (nationalKey) seenNationalIds.add(nationalKey);
+        } else {
+          errors += 1;
+        }
+
+        parsedRows.push({
+          rowNum,
+          isValid,
+          errors: rowErrors,
+          data: {
+            id:
+              studentId ||
+              (typeof crypto !== "undefined" && "randomUUID" in crypto
+                ? "STD-" + crypto.randomUUID().slice(0, 8).toUpperCase()
+                : "STD-" + Date.now().toString(36).toUpperCase()),
+            fullName,
+            class: className,
+            section,
+            rollNumber,
+            gender: gender || "Male",
+            guardianPhone,
+            guardianName,
+            guardianRelationship,
+            guardianPhoneAlt,
+            address,
+            dateOfBirth,
+            nationalId,
+            previousSchool,
+            bloodGroup,
+            medicalNotes,
+            status,
+            createdAt: new Date().toISOString().split("T")[0]
+          }
+        });
+      });
+
+      setImportRows(parsedRows);
+      setImportValidCount(valid);
+      setImportErrorCount(errors);
+      setImportStep("preview");
+    } catch (error) {
+      console.error("Student spreadsheet import failed:", error);
+      showToast(
+        "Faylka lama akhrin karo. Hubi inuu yahay CSV ama Excel (.xlsx/.xls) sax ah.",
+        "error"
+      );
+    }
   };
 
   const handleCommitImport = async () => {
