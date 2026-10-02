@@ -473,10 +473,13 @@ CREATE TABLE IF NOT EXISTS dugsiga_payroll (
 );
 
 -- ----------------------------------------------------------------------------
--- QAYBTA 4: FASAXA IL-LA-SOCODKA & HELITAANKA TOOSKA AH (PERMISSIONS & RLS)
+-- QAYBTA 4: SECURITY
+-- Backend-ku wuxuu isticmaalaa server-side service_role client.
+-- Direct client access (anon/authenticated) lama siinayo tables-kan.
+-- RLS waa ON dhammaan tables-ka; service_role wuxuu leeyahay bypassRLS.
 -- ----------------------------------------------------------------------------
 
-DO $$
+DO $
 DECLARE
   tbl_name TEXT;
   tables_list TEXT[] := ARRAY[
@@ -510,13 +513,10 @@ DECLARE
   ];
 BEGIN
   FOREACH tbl_name IN ARRAY tables_list LOOP
-    BEGIN
-      EXECUTE format('ALTER TABLE %I DISABLE ROW LEVEL SECURITY;', tbl_name);
-      EXECUTE format('GRANT ALL ON TABLE %I TO anon, authenticated, service_role;', tbl_name);
-    EXCEPTION WHEN OTHERS THEN
-      NULL;
-    END;
+    EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', tbl_name);
+    EXECUTE format('REVOKE ALL ON TABLE public.%I FROM anon, authenticated', tbl_name);
+    EXECUTE format('GRANT ALL ON TABLE public.%I TO service_role', tbl_name);
   END LOOP;
-END $$;
+END $;
 
--- Mahadsanid! Dhammaan 27-ka miis ee DUGSI PRO 2026 hadda waa diyaarsan yihiin.
+-- Mahadsanid! DUGSI PRO 2026 database-ku waa secure-by-default.
