@@ -79,6 +79,9 @@ interface StudentsViewProps {
     [key: string]: any;
   };
   onAddStudent: (student: any) => Promise<boolean>;
+  onImportStudents?: (
+    studentsToImport: any[]
+  ) => Promise<{ success: boolean; imported: number; failed: number }>;
   onUpdateStudent: (id: string, updates: any) => Promise<boolean>;
   onDeleteStudent: (id: string) => Promise<boolean>;
   onBulkUpdate?: (action: string, studentIds: string[], targetValue?: string) => Promise<boolean>;
@@ -98,6 +101,7 @@ export default function StudentsView({
   subjects = [],
   settings,
   onAddStudent,
+  onImportStudents,
   onUpdateStudent,
   onDeleteStudent,
   onBulkUpdate,
@@ -865,19 +869,24 @@ export default function StudentsView({
     let successCount = 0;
     let failCount = 0;
 
-    for (let i = 0; i < validRows.length; i++) {
-      const student = validRows[i];
-      try {
-        const ok = await onAddStudent(student);
+    if (onImportStudents) {
+      const result = await onImportStudents(validRows);
+      successCount = result.imported;
+      failCount = result.failed;
+      setImportProgress(100);
+    } else {
+      for (let i = 0; i < validRows.length; i++) {
+        const ok = await onAddStudent(validRows[i]);
         if (ok) successCount++;
         else failCount++;
-      } catch (e) {
-        failCount++;
+        setImportProgress(Math.round(((i + 1) / validRows.length) * 100));
       }
-      setImportProgress(Math.round(((i + 1) / validRows.length) * 100));
     }
 
-    showToast(`Soo gelintu way dhammaatay: ${successCount} arday ayaa lagu daray. ${failCount} cilado.`, "success");
+    showToast(
+      `Soo gelintu way dhammaatay: ${successCount} arday ayaa lagu daray. ${failCount} cilado.`,
+      failCount > 0 ? "warning" : "success"
+    );
     setShowImportModal(false);
     setImportStep('upload');
     setImportRows([]);
