@@ -65,6 +65,10 @@ export interface StudentsFilterToolbarProps {
   onBulkExportSelected?: () => void;
   onOpenBulkArchive?: () => void;
   onOpenBulkDelete?: () => void;
+  canBulkManage?: boolean;
+  canDeleteStudents?: boolean;
+  canUpdateStudents?: boolean;
+  canViewFinance?: boolean;
 }
 
 export const StudentsFilterToolbar: React.FC<StudentsFilterToolbarProps> = ({
@@ -103,7 +107,11 @@ export const StudentsFilterToolbar: React.FC<StudentsFilterToolbarProps> = ({
   onOpenBulkChangeStatus,
   onBulkExportSelected,
   onOpenBulkArchive,
-  onOpenBulkDelete
+  onOpenBulkDelete,
+  canBulkManage = true,
+  canDeleteStudents = true,
+  canUpdateStudents = true,
+  canViewFinance = true
 }) => {
   const resolvedSearchChange = onSearchChange || setSearchQuery || (() => {});
   const resolvedClass = classFilter ?? selectedClassFilter ?? 'all';
@@ -186,20 +194,24 @@ export const StudentsFilterToolbar: React.FC<StudentsFilterToolbarProps> = ({
             </select>
           </div>
 
-          {/* Fee Status Filter */}
-          <div className="lg:col-span-2">
-            <select
-              value={resolvedFee}
-              onChange={(e) => resolvedFeeChange(e.target.value)}
-              aria-label="Filter by fee status"
-              className="w-full ds-input py-2"
-            >
-              <option value="all">Xaaladda Lacagta (All)</option>
-              <option value="paid">La Bixiyey (Paid)</option>
-              <option value="partial">Qayb Dhiman (Partial)</option>
-              <option value="unpaid">Aan Bixinin (Unpaid)</option>
-            </select>
-          </div>
+          {canViewFinance && (
+                      {/* Fee Status Filter */}
+                      <div className="lg:col-span-2">
+                        <select
+                          value={resolvedFee}
+                          onChange={(e) => resolvedFeeChange(e.target.value)}
+                          aria-label="Filter by fee status"
+                          className="w-full ds-input py-2"
+                        >
+                          <option value="all">Xaaladda Lacagta (All)</option>
+                          <option value="paid">La Bixiyey (Paid)</option>
+                          <option value="partial">Qayb Dhiman (Partial)</option>
+                          <option value="unpaid">Aan Bixinin (Unpaid)</option>
+                        </select>
+                      </div>
+
+
+          )}
 
           {/* Sort By */}
           <div className="lg:col-span-2 flex items-center gap-1.5">
@@ -329,23 +341,27 @@ export const StudentsFilterToolbar: React.FC<StudentsFilterToolbarProps> = ({
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
-            <Button
-              size="xs"
-              variant="secondary"
-              leftIcon={<ArrowRightLeft className="w-3.5 h-3.5" />}
-              onClick={() => triggerBulkAction('change_class')}
-            >
-              Beddel Fasalka
-            </Button>
+            {canBulkManage && (
+              <>
+                <Button
+                  size="xs"
+                  variant="secondary"
+                  leftIcon={<ArrowRightLeft className="w-3.5 h-3.5" />}
+                  onClick={() => triggerBulkAction('change_class')}
+                >
+                  Beddel Fasalka
+                </Button>
 
-            <Button
-              size="xs"
-              variant="secondary"
-              leftIcon={<Activity className="w-3.5 h-3.5" />}
-              onClick={() => triggerBulkAction('change_status')}
-            >
-              Beddel Status
-            </Button>
+                <Button
+                  size="xs"
+                  variant="secondary"
+                  leftIcon={<Activity className="w-3.5 h-3.5" />}
+                  onClick={() => triggerBulkAction('change_status')}
+                >
+                  Beddel Status
+                </Button>
+              </>
+            )}
 
             {onBulkExportSelected && (
               <Button
@@ -358,23 +374,27 @@ export const StudentsFilterToolbar: React.FC<StudentsFilterToolbarProps> = ({
               </Button>
             )}
 
-            <Button
-              size="xs"
-              variant="secondary"
-              leftIcon={<Archive className="w-3.5 h-3.5" />}
-              onClick={() => triggerBulkAction('archive')}
-            >
-              Kaydi (Archive)
-            </Button>
+            {canUpdateStudents && (
+              <Button
+                size="xs"
+                variant="secondary"
+                leftIcon={<Archive className="w-3.5 h-3.5" />}
+                onClick={() => triggerBulkAction('archive')}
+              >
+                Kaydi (Archive)
+              </Button>
+            )}
 
-            <Button
-              size="xs"
-              variant="danger"
-              leftIcon={<Trash2 className="w-3.5 h-3.5" />}
-              onClick={() => triggerBulkAction('delete')}
-            >
-              Tirtir (Delete)
-            </Button>
+            {canDeleteStudents && (
+              <Button
+                size="xs"
+                variant="danger"
+                leftIcon={<Trash2 className="w-3.5 h-3.5" />}
+                onClick={() => triggerBulkAction('delete')}
+              >
+                Tirtir (Delete)
+              </Button>
+            )}
           </div>
         </div>
       )}
