@@ -65,6 +65,8 @@ export default function StudentProfileModal({
   >('overview');
   const [activity, setActivity] = useState<ActivityItem[]>([]);
   const [activityLoading, setActivityLoading] = useState(false);
+  const [profileAttendance, setProfileAttendance] = useState<AttendanceRecord[]>([]);
+  const [attendanceLoading, setAttendanceLoading] = useState(false);
   const profileTabs = useMemo(
     () =>
       canViewFinance
@@ -80,6 +82,37 @@ export default function StudentProfileModal({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onClose]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (activeTab !== 'attendance') return;
+
+    const loadAttendance = async () => {
+      setAttendanceLoading(true);
+      try {
+        const response = await apiFetch(
+          `/api/students/${encodeURIComponent(student.id)}/attendance`
+        );
+        if (!response.ok) return;
+
+        const payload = await response.json();
+        if (!cancelled && Array.isArray(payload)) {
+          setProfileAttendance(payload);
+        }
+      } catch {
+        // The prop-provided attendance remains available as a fallback.
+      } finally {
+        if (!cancelled) setAttendanceLoading(false);
+      }
+    };
+
+    void loadAttendance();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, student.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -110,7 +143,7 @@ export default function StudentProfileModal({
     };
   }, [activeTab, student.id]);
 
-  const resolvedAttendance = attendance || attendanceRecords || [];
+  const resolvedAttendance = profileAttendance.length > 0 ? profileAttendance : (attendance || attendanceRecords || []);
   const resolvedFees = canViewFinance ? (fees || feeRecords || []) : [];
 
   useEffect(() => {
@@ -867,7 +900,11 @@ export default function StudentProfileModal({
               </div>
 
               <div className="max-h-56 overflow-y-auto space-y-1.5">
-                {studentAttendance.length === 0 ? (
+                {attendanceLoading ? (
+                  <div className="py-6 text-center text-[var(--color-text-muted)]">
+                    Loading attendance...
+                  </div>
+                ) : studentAttendance.length === 0 ? (
                   <div className="py-6 text-center text-[var(--color-text-muted)]">
                     Weli diiwaan xaadiris ah lama hayo
                   </div>
