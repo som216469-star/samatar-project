@@ -446,6 +446,26 @@ export default function StudentProfileModal({
                               </span>
                             ))}
                           </div>
+                          {(item.beforeData || item.afterData) && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                              <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-2">
+                                <p className="text-[10px] font-bold text-[var(--color-text-muted)] uppercase mb-1">
+                                  Ka hor (Before)
+                                </p>
+                                <pre className="text-[9px] whitespace-pre-wrap break-words text-[var(--color-text-secondary)]">
+                                  {JSON.stringify(item.beforeData, null, 2)}
+                                </pre>
+                              </div>
+                              <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-2">
+                                <p className="text-[10px] font-bold text-[var(--color-text-muted)] uppercase mb-1">
+                                  Ka dib (After)
+                                </p>
+                                <pre className="text-[9px] whitespace-pre-wrap break-words text-[var(--color-text-secondary)]">
+                                  {JSON.stringify(item.afterData, null, 2)}
+                                </pre>
+                              </div>
+                            </div>
+                          )}
 
                           {(item.beforeData || item.afterData) && (
                             <div className="space-y-1.5">
