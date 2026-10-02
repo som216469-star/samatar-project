@@ -7,7 +7,14 @@ import dotenv from "dotenv";
 import { withSupabase, createSupabaseContext } from "@supabase/server";
 import { registerModernRoutes } from "./server/modernRoutes.ts";
 import { registerFinanceRoutes } from "./server/financeRoutes.ts";
-import { getAuthenticatedUser, createSessionToken } from "./server/authSession.ts";
+import {
+  getAuthenticatedUser,
+  createSessionToken,
+  hashPassword,
+  verifyPassword,
+  requireAuthenticatedRequest,
+  validatePassword
+} from "./server/authSession.ts";
 
 // Load environment variables
 dotenv.config({ override: true });
@@ -906,15 +913,7 @@ function hasPermission(role: string, requiredPermission: string): boolean {
   return false;
 }
 
-function simpleHash(password: string): string {
-  let hash = 0;
-  for (let i = 0; i < password.length; i++) {
-    const char = password.charCodeAt(i);
-    hash = (hash << 5) - hash + char;
-    hash = hash & hash;
-  }
-  return hash.toString(16);
-}
+// Password hashing is centralized in server/authSession.ts.
 
 // ✅ EMAIL VERIFICATION LA SAARAY - Auto verified
 async function sendVerificationEmail(toEmail: string, code: string) {
@@ -992,6 +991,22 @@ function expressWithSupabase(config: any, handler: any) {
    API ROUTES
    ============================================== */
 
+const PUBLIC_API_PATHS = [
+  /^\/auth\/signup$/,
+  /^\/auth\/login$/,
+  /^\/auth\/verify$/,
+  /^\/teachers\/verify-invitation\/[^/]+$/,
+  /^\/teachers\/activate-account$/
+];
+
+app.use("/api", (req, res, next) => {
+  const publicPath = PUBLIC_API_PATHS.some((pattern) => pattern.test(req.path));
+  if (publicPath) {
+    return next();
+  }
+  return requireAuthenticatedRequest(req, res, next);
+});
+
 app.get("/api/db/status", async (req, res) => {
   try {
     await checkSupabaseStatus();
@@ -1065,7 +1080,11 @@ app.post("/api/auth/signup", async (req, res) => {
     return res.status(400).json({ error: "Email sax ah iyo password fadlan geli." });
   }
   const cleanEmail = email.trim().toLowerCase();
-  const passwordHash = simpleHash(password);
+  const passwordValidation = validatePassword(password);
+  if (!passwordValidation.valid) {
+    return res.status(400).json({ error: passwordValidation.error });
+  }
+  const passwordHash = await hashPassword(password);
 
   const db = loadLocalDB();
   const existingLocalUser = db.users.find(u => u.email.toLowerCase() === cleanEmail);
@@ -1084,7 +1103,7 @@ app.post("/api/auth/signup", async (req, res) => {
       }
 
       const { error: insertError } = await supabase.from("dugsiga_users").insert([{
-        email: cleanEmail, password: passwordHash, verified: true
+        email: cleanEmail, password: passwordHash, verified: true, role: "admin", school_id: cleanEmail
       }]);
 
       if (insertError) {
@@ -1102,7 +1121,13 @@ app.post("/api/auth/signup", async (req, res) => {
 
   // Always ensure user is saved in local database for seamless offline resilience
   if (!db.users.some(u => u.email.toLowerCase() === cleanEmail)) {
-    db.users.push({ email: cleanEmail, password_hash: passwordHash, verified: true });
+    db.users.push({
+      email: cleanEmail,
+      password_hash: passwordHash,
+      verified: true,
+      role: "admin",
+      school_id: cleanEmail
+    });
     saveLocalDB(db);
   }
 
@@ -1134,9 +1159,10 @@ app.post("/api/auth/login", async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) return res.status(400).json({ error: "Fadlan geli email iyo password." });
   const cleanEmail = email.trim().toLowerCase();
-  const passwordHash = simpleHash(password);
+  const db = loadLocalDB();
+  const localUser = db.users.find(u => u.email.toLowerCase() === cleanEmail);
 
-  // 1. If Supabase is connected, check Supabase first (source of truth)
+  // 1. Supabase is the cloud source of truth when available.
   if (!useLocalFallback && supabase) {
     try {
       const { data: user, error } = await supabase
@@ -1146,51 +1172,68 @@ app.post("/api/auth/login", async (req, res) => {
         .maybeSingle();
 
       if (!error && user) {
-        const db = loadLocalDB();
-        const localUser = db.users.find(u => u.email.toLowerCase() === cleanEmail);
-        const matchesCloud = user.password === passwordHash;
-        const matchesLocal = localUser && localUser.password_hash === passwordHash;
+        const cloudCheck = await verifyPassword(password, user.password);
+        const localCheck = localUser
+          ? await verifyPassword(password, localUser.password_hash)
+          : { valid: false, needsRehash: false };
 
-        if (matchesCloud || matchesLocal) {
-          if (matchesLocal && !matchesCloud) {
-            await supabase.from("dugsiga_users").update({ password: passwordHash }).ilike("email", cleanEmail);
-          }
-          const localIdx = db.users.findIndex(u => u.email.toLowerCase() === cleanEmail);
-          if (localIdx !== -1) {
-            db.users[localIdx].password_hash = passwordHash;
-          } else {
-            db.users.push({ email: cleanEmail, password_hash: passwordHash, verified: true });
-          }
-          saveLocalDB(db);
-
-          const authRes = buildAuthResponse(cleanEmail, db);
-          if (authRes.error) {
-            return res.status(403).json({ error: authRes.error });
-          }
-          return res.json(authRes);
-        } else {
-          return res.status(400).json({ error: "Password-ka aad gelisay ma saxna." });
+        if (!cloudCheck.valid && !localCheck.valid) {
+          return res.status(400).json({ error: "Email ama password ayaa qalad ah." });
         }
+
+        let upgradedHash: string | null = null;
+        if (cloudCheck.needsRehash || localCheck.needsRehash || !cloudCheck.valid) {
+          upgradedHash = await hashPassword(password);
+          await supabase
+            .from("dugsiga_users")
+            .update({ password: upgradedHash })
+            .ilike("email", cleanEmail);
+        }
+
+        const canonicalHash = upgradedHash || user.password;
+        const localIdx = db.users.findIndex(u => u.email.toLowerCase() === cleanEmail);
+        if (localIdx !== -1) {
+          db.users[localIdx].password_hash = canonicalHash;
+          db.users[localIdx].verified = true;
+          db.users[localIdx].role = user.role || db.users[localIdx].role || "admin";
+          db.users[localIdx].school_id = user.school_id || db.users[localIdx].school_id || cleanEmail;
+          db.users[localIdx].teacher_id = user.teacher_id || db.users[localIdx].teacher_id;
+        } else {
+          db.users.push({
+            email: cleanEmail,
+            password_hash: canonicalHash,
+            verified: true,
+            role: user.role || "admin",
+            school_id: user.school_id || cleanEmail,
+            teacher_id: user.teacher_id
+          });
+        }
+        saveLocalDB(db);
+
+        const authRes = buildAuthResponse(cleanEmail, db);
+        if (authRes.error) return res.status(403).json({ error: authRes.error });
+        return res.json(authRes);
       }
     } catch (e: any) {
       console.warn("Supabase login check notice:", e?.message || e);
     }
   }
 
-  // 2. Fallback to local DB if user exists locally or Supabase is not reached
-  const db = loadLocalDB();
-  const localUser = db.users.find(u => u.email.toLowerCase() === cleanEmail);
-
+  // 2. Secure local fallback with transparent legacy-hash upgrade.
   if (localUser) {
-    if (localUser.password_hash === passwordHash) {
-      const authRes = buildAuthResponse(cleanEmail, db);
-      if (authRes.error) {
-        return res.status(403).json({ error: authRes.error });
-      }
-      return res.json(authRes);
-    } else {
-      return res.status(400).json({ error: "Password-ka aad gelisay ma saxna." });
+    const localCheck = await verifyPassword(password, localUser.password_hash);
+    if (!localCheck.valid) {
+      return res.status(400).json({ error: "Email ama password ayaa qalad ah." });
     }
+
+    if (localCheck.needsRehash) {
+      localUser.password_hash = await hashPassword(password);
+      saveLocalDB(db);
+    }
+
+    const authRes = buildAuthResponse(cleanEmail, db);
+    if (authRes.error) return res.status(403).json({ error: authRes.error });
+    return res.json(authRes);
   }
 
   return res.status(400).json({ error: "Email ama password ayaa qalad ah." });
