@@ -53,6 +53,8 @@ export default function StudentProfileModal({
     actorEmail: string;
     actorRole: string;
     changedFields: string[];
+    beforeData?: Record<string, unknown> | null;
+    afterData?: Record<string, unknown> | null;
     createdAt: string;
   };
 
@@ -416,15 +418,52 @@ export default function StudentProfileModal({
                       </div>
 
                       {item.changedFields.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5 mt-2">
-                          {item.changedFields.slice(0, 12).map((field) => (
-                            <span
-                              key={field}
-                              className="px-2 py-1 rounded-md border border-[var(--color-border)] text-[10px] text-[var(--color-text-secondary)]"
-                            >
-                              {field}
-                            </span>
-                          ))}
+                        <div className="space-y-2 mt-2">
+                          <div className="flex flex-wrap gap-1.5">
+                            {item.changedFields.slice(0, 12).map((field) => (
+                              <span
+                                key={field}
+                                className="px-2 py-1 rounded-md border border-[var(--color-border)] text-[10px] text-[var(--color-text-secondary)]"
+                              >
+                                {field}
+                              </span>
+                            ))}
+                          </div>
+
+                          {(item.beforeData || item.afterData) && (
+                            <div className="space-y-1.5">
+                              {item.changedFields.slice(0, 8).map((field) => {
+                                const beforeValue = item.beforeData?.[field];
+                                const afterValue = item.afterData?.[field];
+
+                                if (
+                                  beforeValue === undefined &&
+                                  afterValue === undefined
+                                ) {
+                                  return null;
+                                }
+
+                                const formatValue = (value: unknown) =>
+                                  value === null || value === undefined || value === ''
+                                    ? '—'
+                                    : String(value);
+
+                                return (
+                                  <div
+                                    key={`diff-${field}`}
+                                    className="grid grid-cols-1 sm:grid-cols-[120px_1fr] gap-1 sm:gap-3 text-[10px]"
+                                  >
+                                    <span className="font-semibold text-[var(--color-text-muted)]">
+                                      {field}
+                                    </span>
+                                    <span className="text-[var(--color-text-secondary)] break-words">
+                                      {formatValue(beforeValue)} → {formatValue(afterValue)}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
