@@ -1466,7 +1466,6 @@ export default function StudentsView({
         setShowDashboardDetails={setShowDashboardDetails}
         onOpenProfile={handleOpenProfile}
         canViewFinance={studentPermissions.canViewFinance}
-        canViewFinance={studentPermissions.canViewFinance}
       />
 
       {/* 3 & 4. ADVANCED SEARCH, FILTER, COLUMN VISIBILITY & BULK ACTIONS TOOLBAR */}
