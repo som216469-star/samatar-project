@@ -24,6 +24,7 @@ export interface StudentComputedStats {
   male?: number;
   female?: number;
   missingGuardian?: number;
+  missingGuardianCount?: number;
   needsAttention?: number;
   unpaidStudentsCount?: number;
   unpaidFeesCount?: number;
@@ -85,7 +86,8 @@ export const StudentsStatsOverview: React.FC<StudentsStatsOverviewProps> = ({
   const maleCount = safeStats.maleCount ?? safeStats.male ?? 0;
   const femaleCount = safeStats.femaleCount ?? safeStats.female ?? 0;
   const newThisMonth = safeStats.newThisMonth ?? safeStats.newlyRegistered ?? 0;
-  const missingGuardian = safeStats.missingGuardian ?? safeStats.needsAttention ?? 0;
+  const missingGuardian =
+    safeStats.missingGuardianCount ?? safeStats.missingGuardian ?? safeStats.needsAttention ?? 0;
   const unpaidCount = safeStats.unpaidStudentsCount ?? safeStats.unpaidFeesCount ?? 0;
 
   const activeClassFilter = classFilter ?? selectedClassFilter ?? 'all';
@@ -185,16 +187,16 @@ export const StudentsStatsOverview: React.FC<StudentsStatsOverviewProps> = ({
         <StatCard
           label="Cusub Bishan"
           value={newThisMonth}
-          sublabel={selectedRegDateFilter === 'this_month' ? 'Filter Active' : '30-kii maalmood'}
+          sublabel={selectedRegDateFilter === 'this_month' ? 'Filter Active' : 'Bishan'}
           tone="info"
           icon={<Sparkles className="w-4 h-4" />}
           onClick={handleNewThisMonthClick}
         />
 
         <StatCard
-          label="Waalid / Fiiro"
+          label="Telefoonka Waalidka"
           value={missingGuardian}
-          sublabel={missingGuardianOnly ? 'Filter Active' : 'Guji si aad u shaandhayso'}
+          sublabel={missingGuardianOnly ? 'Filter Active' : 'Telefoon maqan'}
           tone="warning"
           icon={<PhoneCall className="w-4 h-4" />}
           onClick={handleAttentionClick}
