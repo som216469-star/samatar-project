@@ -334,7 +334,7 @@ export default function StudentProfileModal({
 
         {/* Modal Navigation Tabs */}
         <div className="flex items-center gap-1 px-5 sm:px-6 pt-2 bg-[var(--color-surface)] border-b border-[var(--color-border)] overflow-x-auto">
-          {(['overview', 'academic', 'attendance', 'fees'] as const).map((tab) => (
+          {(['overview', 'academic', 'attendance', 'fees', 'activity'] as const).map((tab) => (
             <button
               key={tab}
               type="button"
