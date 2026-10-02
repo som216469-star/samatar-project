@@ -34,6 +34,12 @@ interface ParsedRow {
   section?: string;
   rollNumber?: string;
   address?: string;
+  guardianRelationship?: string;
+  guardianPhoneAlt?: string;
+  nationalId?: string;
+  previousSchool?: string;
+  bloodGroup?: string;
+  medicalNotes?: string;
   isValid: boolean;
   isDuplicate: boolean;
   errors: string[];
@@ -69,7 +75,13 @@ export default function StudentImportView({
         'Magaca Waalidka (Guardian Name)': 'Cali Jaamac',
         'Qeybta (Section)': 'A',
         'Roll Number': '01',
-        'Cinwaanka (Address)': 'Muqdisho, Hodan'
+        'Cinwaanka (Address)': 'Muqdisho, Hodan',
+        'Xiriirka Waalidka (Relationship)': 'Aabbe',
+        'Telefoon Labaad (Guardian Phone Alt)': '',
+        'National ID': '',
+        'Iskuulkii Hore (Previous School)': '',
+        'Blood Group': '',
+        'Medical Notes': ''
       },
       {
         'Magaca Ardayga (Full Name) *': 'Caasho Axmed Nuur',
@@ -79,7 +91,13 @@ export default function StudentImportView({
         'Magaca Waalidka (Guardian Name)': 'Axmed Nuur',
         'Qeybta (Section)': 'A',
         'Roll Number': '02',
-        'Cinwaanka (Address)': 'Muqdisho, Howlwadaag'
+        'Cinwaanka (Address)': 'Muqdisho, Howlwadaag',
+        'Xiriirka Waalidka (Relationship)': 'Hooyo',
+        'Telefoon Labaad (Guardian Phone Alt)': '',
+        'National ID': '',
+        'Iskuulkii Hore (Previous School)': '',
+        'Blood Group': '',
+        'Medical Notes': ''
       }
     ];
 
@@ -168,6 +186,30 @@ export default function StudentImportView({
           const section = String(row['Qeybta (Section)'] || row['Section'] || '').trim();
           const rollNumber = String(row['Roll Number'] || row['RollNumber'] || '').trim();
           const address = String(row['Cinwaanka (Address)'] || row['Address'] || '').trim();
+          const guardianRelationship = String(
+            row['Xiriirka Waalidka (Relationship)'] ||
+            row['Guardian Relationship'] ||
+            row['Relationship'] ||
+            ''
+          ).trim();
+          const guardianPhoneAlt = String(
+            row['Telefoon Labaad (Guardian Phone Alt)'] ||
+            row['Guardian Phone Alt'] ||
+            row['Alternate Phone'] ||
+            ''
+          ).trim();
+          const nationalId = String(row['National ID'] || row['NationalID'] || '').trim();
+          const previousSchool = String(
+            row['Iskuulkii Hore (Previous School)'] ||
+            row['Previous School'] ||
+            ''
+          ).trim();
+          const bloodGroup = String(row['Blood Group'] || row['BloodGroup'] || '').trim();
+          const medicalNotes = String(
+            row['Medical Notes'] ||
+            row['Xusuusin Caafimaad'] ||
+            ''
+          ).trim();
 
           const errors: string[] = [];
           if (!fullName) errors.push('Magaca ardayga waa maran (Name is empty)');
@@ -182,6 +224,11 @@ export default function StudentImportView({
           if (guardianPhone && !/^[+0-9()\s.-]{7,30}$/.test(guardianPhone)) {
             errors.push('Telefoonka waalidka ma saxna');
           }
+          if (guardianPhoneAlt && !/^[+0-9()\s.-]{7,30}$/.test(guardianPhoneAlt)) {
+            errors.push('Telefoonka labaad ma saxna');
+          }
+          if (nationalId.length > 80) errors.push('National ID aad buu u dheer yahay');
+          if (medicalNotes.length > 2000) errors.push('Medical Notes aad bay u dheer yihiin');
 
           let isDuplicate = false;
           let duplicateReason = '';
@@ -218,6 +265,12 @@ export default function StudentImportView({
             section: section || undefined,
             rollNumber: rollNumber || undefined,
             address: address || undefined,
+            guardianRelationship: guardianRelationship || undefined,
+            guardianPhoneAlt: guardianPhoneAlt || undefined,
+            nationalId: nationalId || undefined,
+            previousSchool: previousSchool || undefined,
+            bloodGroup: bloodGroup || undefined,
+            medicalNotes: medicalNotes || undefined,
             isValid: errors.length === 0,
             isDuplicate,
             errors,
@@ -290,6 +343,12 @@ export default function StudentImportView({
       section: r.section,
       rollNumber: r.rollNumber,
       address: r.address,
+      guardianRelationship: r.guardianRelationship,
+      guardianPhoneAlt: r.guardianPhoneAlt,
+      nationalId: r.nationalId,
+      previousSchool: r.previousSchool,
+      bloodGroup: r.bloodGroup,
+      medicalNotes: r.medicalNotes,
       status: 'active',
       createdAt: new Date().toISOString().split('T')[0]
     }));
