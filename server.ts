@@ -1517,7 +1517,12 @@ async function getStudentDependencyIds(studentIds: string[], schoolId: string): 
 
   const results = await Promise.all(
     dependentTables.map(async ([table, column]) => {
-      const { data, error } = await supabase.from(table).select(column).in(column, studentIds).limit(STUDENT_MAX_BULK);
+      const { data, error } = await supabase
+        .from(table)
+        .select(column)
+        .eq("school_id", schoolId)
+        .in(column, studentIds)
+        .limit(STUDENT_MAX_BULK);
       if (error) throw error;
       return (data || []).map((row: any) => String(row[column] || ""));
     })
