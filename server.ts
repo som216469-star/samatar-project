@@ -1570,7 +1570,9 @@ async function recordStudentAudit(
   schoolId: string,
   studentId: string,
   action: "created" | "updated" | "archived" | "restored" | "deleted",
-  changedFields: string[]
+  changedFields: string[],
+  beforeData: Record<string, any> | null = null,
+  afterData: Record<string, any> | null = null
 ): Promise<void> {
   if (!supabase || useLocalFallback) return;
   const actor = getAuthenticatedUser(req, loadLocalDB);
@@ -1581,7 +1583,9 @@ async function recordStudentAudit(
       action,
       actor_email: actor?.email || null,
       actor_role: actor?.role || null,
-      changed_fields: { fields: Array.from(new Set(changedFields)).slice(0, 50) }
+      changed_fields: { fields: Array.from(new Set(changedFields)).slice(0, 50) },
+      before_data: beforeData,
+      after_data: afterData
     }]);
     if (error) console.warn("Student audit log failed:", error.message);
   } catch (error: any) {
@@ -2504,7 +2508,15 @@ app.post("/api/students", async (req, res) => {
         throw error;
       }
 
-      await recordStudentAudit(req, schoolId, studentId, "created", Object.keys(insertObj).filter((key) => !["school_id", "created_at", "updated_at"].includes(key)));
+      await recordStudentAudit(
+        req,
+        schoolId,
+        studentId,
+        "created",
+        Object.keys(insertObj).filter((key) => !["school_id", "created_at", "updated_at"].includes(key)),
+        null,
+        data
+      );
       return res.status(201).json(formatStudentRow(data));
     }
 
@@ -2592,7 +2604,15 @@ app.put("/api/students/:id", async (req, res) => {
       const oldStatus = String(current.status || "active");
       const newStatus = String(updated.status || oldStatus);
       const auditAction = oldStatus !== "archived" && newStatus === "archived" ? "archived" : oldStatus === "archived" && newStatus === "active" ? "restored" : "updated";
-      await recordStudentAudit(req, schoolId, id, auditAction, changedKeys);
+      await recordStudentAudit(
+        req,
+        schoolId,
+        id,
+        auditAction,
+        changedKeys,
+        current,
+        updated
+      );
       return res.json(formatStudentRow(updated));
     }
 
@@ -2688,7 +2708,7 @@ app.delete("/api/students/:id", async (req, res) => {
 
   try {
     if (!useLocalFallback) {
-      const { data: current, error: currentError } = await supabase.from("dugsiga_students").select("id,status").eq("school_id", schoolId).eq("id", id).maybeSingle();
+      const { data: current, error: currentError } = await supabase.from("dugsiga_students").select("*").eq("school_id", schoolId).eq("id", id).maybeSingle();
       if (currentError) throw currentError;
       if (!current) return res.status(404).json({ error: "Ardayga lama helin." });
 
@@ -2701,7 +2721,7 @@ app.delete("/api/students/:id", async (req, res) => {
       if (error) throw error;
       if (!deleted || deleted.length === 0) return res.status(404).json({ error: "Ardayga lama helin." });
 
-      await recordStudentAudit(req, schoolId, id, "deleted", ["student"]);
+      await recordStudentAudit(req, schoolId, id, "deleted", ["student"], current, null);
       return res.json({ success: true });
     }
 
