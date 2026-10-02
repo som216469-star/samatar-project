@@ -1,5 +1,5 @@
 import type express from "express";
-import { generateSecureToken } from "./authSession.ts";
+import { generateSecureToken, getAuthenticatedUser } from "./authSession.ts";
 import { sendTeacherInvitationEmail } from "./emailService.ts";
 import { registerTeacherAuthRoutes } from "./teacherAuthRoutes.ts";
 
