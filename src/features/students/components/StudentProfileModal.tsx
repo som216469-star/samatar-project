@@ -33,6 +33,7 @@ export interface StudentProfileModalProps {
   onEditStudent?: (student: Student) => void;
   onStatusChange?: (student: Student, newStatus: 'active' | 'inactive' | 'archived') => void;
   canViewFinance?: boolean;
+  canViewAudit?: boolean;
 }
 
 export default function StudentProfileModal({
@@ -71,8 +72,12 @@ export default function StudentProfileModal({
   const profileTabs = useMemo(
     () =>
       canViewFinance
-        ? (['overview', 'academic', 'attendance', 'fees', 'activity'] as const)
-        : (['overview', 'academic', 'attendance', 'activity'] as const),
+        ? (canViewAudit
+            ? (['overview', 'academic', 'attendance', 'fees', 'activity'] as const)
+            : (['overview', 'academic', 'attendance', 'fees'] as const))
+        : (canViewAudit
+            ? (['overview', 'academic', 'attendance', 'activity'] as const)
+            : (['overview', 'academic', 'attendance'] as const)),
     [canViewFinance]
   );
 
