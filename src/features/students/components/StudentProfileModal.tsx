@@ -160,13 +160,12 @@ export default function StudentProfileModal({
         s.marksObtained,
         s.maxMarks || 100,
         s.grade ||
-          (s.marksObtained >= 80
-            ? 'A'
-            : s.marksObtained >= 65
-            ? 'B'
-            : s.marksObtained >= 50
-            ? 'C'
-            : 'F')
+          (() => {
+            const maxMarks = Number(s.maxMarks) || 100;
+            const percentage =
+              maxMarks > 0 ? ((Number(s.marksObtained) || 0) / maxMarks) * 100 : 0;
+            return percentage >= 80 ? 'A' : percentage >= 65 ? 'B' : percentage >= 50 ? 'C' : 'F';
+          })()
       ])
     });
 
