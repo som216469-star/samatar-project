@@ -1,7 +1,7 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import * as XLSX from 'xlsx';
 import { Teacher } from '../../types';
+import { downloadStudentSpreadsheet } from '../../lib/studentSpreadsheet';
 
 export function exportTeachersToPDF(teachers: Teacher[], currency: string = '$'): void {
   if (teachers.length === 0) return;
@@ -23,7 +23,7 @@ export function exportTeachersToPDF(teachers: Teacher[], currency: string = '$')
   doc.save(`Macallimiinta_${new Date().toISOString().split('T')[0]}.pdf`);
 }
 
-export function exportTeachersToExcel(teachers: Teacher[]): void {
+export async function exportTeachersToExcel(teachers: Teacher[]): Promise<void> {
   if (teachers.length === 0) return;
   const data = teachers.map((t) => ({
     ID: t.teacherId,
@@ -37,8 +37,9 @@ export function exportTeachersToExcel(teachers: Teacher[]): void {
     Salary: t.salary,
     HireDate: t.hireDate
   }));
-  const ws = XLSX.utils.json_to_sheet(data);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Teachers');
-  XLSX.writeFile(wb, `Teachers_Export_${new Date().toISOString().split('T')[0]}.xlsx`);
+  await downloadStudentSpreadsheet(
+    data as Record<string, unknown>[],
+    `Teachers_Export_${new Date().toISOString().split('T')[0]}.xlsx`,
+    'Teachers'
+  );
 }
