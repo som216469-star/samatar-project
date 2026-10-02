@@ -87,6 +87,27 @@ export const StudentsRosterTable: React.FC<StudentsRosterTableProps> = ({
   const resolvedCopiedId = externalCopiedPhoneId ?? localCopiedId;
   const resolvedAllSelected = Boolean(allVisibleSelected ?? isAllSelected);
   const handleSelectAll = onToggleSelectAllVisible || onToggleSelectAll || (() => {});
+  const columns = {
+    id: visibleColumns?.id ?? true,
+    class: visibleColumns?.class ?? true,
+    gender: visibleColumns?.gender ?? true,
+    guardian: visibleColumns?.guardian ?? true,
+    status: visibleColumns?.status ?? true,
+    fees: visibleColumns?.fees ?? true,
+    regDate: visibleColumns?.regDate ?? true,
+    updated: visibleColumns?.updated ?? true,
+    actions: visibleColumns?.actions ?? true
+  };
+  const tableColumnCount =
+    3 +
+    Number(columns.class) +
+    Number(columns.gender) +
+    Number(columns.guardian) +
+    Number(columns.fees) +
+    Number(columns.status) +
+    Number(columns.regDate) +
+    Number(columns.updated) +
+    Number(columns.actions);
 
   const handleCopyPhone = (phone: string, id: string) => {
     if (onCopyPhone) {
@@ -124,20 +145,26 @@ export const StudentsRosterTable: React.FC<StudentsRosterTableProps> = ({
                       )}
                     </button>
                   </th>
-                  <th className="px-3 py-3 w-10">#</th>
-                  <th className="px-4 py-3">Ardayga (Student)</th>
-                  <th className="px-4 py-3">Fasalka</th>
-                  <th className="px-4 py-3">Jinsiga</th>
-                  <th className="px-4 py-3">Waalidka & Telefoonka</th>
-                  <th className="px-4 py-3">Biilka</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3 text-right">Ficilada (Actions)</th>
+                  <th className="px-3 py-3 w-10" scope="col">#</th>
+                  <th className="px-4 py-3" scope="col">Ardayga (Student)</th>
+                  {columns.class && <th className="px-4 py-3" scope="col">Fasalka</th>}
+                  {columns.gender && <th className="px-4 py-3" scope="col">Jinsiga</th>}
+                  {columns.guardian && (
+                    <th className="px-4 py-3" scope="col">Waalidka & Telefoonka</th>
+                  )}
+                  {columns.fees && <th className="px-4 py-3" scope="col">Biilka</th>}
+                  {columns.status && <th className="px-4 py-3" scope="col">Status</th>}
+                  {columns.regDate && <th className="px-4 py-3" scope="col">Diiwaangelin</th>}
+                  {columns.updated && <th className="px-4 py-3" scope="col">La cusbooneysiiyey</th>}
+                  {columns.actions && (
+                    <th className="px-4 py-3 text-right" scope="col">Ficilada (Actions)</th>
+                  )}
                 </tr>
               </thead>
               <tbody className="text-xs">
                 {paginatedStudents.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="py-10">
+                    <td colSpan={tableColumnCount} className="py-10">
                       <EmptyState
                         icon={<Users className="w-6 h-6" />}
                         title="Wax arday ah lama helin"
@@ -233,15 +260,17 @@ export const StudentsRosterTable: React.FC<StudentsRosterTableProps> = ({
                               >
                                 {fullName}
                               </button>
-                              <div className="flex items-center gap-1.5 text-[11px] text-[var(--color-text-muted)] font-mono">
-                                <span>{student.id}</span>
-                                {student.rollNumber && (
-                                  <>
-                                    <span>·</span>
-                                    <span>Roll #{student.rollNumber}</span>
-                                  </>
-                                )}
-                              </div>
+                              {columns.id && (
+                                <div className="flex items-center gap-1.5 text-[11px] text-[var(--color-text-muted)] font-mono">
+                                  <span>{student.id}</span>
+                                  {student.rollNumber && (
+                                    <>
+                                      <span>·</span>
+                                      <span>Roll #{student.rollNumber}</span>
+                                    </>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           </div>
                         </td>
