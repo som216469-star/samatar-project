@@ -675,14 +675,20 @@ export default function StudentsView({
   };
 
   // --- Quick Status Toggle ---
-  const handleQuickStatusChange = async (student: Student, newStatus: 'active' | 'inactive' | 'archived') => {
+  const handleQuickStatusChange = async (
+    student: Student,
+    newStatus: 'active' | 'inactive' | 'archived'
+  ): Promise<boolean> => {
     try {
       const success = await onUpdateStudent(student.id, { status: newStatus });
       if (success) {
         showToast(`Xaaladda ardayga waxaa laga dhigay: ${newStatus}`, "success");
+        return true;
       }
-    } catch (e) {
+      return false;
+    } catch {
       showToast("Khalad ayaa dhacay beddelka xaaladda", "error");
+      return false;
     }
   };
 
@@ -1464,8 +1470,10 @@ export default function StudentsView({
             handleOpenEditModal(st);
           }}
           onStatusChange={async (st, newStatus) => {
-            await handleQuickStatusChange(st, newStatus);
-            setSelectedProfileStudent({ ...st, status: newStatus });
+            const success = await handleQuickStatusChange(st, newStatus);
+            if (success) {
+              setSelectedProfileStudent({ ...st, status: newStatus });
+            }
           }}
           theme={theme}
         />
@@ -1542,8 +1550,8 @@ export default function StudentsView({
         deleteConfirmStudent={deleteConfirmStudent}
         onCloseDeleteConfirm={() => setDeleteConfirmStudent(null)}
         onQuickArchiveFromDelete={async (st) => {
-          await handleQuickStatusChange(st, 'archived');
-          setDeleteConfirmStudent(null);
+          const success = await handleQuickStatusChange(st, 'archived');
+          if (success) setDeleteConfirmStudent(null);
         }}
         onConfirmDeleteStudent={async (st) => {
           const success = await onDeleteStudent(st.id);
