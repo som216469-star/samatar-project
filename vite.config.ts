@@ -100,8 +100,8 @@ export default defineConfig(() => {
             'vendor-export': [
               'jspdf',
               'jspdf-autotable',
-              'read-excel-file',
-              'write-excel-file',
+              'read-excel-file/browser',
+              'write-excel-file/browser',
             ],
             'vendor-ui': ['lucide-react', 'motion'],
           },
