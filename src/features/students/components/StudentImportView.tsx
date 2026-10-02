@@ -16,7 +16,9 @@ import { Badge, Button, Card, StatCard } from '../../../components/ui/primitives
 interface StudentImportViewProps {
   existingStudents: Student[];
   classes: SchoolClass[];
-  onImportStudents: (studentsToImport: any[]) => Promise<boolean>;
+  onImportStudents: (
+    studentsToImport: any[]
+  ) => Promise<{ success: boolean; imported: number; failed: number }>;
   onCancel: () => void;
   showToast: (msg: string, type: 'success' | 'error' | 'warning' | 'info') => void;
   theme?: 'light' | 'dark';
@@ -97,6 +99,11 @@ export default function StudentImportView({
       return;
     }
 
+    if (file.size > 10 * 1024 * 1024) {
+      showToast('Faylka kama badnaan karo 10MB.', 'error');
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
@@ -164,8 +171,17 @@ export default function StudentImportView({
 
           const errors: string[] = [];
           if (!fullName) errors.push('Magaca ardayga waa maran (Name is empty)');
+          if (fullName && fullName.split(/\s+/).filter(Boolean).length < 2) {
+            errors.push('Magaca ardayga waa inuu leeyahay ugu yaraan 2 magac');
+          }
           if (!className) errors.push('Fasalka lama sheegin (Class is missing)');
+          if (className && classes.length > 0 && !classes.some((c) => c.className.trim().toLowerCase() === className.toLowerCase())) {
+            errors.push('Fasalkan kama jiro liiska school-ka');
+          }
           if (!guardianPhone) errors.push('Telefoonka waalidka waa qasab (Phone is missing)');
+          if (guardianPhone && !/^[+0-9()\s.-]{7,30}$/.test(guardianPhone)) {
+            errors.push('Telefoonka waalidka ma saxna');
+          }
 
           let isDuplicate = false;
           let duplicateReason = '';
@@ -209,7 +225,28 @@ export default function StudentImportView({
           };
         });
 
-        setParsedRows(processed);
+        const seenKeys = new Set<string>();
+        const rowsWithInternalDuplicates = processed.map((row) => {
+          const key = row.fullName && row.className
+            ? `${row.fullName.trim().toLowerCase()}::${row.className.trim().toLowerCase()}`
+            : '';
+          if (key && seenKeys.has(key)) {
+            return {
+              ...row,
+              isDuplicate: true,
+              duplicateReason: 'Row kale oo isla magaca iyo fasalka leh ayaa faylkan ku jira'
+            };
+          }
+          if (key) seenKeys.add(key);
+          return row;
+        });
+
+        if (rowsWithInternalDuplicates.length > 500) {
+          showToast('Hal import kama badnaan karo 500 arday. Kala qaybi faylka.', 'error');
+          return;
+        }
+
+        setParsedRows(rowsWithInternalDuplicates);
         setStep('preview');
         showToast(`Faylka waa la falanqeeyey: ${processed.length} arday ayaa la helay`, 'success');
       } catch (err) {
@@ -242,7 +279,9 @@ export default function StudentImportView({
     setImportProgress(10);
 
     const studentsToImport = importableRows.map((r) => ({
-      id: 'std-' + Math.random().toString(36).substr(2, 9),
+      id: typeof crypto !== 'undefined' && 'randomUUID' in crypto
+        ? 'STD-' + crypto.randomUUID().slice(0, 8).toUpperCase()
+        : 'STD-' + Date.now().toString(36).toUpperCase(),
       fullName: r.fullName,
       class: r.className,
       gender: r.gender,
@@ -257,17 +296,23 @@ export default function StudentImportView({
 
     try {
       setImportProgress(50);
-      const success = await onImportStudents(studentsToImport);
+      const result = await onImportStudents(studentsToImport);
       setImportProgress(100);
 
-      if (success) {
+      if (result.success) {
         setImportSummary({
           total: parsedRows.length,
-          imported: studentsToImport.length,
-          skipped: parsedRows.length - studentsToImport.length
+          imported: result.imported,
+          skipped: parsedRows.length - result.imported
         });
         setStep('complete');
-        showToast(`${studentsToImport.length} arday si guul leh ayaa loo soo geliyey!`, 'success');
+        if (result.failed === 0) {
+          showToast(`${result.imported} arday si guul leh ayaa loo soo geliyey!`, 'success');
+        } else {
+          showToast(`${result.imported} waa la geliyey, ${result.failed} waa fashilmeen.`, 'warning');
+        }
+      } else {
+        showToast('Import-ka lama gelin wax arday ah. Hubi khaladaadka oo mar kale isku day.', 'error');
       }
     } catch {
       showToast('Khalad ayaa dhacay xilliga soo gelinta', 'error');
