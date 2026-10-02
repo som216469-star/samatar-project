@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS dugsiga_students (
   guardian_name TEXT,
   guardian_relationship TEXT,
   guardian_phone_alt TEXT,
+  emergency_contact TEXT,
   section TEXT,
   roll_number TEXT,
   national_id TEXT,
@@ -96,6 +97,16 @@ BEGIN
     ALTER TABLE dugsiga_students
       ADD CONSTRAINT dugsiga_students_guardian_phone_valid
       CHECK (guardian_phone = '' OR guardian_phone ~ '^[+0-9()[:space:].-]{7,30}$');
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'dugsiga_students'::regclass
+      AND conname = 'dugsiga_students_emergency_contact_valid'
+  ) THEN
+    ALTER TABLE dugsiga_students
+      ADD CONSTRAINT dugsiga_students_emergency_contact_valid
+      CHECK (emergency_contact IS NULL OR emergency_contact = '' OR emergency_contact ~ '^[+0-9()[:space:].-]{7,60}$');
   END IF;
 
   IF NOT EXISTS (
