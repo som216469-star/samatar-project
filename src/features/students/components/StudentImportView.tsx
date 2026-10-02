@@ -8,9 +8,9 @@ import {
   Check,
   AlertTriangle
 } from 'lucide-react';
-import * as XLSX from 'xlsx';
 import { Student, SchoolClass } from '../../../types';
 import { PageContainer, PageHeader } from '../../../components/layout/PageLayout';
+import { readStudentSpreadsheet, downloadStudentSpreadsheet } from '../../../lib/studentSpreadsheet';
 import { Badge, Button, Card, StatCard } from '../../../components/ui/primitives';
 
 interface StudentImportViewProps {
@@ -101,17 +101,22 @@ export default function StudentImportView({
       }
     ];
 
-    const ws = XLSX.utils.json_to_sheet(templateRows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Students_Template');
-    XLSX.writeFile(wb, 'DugsiPro_Students_Import_Template.xlsx');
-    showToast('Template-ka Excel-ka waa la soo dejiyey!', 'success');
+    void downloadStudentSpreadsheet(
+      templateRows as Record<string, unknown>[],
+      'DugsiPro_Students_Import_Template.xlsx',
+      'Students_Template'
+    )
+      .then(() => showToast('Template-ka Excel-ka waa la soo dejiyey!', 'success'))
+      .catch(() => showToast('Template-ka Excel lama abuuri karin.', 'error'));
   };
 
   // Parse Excel / CSV File
-  const handleFile = (file: File) => {
+  const handleFile = async (file: File) => {
     const validExtensions = ['.xlsx', '.xls', '.csv'];
-    const hasValidExt = validExtensions.some((ext) => file.name.toLowerCase().endsWith(ext));
+    const hasValidExt = validExtensions.some((ext) =>
+      file.name.toLowerCase().endsWith(ext)
+    );
+
     if (!hasValidExt) {
       showToast('Fadlan dooro fayl Excel (.xlsx, .xls) ama CSV (.csv)', 'error');
       return;
@@ -122,192 +127,221 @@ export default function StudentImportView({
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const data = new Uint8Array(e.target?.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { type: 'array' });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        const rawJson: any[] = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+    try {
+      const rawJson = await readStudentSpreadsheet(file);
 
-        if (rawJson.length === 0) {
-          showToast('Faylka waa maran yahay!', 'warning');
-          return;
-        }
+      if (rawJson.length === 0) {
+        showToast('Faylka waa maran yahay!', 'warning');
+        return;
+      }
 
-        const processed: ParsedRow[] = rawJson.map((row, idx) => {
-          const fullName = String(
-            row['Magaca Ardayga (Full Name) *'] ||
-              row['Magaca Ardayga'] ||
-              row['Full Name'] ||
-              row['FullName'] ||
-              row['Name'] ||
-              ''
-          ).trim();
+      if (rawJson.length > 500) {
+        showToast('Hal import kama badnaan karo 500 arday.', 'error');
+        return;
+      }
 
-          const className = String(
-            row['Fasalka (Class) *'] ||
-              row['Fasalka'] ||
-              row['Class'] ||
-              row['Grade'] ||
-              ''
-          ).trim();
-
-          const rawGender = String(
-            row['Lab/Dhedig (Gender - Male/Female) *'] ||
-              row['Lab/Dhedig'] ||
-              row['Gender'] ||
-              'Male'
-          )
-            .trim()
-            .toLowerCase();
-
-          const gender: 'Male' | 'Female' =
-            rawGender.startsWith('f') || rawGender.includes('dhed') || rawGender.includes('girl')
-              ? 'Female'
-              : 'Male';
-
-          const guardianPhone = String(
-            row['Telefoonka Waalidka (Guardian Phone) *'] ||
-              row['Telefoonka Waalidka'] ||
-              row['Guardian Phone'] ||
-              row['Phone'] ||
-              ''
-          ).trim();
-
-          const guardianName = String(
-            row['Magaca Waalidka (Guardian Name)'] ||
-              row['Magaca Waalidka'] ||
-              row['Guardian Name'] ||
-              ''
-          ).trim();
-
-          const section = String(row['Qeybta (Section)'] || row['Section'] || '').trim();
-          const rollNumber = String(row['Roll Number'] || row['RollNumber'] || '').trim();
-          const address = String(row['Cinwaanka (Address)'] || row['Address'] || '').trim();
-          const guardianRelationship = String(
-            row['Xiriirka Waalidka (Relationship)'] ||
-            row['Guardian Relationship'] ||
-            row['Relationship'] ||
-            ''
-          ).trim();
-          const guardianPhoneAlt = String(
-            row['Telefoon Labaad (Guardian Phone Alt)'] ||
-            row['Guardian Phone Alt'] ||
-            row['Alternate Phone'] ||
-            ''
-          ).trim();
-          const nationalId = String(row['National ID'] || row['NationalID'] || '').trim();
-          const previousSchool = String(
-            row['Iskuulkii Hore (Previous School)'] ||
-            row['Previous School'] ||
-            ''
-          ).trim();
-          const bloodGroup = String(row['Blood Group'] || row['BloodGroup'] || '').trim();
-          const medicalNotes = String(
-            row['Medical Notes'] ||
-            row['Xusuusin Caafimaad'] ||
-            ''
-          ).trim();
-
-          const errors: string[] = [];
-          if (!fullName) errors.push('Magaca ardayga waa maran (Name is empty)');
-          if (fullName && fullName.split(/\s+/).filter(Boolean).length < 2) {
-            errors.push('Magaca ardayga waa inuu leeyahay ugu yaraan 2 magac');
-          }
-          if (!className) errors.push('Fasalka lama sheegin (Class is missing)');
-          if (className && classes.length > 0 && !classes.some((c) => c.className.trim().toLowerCase() === className.toLowerCase())) {
-            errors.push('Fasalkan kama jiro liiska school-ka');
-          }
-          if (!guardianPhone) errors.push('Telefoonka waalidka waa qasab (Phone is missing)');
-          if (guardianPhone && !/^[+0-9()\s.-]{7,30}$/.test(guardianPhone)) {
-            errors.push('Telefoonka waalidka ma saxna');
-          }
-          if (guardianPhoneAlt && !/^[+0-9()\s.-]{7,30}$/.test(guardianPhoneAlt)) {
-            errors.push('Telefoonka labaad ma saxna');
-          }
-          if (nationalId.length > 80) errors.push('National ID aad buu u dheer yahay');
-          if (medicalNotes.length > 2000) errors.push('Medical Notes aad bay u dheer yihiin');
-
-          let isDuplicate = false;
-          let duplicateReason = '';
-
-          const existingMatch = existingStudents.find(
-            (s) =>
-              s.fullName.trim().toLowerCase() === fullName.toLowerCase() &&
-              s.class.trim().toLowerCase() === className.toLowerCase()
-          );
-
-          if (existingMatch) {
-            isDuplicate = true;
-            duplicateReason = `Arday hore ugu jiray fasalka (${existingMatch.id})`;
-          } else if (guardianPhone.length >= 6) {
-            const phoneMatch = existingStudents.find(
-              (s) =>
-                s.fullName.trim().toLowerCase() === fullName.toLowerCase() &&
-                s.guardianPhone &&
-                s.guardianPhone.replace(/\D/g, '') === guardianPhone.replace(/\D/g, '')
-            );
-            if (phoneMatch) {
-              isDuplicate = true;
-              duplicateReason = `Magaca iyo telefoonka waalidka ayaa u dhigma ${phoneMatch.id}`;
+      const processed: ParsedRow[] = rawJson.map((row, idx) => {
+        const get = (...keys: string[]) => {
+          for (const key of keys) {
+            const value = row[key];
+            if (value !== undefined && value !== null && String(value).trim() !== '') {
+              return String(value).trim();
             }
           }
+          return '';
+        };
 
-          return {
-            index: idx + 1,
-            fullName,
-            className,
-            gender,
-            guardianPhone,
-            guardianName: guardianName || undefined,
-            section: section || undefined,
-            rollNumber: rollNumber || undefined,
-            address: address || undefined,
-            guardianRelationship: guardianRelationship || undefined,
-            guardianPhoneAlt: guardianPhoneAlt || undefined,
-            nationalId: nationalId || undefined,
-            previousSchool: previousSchool || undefined,
-            bloodGroup: bloodGroup || undefined,
-            medicalNotes: medicalNotes || undefined,
-            isValid: errors.length === 0,
-            isDuplicate,
-            errors,
-            duplicateReason
-          };
-        });
+        const fullName = get(
+          'Magaca Ardayga (Full Name) *',
+          'Magaca Ardayga',
+          'Full Name',
+          'FullName',
+          'Name',
+          'fullName'
+        );
+        const className = get(
+          'Fasalka (Class) *',
+          'Fasalka',
+          'Class',
+          'Grade',
+          'class'
+        );
+        const rawGender = get(
+          'Lab/Dhedig (Gender - Male/Female) *',
+          'Lab/Dhedig (Gender - Male/Female)',
+          'Lab/Dhedig',
+          'Gender',
+          'gender'
+        ).toLowerCase();
 
-        const seenKeys = new Set<string>();
-        const rowsWithInternalDuplicates = processed.map((row) => {
-          const key = row.fullName && row.className
-            ? `${row.fullName.trim().toLowerCase()}::${row.className.trim().toLowerCase()}`
-            : '';
-          if (key && seenKeys.has(key)) {
-            return {
-              ...row,
-              isDuplicate: true,
-              duplicateReason: 'Row kale oo isla magaca iyo fasalka leh ayaa faylkan ku jira'
-            };
-          }
-          if (key) seenKeys.add(key);
-          return row;
-        });
+        const gender: 'Male' | 'Female' =
+          rawGender.startsWith('f') ||
+          rawGender.includes('dhed') ||
+          rawGender.includes('girl')
+            ? 'Female'
+            : 'Male';
 
-        if (rowsWithInternalDuplicates.length > 500) {
-          showToast('Hal import kama badnaan karo 500 arday. Kala qaybi faylka.', 'error');
-          return;
+        const guardianPhone = get(
+          'Telefoonka Waalidka (Guardian Phone) *',
+          'Telefoonka Waalidka (Guardian Phone)',
+          'Telefoonka Waalidka',
+          'Guardian Phone',
+          'Phone',
+          'guardianPhone'
+        );
+        const guardianName = get(
+          'Magaca Waalidka (Guardian Name)',
+          'Magaca Waalidka',
+          'Guardian Name',
+          'guardianName'
+        );
+        const section = get('Qeybta (Section)', 'Section');
+        const rollNumber = get('Roll Number', 'RollNumber');
+        const address = get('Cinwaanka (Address)', 'Address', 'address');
+        const guardianRelationship = get(
+          'Xiriirka Waalidka (Relationship)',
+          'Guardian Relationship',
+          'Relationship'
+        );
+        const guardianPhoneAlt = get(
+          'Telefoon Labaad (Guardian Phone Alt)',
+          'Guardian Phone Alt',
+          'Alternate Phone'
+        );
+        const nationalId = get('National ID', 'NationalID', 'nationalId');
+        const previousSchool = get(
+          'Iskuulkii Hore (Previous School)',
+          'Previous School',
+          'previousSchool'
+        );
+        const bloodGroup = get('Blood Group', 'BloodGroup', 'bloodGroup');
+        const medicalNotes = get(
+          'Medical Notes',
+          'Xusuusin Caafimaad',
+          'medicalNotes'
+        );
+
+        const errors: string[] = [];
+        if (!fullName) errors.push('Magaca ardayga waa maran');
+        if (fullName && fullName.split(/\s+/).filter(Boolean).length < 2) {
+          errors.push('Magaca ardayga waa inuu leeyahay ugu yaraan 2 magac');
+        }
+        if (!className) errors.push('Fasalka lama sheegin');
+        if (
+          className &&
+          classes.length > 0 &&
+          !classes.some(
+            (item) =>
+              item.className.trim().toLowerCase() === className.toLowerCase()
+          )
+        ) {
+          errors.push('Fasalkan kama jiro liiska school-ka');
+        }
+        if (!guardianPhone) errors.push('Telefoonka waalidka waa qasab');
+        if (guardianPhone && !/^[+0-9()\s.-]{7,30}$/.test(guardianPhone)) {
+          errors.push('Telefoonka waalidka ma saxna');
+        }
+        if (guardianPhoneAlt && !/^[+0-9()\s.-]{7,30}$/.test(guardianPhoneAlt)) {
+          errors.push('Telefoonka labaad ma saxna');
+        }
+        if (nationalId.length > 80) errors.push('National ID aad buu u dheer yahay');
+        if (medicalNotes.length > 2000) errors.push('Medical Notes aad bay u dheer yihiin');
+
+        let isDuplicate = false;
+        let duplicateReason = '';
+
+        const existingMatch = existingStudents.find(
+          (s) =>
+            s.fullName.trim().toLowerCase() === fullName.toLowerCase() &&
+            s.class.trim().toLowerCase() === className.toLowerCase()
+        );
+        if (existingMatch) {
+          isDuplicate = true;
+          duplicateReason = `Arday hore ugu jiray fasalka (${existingMatch.id})`;
         }
 
-        setParsedRows(rowsWithInternalDuplicates);
-        setStep('preview');
-        showToast(`Faylka waa la falanqeeyey: ${processed.length} arday ayaa la helay`, 'success');
-      } catch (err) {
-        console.error(err);
-        showToast('Khalad ayaa dhacay akhrinta faylka Excel', 'error');
-      }
-    };
-    reader.readAsArrayBuffer(file);
+        if (!isDuplicate && rollNumber) {
+          const sameRoll = existingStudents.find(
+            (s) =>
+              String(s.rollNumber || '').trim().toLowerCase() ===
+                rollNumber.toLowerCase() &&
+              String(s.class || '').trim().toLowerCase() ===
+                className.toLowerCase() &&
+              String(s.section || '').trim().toLowerCase() ===
+                section.toLowerCase()
+          );
+          if (sameRoll) {
+            isDuplicate = true;
+            duplicateReason = `Roll Number-ka ayaa hore loogu isticmaalay fasalkan (${sameRoll.id})`;
+          }
+        }
+
+        if (!isDuplicate && nationalId) {
+          const sameNationalId = existingStudents.find(
+            (s) =>
+              String(s.nationalId || '').trim().toLowerCase() ===
+              nationalId.toLowerCase()
+          );
+          if (sameNationalId) {
+            isDuplicate = true;
+            duplicateReason = `National ID-ga ayaa hore loogu isticmaalay (${sameNationalId.id})`;
+          }
+        }
+
+        return {
+          index: idx + 1,
+          fullName,
+          className,
+          gender,
+          guardianPhone,
+          guardianName: guardianName || undefined,
+          section: section || undefined,
+          rollNumber: rollNumber || undefined,
+          address: address || undefined,
+          guardianRelationship: guardianRelationship || undefined,
+          guardianPhoneAlt: guardianPhoneAlt || undefined,
+          nationalId: nationalId || undefined,
+          previousSchool: previousSchool || undefined,
+          bloodGroup: bloodGroup || undefined,
+          medicalNotes: medicalNotes || undefined,
+          isValid: errors.length === 0 && !isDuplicate,
+          isDuplicate,
+          errors: isDuplicate ? [...errors, duplicateReason] : errors,
+          duplicateReason
+        };
+      });
+
+      const seenKeys = new Set<string>();
+      const rowsWithInternalDuplicates = processed.map((row) => {
+        const key =
+          row.fullName && row.className
+            ? `${row.fullName.trim().toLowerCase()}::${row.className.trim().toLowerCase()}`
+            : '';
+
+        if (key && seenKeys.has(key)) {
+          return {
+            ...row,
+            isValid: false,
+            isDuplicate: true,
+            duplicateReason:
+              'Row kale oo isla magaca iyo fasalka leh ayaa faylkan ku jira'
+          };
+        }
+
+        if (key) seenKeys.add(key);
+        return row;
+      });
+
+      setParsedRows(rowsWithInternalDuplicates);
+      setStep('preview');
+      showToast(
+        `Faylka waa la falanqeeyey: ${rowsWithInternalDuplicates.length} arday ayaa la helay`,
+        'success'
+      );
+    } catch (error) {
+      console.error('Student spreadsheet parse failed:', error);
+      showToast('Khalad ayaa dhacay akhrinta faylka Excel/CSV', 'error');
+    }
   };
 
   const visibleRows = parsedRows.filter((r) => {
