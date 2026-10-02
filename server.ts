@@ -1284,6 +1284,70 @@ function isSafeStudentId(value: string): boolean {
 function escapeIlikePattern(value: string): string {
   return value.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
 }
+const ATTENDANCE_ALLOWED_STATUSES = new Set(["Present", "Absent", "Late", "Excused"]);
+const ATTENDANCE_ALLOWED_SESSIONS = new Set(["before_break", "after_break"]);
+const ATTENDANCE_MAX_RECORDS = 1000;
+
+function validateAttendanceDate(value: unknown): string | null {
+  if (typeof value !== "string" || !/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(value)) return null;
+  const [year, month, day] = value.split("-").map(Number);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  if (
+    parsed.getUTCFullYear() !== year ||
+    parsed.getUTCMonth() !== month - 1 ||
+    parsed.getUTCDate() !== day
+  ) {
+    return null;
+  }
+  if (value > new Date().toISOString().slice(0, 10)) return null;
+  return value;
+}
+
+function normalizeAttendanceSession(value: unknown): "before_break" | "after_break" | null {
+  const session = typeof value === "string" ? value.trim() : "";
+  return ATTENDANCE_ALLOWED_SESSIONS.has(session)
+    ? (session as "before_break" | "after_break")
+    : null;
+}
+
+function normalizeAttendanceStatus(value: unknown): "Present" | "Absent" | "Late" | "Excused" | null {
+  const status = typeof value === "string" ? value.trim() : "";
+  return ATTENDANCE_ALLOWED_STATUSES.has(status)
+    ? (status as "Present" | "Absent" | "Late" | "Excused")
+    : null;
+}
+
+async function getAttendanceAllowedStudents(
+  schoolId: string,
+  authUser: any,
+  studentIds: string[]
+): Promise<{ rows: any[]; error?: string }> {
+  if (!supabase) return { rows: [], error: "Database lama diyaarin." };
+
+  let query = supabase
+    .from("dugsiga_students")
+    .select("id,class,status")
+    .eq("school_id", schoolId)
+    .in("id", studentIds);
+
+  if (authUser?.role === "teacher") {
+    const assignedClasses = Array.isArray(authUser.assignedClasses)
+      ? authUser.assignedClasses.map((item: unknown) => String(item).trim()).filter(Boolean)
+      : [];
+
+    if (assignedClasses.length === 0) {
+      return { rows: [], error: "Macallinkan fasallo looma xilsaarin." };
+    }
+
+    query = query.in("class", assignedClasses);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+
+  return { rows: data || [] };
+}
+
 
 function validateStudentPayload(
   payload: any,
@@ -2823,92 +2887,272 @@ app.delete("/api/students/:id", async (req, res) => {
 
 app.get("/api/attendance", async (req, res) => {
   const schoolId = getSchoolId(req);
-  const { date, session_type } = req.query;
+  const authUser = getAuthenticatedUser(req, loadLocalDB);
+
+  if (!schoolId || !authUser) {
+    return res.status(401).json({ error: "Session-ka lama xaqiijin." });
+  }
+
+  const rawDate = typeof req.query.date === "string" ? req.query.date : undefined;
+  const date = rawDate ? validateAttendanceDate(rawDate) : null;
+  const rawSession = typeof req.query.session_type === "string" ? req.query.session_type : undefined;
+  const session = rawSession ? normalizeAttendanceSession(rawSession) : undefined;
+
+  if (rawDate && !date) return res.status(400).json({ error: "Attendance date-ka ma saxna." });
+  if (rawSession && !session) return res.status(400).json({ error: "Attendance session-ka ma saxna." });
+
   if (!useLocalFallback) {
     try {
-      let query = supabase.from("dugsiga_attendance").select("*").eq("school_id", schoolId);
-      if (date) query = query.eq("date", date as string);
-      if (session_type) query = query.eq("session_type", session_type as string);
-      let { data, error } = await query;
-      if (error) {
-        if (error.code === '42703' || (error.message && error.message.toLowerCase().includes('session_type'))) {
-          let retryQuery = supabase.from("dugsiga_attendance").select("date, student_id, status, timestamp, school_id").eq("school_id", schoolId);
-          if (date) retryQuery = retryQuery.eq("date", date as string);
-          const { data: retryData, error: retryError } = await retryQuery;
-          if (retryError) throw retryError;
-          data = retryData;
-        } else { throw error; }
+      let query = supabase
+        .from("dugsiga_attendance")
+        .select("school_id,date,student_id,status,timestamp,session_type")
+        .eq("school_id", schoolId);
+
+      if (date) query = query.eq("date", date);
+      if (session) query = query.eq("session_type", session);
+
+      if (authUser.role === "teacher") {
+        const assignedClasses = Array.isArray(authUser.assignedClasses)
+          ? authUser.assignedClasses.map((item: unknown) => String(item).trim()).filter(Boolean)
+          : [];
+
+        if (assignedClasses.length === 0) return res.json([]);
+
+        const { data: allowedStudents, error: allowedError } = await supabase
+          .from("dugsiga_students")
+          .select("id")
+          .eq("school_id", schoolId)
+          .in("class", assignedClasses)
+          .eq("status", "active")
+          .limit(50000);
+
+        if (allowedError) throw allowedError;
+
+        const allowedIds = (allowedStudents || []).map((row: any) => String(row.id));
+        if (allowedIds.length === 0) return res.json([]);
+        query = query.in("student_id", allowedIds);
       }
-      const formatted = (data || []).map(a => ({ date: a.date, studentId: a.student_id, status: a.status, timestamp: a.timestamp, sessionType: a.session_type || 'before_break' }));
+
+      const { data, error } = await query.order("date", { ascending: false });
+      if (error) throw error;
+
+      const formatted = (data || []).map((row: any) => ({
+        date: row.date,
+        studentId: row.student_id,
+        status: row.status,
+        timestamp: row.timestamp,
+        sessionType: row.session_type || "before_break"
+      }));
+
       return res.json(formatted);
-    } catch (e: any) { return handleSupabaseError(res, e, "Soo qaadista Xaadirinta (Fetch Attendance)"); }
-  } else {
-    const db = loadLocalDB();
-    let list = db.attendance || [];
-    list = list.filter(a => a.schoolId === schoolId);
-    if (date) list = list.filter(a => a.date === date);
-    if (session_type) list = list.filter(a => (a.sessionType || 'before_break') === session_type);
-    res.json(list);
+    } catch (e: any) {
+      return handleSupabaseError(res, e, "Soo qaadista Xaadirinta (Fetch Attendance)");
+    }
   }
+
+  const db = loadLocalDB();
+  let list = (db.attendance || []).filter((row: any) => row.schoolId === schoolId);
+
+  if (date) list = list.filter((row: any) => row.date === date);
+  if (session) {
+    list = list.filter((row: any) => (row.sessionType || "before_break") === session);
+  }
+
+  if (authUser.role === "teacher") {
+    const assigned = new Set(
+      Array.isArray(authUser.assignedClasses)
+        ? authUser.assignedClasses.map((item: unknown) => String(item).trim()).filter(Boolean)
+        : []
+    );
+    list = list.filter((row: any) => {
+      const student = (db.students || []).find(
+        (item: any) => item.schoolId === schoolId && item.id === row.studentId
+      );
+      return student && assigned.has(String(student.class || "").trim()) && student.status === "active";
+    });
+  }
+
+  return res.json(list);
 });
 
 app.post("/api/attendance", async (req, res) => {
   const schoolId = getSchoolId(req);
   const authUser = getAuthenticatedUser(req, loadLocalDB);
-  if (authUser?.role === "teacher" && authUser.assignedClasses && authUser.assignedClasses.length > 0) {
-    const db = loadLocalDB();
-    const students = db.students || [];
-    const unassigned = (req.body.records || []).find((r: any) => {
-      const st = students.find((s: any) => s.id === r.studentId);
-      return st && !authUser.assignedClasses?.includes(st.class);
+
+  if (!schoolId || !authUser) {
+    return res.status(401).json({ error: "Session-ka lama xaqiijin." });
+  }
+
+  const date = validateAttendanceDate(req.body?.date);
+  if (!date) return res.status(400).json({ error: "Attendance date-ka ma saxna." });
+
+  const session = normalizeAttendanceSession(req.body?.session_type || "before_break");
+  if (!session) return res.status(400).json({ error: "Attendance session-ka ma saxna." });
+
+  if (!Array.isArray(req.body?.records)) {
+    return res.status(400).json({ error: "records waa inuu noqdaa array." });
+  }
+
+  const incoming = req.body.records;
+  if (incoming.length === 0) {
+    return res.status(400).json({ error: "Ugu yaraan hal attendance record ayaa loo baahan yahay." });
+  }
+
+  if (incoming.length > ATTENDANCE_MAX_RECORDS) {
+    return res.status(400).json({
+      error: \`Hal mar kama badnaan karaan \${ATTENDANCE_MAX_RECORDS} attendance records.\`
     });
-    if (unassigned) {
-      return res.status(403).json({ error: "Macallinku awood uma laha calaamadaynta fasal aan loo xilsaarin." });
+  }
+
+  const recordsByStudent = new Map<string, {
+    studentId: string;
+    status: "Present" | "Absent" | "Late" | "Excused";
+  }>();
+
+  for (const [index, item] of incoming.entries()) {
+    const studentId = typeof item?.studentId === "string" ? item.studentId.trim() : "";
+    const status = normalizeAttendanceStatus(item?.status);
+
+    if (!studentId) {
+      return res.status(400).json({ error: \`Attendance row \${index + 1}: studentId waa qasab.\` });
+    }
+
+    if (!status) {
+      return res.status(400).json({ error: \`Attendance row \${index + 1}: status-ku ma saxna.\` });
+    }
+
+    if (studentId.length > 100) {
+      return res.status(400).json({ error: \`Attendance row \${index + 1}: studentId aad buu u dheer yahay.\` });
+    }
+
+    if (recordsByStudent.has(studentId)) {
+      return res.status(409).json({
+        error: \`Ardayga \${studentId} laba jeer ayaa attendance-ka loogu daray.\`
+      });
+    }
+
+    recordsByStudent.set(studentId, { studentId, status });
+  }
+
+  const normalizedRecords = Array.from(recordsByStudent.values());
+
+  if (!useLocalFallback) {
+    try {
+      const authorization = await getAttendanceAllowedStudents(
+        schoolId,
+        authUser,
+        normalizedRecords.map((record) => record.studentId)
+      );
+
+      if (authorization.error) {
+        return res.status(403).json({ error: authorization.error });
+      }
+
+      if (authorization.rows.length !== normalizedRecords.length) {
+        const allowedIds = new Set(authorization.rows.map((row: any) => String(row.id)));
+        const deniedIds = normalizedRecords
+          .map((record) => record.studentId)
+          .filter((id) => !allowedIds.has(id));
+
+        return res.status(403).json({
+          error: "Qaar ka mid ah ardayda looma oggola attendance-kan ama kama tirsana school-kan.",
+          deniedStudentIds: deniedIds.slice(0, 20)
+        });
+      }
+
+      const inactive = authorization.rows.find((row: any) => row.status !== "active");
+      if (inactive) {
+        return res.status(409).json({
+          error: "Attendance waxaa loo diiwaangelin karaa ardayda Active ah oo keliya."
+        });
+      }
+
+      const nowIso = new Date().toISOString();
+      const dbRecords = normalizedRecords.map((record) => ({
+        school_id: schoolId,
+        date,
+        student_id: record.studentId,
+        status: record.status,
+        timestamp: nowIso,
+        session_type: session
+      }));
+
+      const { data, error } = await supabase
+        .from("dugsiga_attendance")
+        .upsert(dbRecords, {
+          onConflict: "school_id,date,student_id,session_type",
+          ignoreDuplicates: false
+        })
+        .select("school_id,date,student_id,status,timestamp,session_type");
+
+      if (error) throw error;
+
+      return res.json({
+        success: true,
+        saved: (data || []).length,
+        date,
+        session_type: session
+      });
+    } catch (e: any) {
+      return handleSupabaseError(res, e, "Kaydinta Xaadirinta (Save Attendance)");
     }
   }
 
-  const { date, session_type, records } = req.body;
-  if (!date || !Array.isArray(records)) return res.status(400).json({ error: "Date and records array required" });
-  const sType = session_type || 'before_break';
-  if (!useLocalFallback) {
-    try {
-      try {
-        const { error: delError } = await supabase.from("dugsiga_attendance").delete().eq("date", date).eq("session_type", sType).eq("school_id", schoolId);
-        if (delError) {
-          if (delError.code === '42703' || (delError.message && delError.message.toLowerCase().includes('session_type'))) {
-            const { error: delError2 } = await supabase.from("dugsiga_attendance").delete().eq("date", date).eq("school_id", schoolId);
-            if (delError2) throw delError2;
-          } else { throw delError; }
-        }
-      } catch (delErr: any) {
-        const { error: delError2 } = await supabase.from("dugsiga_attendance").delete().eq("date", date).eq("school_id", schoolId);
-        if (delError2) throw delError2;
+  const db = loadLocalDB();
+  const studentRows = (db.students || []).filter(
+    (student: any) =>
+      student.schoolId === schoolId &&
+      normalizedRecords.some((record) => record.studentId === student.id)
+  );
+
+  const studentMap = new Map(studentRows.map((student: any) => [student.id, student]));
+  for (const record of normalizedRecords) {
+    const student = studentMap.get(record.studentId);
+    if (!student || student.status !== "active") {
+      return res.status(403).json({
+        error: "Attendance waxaa loo diiwaangelin karaa ardayda Active ah oo keliya."
+      });
+    }
+
+    if (authUser.role === "teacher") {
+      const assigned = Array.isArray(authUser.assignedClasses)
+        ? authUser.assignedClasses.map((item: unknown) => String(item).trim()).filter(Boolean)
+        : [];
+
+      if (!assigned.includes(String(student.class || "").trim())) {
+        return res.status(403).json({ error: "Macallinku awood uma laha attendance-ka fasalkan." });
       }
-      const dbRecords = records.map(r => ({ school_id: schoolId, date: date, student_id: r.studentId, status: r.status, timestamp: r.timestamp }));
-      if (dbRecords.length > 0) {
-        try {
-          const recordsWithSession = dbRecords.map(r => ({ ...r, session_type: sType }));
-          const { error } = await supabase.from("dugsiga_attendance").insert(recordsWithSession);
-          if (error) {
-            if (error.code === '42703' || (error.message && error.message.toLowerCase().includes('session_type'))) {
-              const { error: insertError } = await supabase.from("dugsiga_attendance").insert(dbRecords);
-              if (insertError) throw insertError;
-            } else { throw error; }
-          }
-        } catch (insertErr: any) {
-          const { error: insertError } = await supabase.from("dugsiga_attendance").insert(dbRecords);
-          if (insertError) throw insertError;
-        }
-      }
-      return res.json({ success: true });
-    } catch (e: any) { return handleSupabaseError(res, e, "Kaydinta Xaadirinta (Save Attendance)"); }
-  } else {
-    const db = loadLocalDB();
-    db.attendance = (db.attendance || []).filter(a => !(a.schoolId === schoolId && a.date === date && (a.sessionType || 'before_break') === sType));
-    records.forEach(r => { db.attendance.push({ schoolId, date, studentId: r.studentId, status: r.status, timestamp: r.timestamp, sessionType: sType }); });
-    saveLocalDB(db);
-    res.json({ success: true });
+    }
   }
+
+  db.attendance = (db.attendance || []).filter(
+    (row: any) =>
+      !(
+        row.schoolId === schoolId &&
+        row.date === date &&
+        (row.sessionType || "before_break") === session
+      )
+  );
+
+  const nowIso = new Date().toISOString();
+  for (const record of normalizedRecords) {
+    db.attendance.push({
+      schoolId,
+      date,
+      studentId: record.studentId,
+      status: record.status,
+      timestamp: nowIso,
+      sessionType: session
+    });
+  }
+
+  saveLocalDB(db);
+  return res.json({
+    success: true,
+    saved: normalizedRecords.length,
+    date,
+    session_type: session
+  });
 });
 
 app.get("/api/fees", async (req, res) => {
