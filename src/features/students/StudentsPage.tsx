@@ -123,6 +123,7 @@ export default function StudentsView({
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('all');
   const [selectedFeeFilter, setSelectedFeeFilter] = useState<string>('all');
   const [selectedRegDateFilter, setSelectedRegDateFilter] = useState<string>('all');
+  const [missingGuardianOnly, setMissingGuardianOnly] = useState(false);
   const [sortBy, setSortBy] = useState<'name_asc' | 'name_desc' | 'date_desc' | 'date_asc' | 'class' | 'id_asc' | 'updated_desc'>('name_asc');
 
   // --- Pagination ---
@@ -253,6 +254,11 @@ export default function StudentsView({
     const active = students.filter(s => s.status === 'active').length;
     const inactive = students.filter(s => s.status === 'inactive').length;
     const archived = students.filter(s => s.status === 'archived').length;
+    const missingGuardianCount = students.filter(
+      (student) =>
+        student.status !== 'archived' &&
+        (!student.guardianPhone || student.guardianPhone.trim().length < 6)
+    ).length;
     const male = students.filter(s => s.gender === 'Male').length;
     const female = students.filter(s => s.gender === 'Female').length;
 
@@ -312,7 +318,8 @@ export default function StudentsView({
       newlyRegistered,
       newThisMonth: newlyRegistered,
       needsAttention,
-      missingGuardian: needsAttention,
+      missingGuardian: missingGuardianCount,
+      missingGuardianCount,
       byClass,
       classBreakdown: classCounts,
       recentlyAdded,
@@ -457,6 +464,13 @@ export default function StudentsView({
         }
       }
 
+      // Guardian contact filter
+      if (missingGuardianOnly) {
+        const hasGuardianPhone =
+          !!student.guardianPhone && student.guardianPhone.trim().length >= 6;
+        if (student.status === 'archived' || hasGuardianPhone) return false;
+      }
+
       // 5. Fee Filter
       if (selectedFeeFilter !== 'all') {
         const feeInfo = getStudentFeeStatus(student.id);
@@ -501,7 +515,18 @@ export default function StudentsView({
     });
 
     return result;
-  }, [students, searchQuery, selectedClassFilter, selectedGenderFilter, effectiveStatusFilter, selectedFeeFilter, selectedRegDateFilter, sortBy, fees]);
+  }, [
+    students,
+    searchQuery,
+    selectedClassFilter,
+    selectedGenderFilter,
+    effectiveStatusFilter,
+    missingGuardianOnly,
+    selectedFeeFilter,
+    selectedRegDateFilter,
+    sortBy,
+    fees
+  ]);
 
   // --- Pagination Slice ---
   const totalPages = Math.max(1, Math.ceil(filteredStudents.length / pageSize));
@@ -1358,6 +1383,8 @@ export default function StudentsView({
         stats={stats}
         subSection={subSection}
         onNavigateSubSection={onNavigateSubSection}
+        missingGuardianOnly={missingGuardianOnly}
+        onToggleMissingGuardian={() => setMissingGuardianOnly((prev) => !prev)}
         setSelectedStatusFilter={setSelectedStatusFilter}
         selectedRegDateFilter={selectedRegDateFilter}
         setSelectedRegDateFilter={setSelectedRegDateFilter}
@@ -1386,6 +1413,8 @@ export default function StudentsView({
         setSelectedRegDateFilter={setSelectedRegDateFilter}
         selectedFeeFilter={selectedFeeFilter}
         setSelectedFeeFilter={setSelectedFeeFilter}
+        missingGuardianOnly={missingGuardianOnly}
+        onToggleMissingGuardian={() => setMissingGuardianOnly((prev) => !prev)}
         sortBy={sortBy}
         setSortBy={setSortBy}
         activeFilterCount={activeFilterCount}
