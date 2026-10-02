@@ -27,6 +27,7 @@ const envKeysToClean = [
   "SUPABASE_ANON_KEY",
   "SUPABASE_PUBLISHABLE_KEY",
   "SUPABASE_SECRET_KEY",
+  "SUPABASE_SERVICE_ROLE_KEY",
   "SUPABASE_JWKS_URL"
 ];
 for (const key of envKeysToClean) {
@@ -261,7 +262,9 @@ app.use("/api", (req, res, next) => {
 
 // Initialize Supabase Client with resilient key resolution
 function deriveSupabaseKey(): string {
-  const secretKey = sanitizeEnvValue(process.env.SUPABASE_SECRET_KEY || "");
+  const secretKey = sanitizeEnvValue(
+    process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || ""
+  );
   const anonKey = sanitizeEnvValue(
     process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY || ""
   );
@@ -277,7 +280,9 @@ function deriveSupabaseKey(): string {
 
 const supabaseUrl = parseSupabaseUrl(process.env.SUPABASE_URL || "https://mdvfcqujqjnvfpzowayo.supabase.co");
 const supabaseAnonKey = sanitizeEnvValue(process.env.SUPABASE_ANON_KEY || "");
-const supabaseSecretKey = sanitizeEnvValue(process.env.SUPABASE_SECRET_KEY || "");
+const supabaseSecretKey = sanitizeEnvValue(
+  process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || ""
+);
 const supabaseActiveKey = deriveSupabaseKey();
 
 let supabase: any = null;
