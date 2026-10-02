@@ -1568,23 +1568,51 @@ async function assertStudentClassCapacity(
   }
   return { ok: true };
 }
-async function studentClassExists(schoolId: string, className: string): Promise<boolean> {
+async function studentClassExists(
+  schoolId: string,
+  className: string,
+  sectionName = ''
+): Promise<boolean> {
   const cleanClass = className.trim();
+  const cleanSection = sectionName.trim();
   if (!cleanClass) return false;
 
   if (!useLocalFallback) {
     const { data, error } = await supabase
       .from("dugsiga_classes")
-      .select("id")
+      .select("id,class_name,section")
       .eq("school_id", schoolId)
       .eq("class_name", cleanClass)
-      .limit(1);
+      .limit(100);
+
     if (error) throw error;
-    return (data || []).length > 0;
+    const rows = data || [];
+    if (rows.length === 0) return false;
+    if (!cleanSection) return true;
+
+    const hasSectionRows = rows.some((row: any) => String(row.section || '').trim() !== '');
+    if (!hasSectionRows) return true;
+
+    return rows.some(
+      (row: any) =>
+        String(row.section || '').trim().toLowerCase() === cleanSection.toLowerCase()
+    );
   }
 
-  return (loadLocalDB().classes || []).some(
-    (item: any) => item.schoolId === schoolId && String(item.className || "").trim() === cleanClass
+  const rows = (loadLocalDB().classes || []).filter(
+    (item: any) =>
+      item.schoolId === schoolId &&
+      String(item.className || '').trim() === cleanClass
+  );
+  if (rows.length === 0) return false;
+  if (!cleanSection) return true;
+
+  const hasSectionRows = rows.some((row: any) => String(row.section || '').trim() !== '');
+  if (!hasSectionRows) return true;
+
+  return rows.some(
+    (row: any) =>
+      String(row.section || '').trim().toLowerCase() === cleanSection.toLowerCase()
   );
 }
 
@@ -2543,7 +2571,10 @@ app.post("/api/students/bulk", async (req, res) => {
 
   if (!useLocalFallback) {
     try {
-      if (action === "change_class" && !(await studentClassExists(schoolId, targetClass))) {
+      if (
+        action === "change_class" &&
+        !(await studentClassExists(schoolId, targetClass, targetSection))
+      ) {
         return res.status(400).json({ error: "Fasalka cusub kama jiro school-kan." });
       }
 
@@ -2622,7 +2653,16 @@ app.post("/api/students/bulk", async (req, res) => {
   } else {
     db.students = db.students.map((s: any) => {
       if (!studentIds.includes(s.id) || s.schoolId !== schoolId) return s;
-      if (action === "change_class") return { ...s, class: targetClass, updatedAt: new Date().toISOString() };
+      if (action === "change_class") {
+        return {
+          ...s,
+          class: targetClass,
+          ...(Object.prototype.hasOwnProperty.call(req.body || {}, 'targetSection')
+            ? { section: targetSection }
+            : {}),
+          updatedAt: new Date().toISOString()
+        };
+      }
       return { ...s, status: action === "archive" ? "archived" : targetStatus, updatedAt: new Date().toISOString() };
     });
   }
@@ -2646,7 +2686,7 @@ app.post("/api/students", async (req, res) => {
 
   try {
     if (!useLocalFallback) {
-      if (!(await studentClassExists(schoolId, student.class))) {
+      if (!(await studentClassExists(schoolId, student.class, student.section || ''))) {
         return res.status(400).json({ error: "Fasalka la doortay kama jiro school-kan." });
       }
 
@@ -2749,7 +2789,14 @@ app.put("/api/students/:id", async (req, res) => {
       if (!current) return res.status(404).json({ error: "Ardayga lama helin." });
 
       const nextClass = updates.class ?? current.class;
-      if (updates.class !== undefined && !(await studentClassExists(schoolId, String(nextClass)))) {
+      if (
+        (updates.class !== undefined || updates.section !== undefined) &&
+        !(await studentClassExists(
+          schoolId,
+          String(nextClass),
+          String(updates.section ?? current.section ?? '')
+        ))
+      ) {
         return res.status(400).json({ error: "Fasalka cusub kama jiro school-kan." });
       }
       if (
