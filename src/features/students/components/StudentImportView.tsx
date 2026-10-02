@@ -166,6 +166,7 @@ export default function StudentImportView({
           'Grade',
           'class'
         );
+        const studentId = get('Student ID (Optional)', 'Student ID', 'id');
         const rawGender = get(
           'Lab/Dhedig (Gender - Male/Female) *',
           'Lab/Dhedig (Gender - Male/Female)',
@@ -250,12 +251,22 @@ export default function StudentImportView({
         let isDuplicate = false;
         let duplicateReason = '';
 
+        const existingIdMatch = studentId
+          ? existingStudents.find(
+              (student) =>
+                String(student.id || '').trim().toLowerCase() === studentId.toLowerCase()
+            )
+          : undefined;
+
         const existingMatch = existingStudents.find(
           (s) =>
             s.fullName.trim().toLowerCase() === fullName.toLowerCase() &&
             s.class.trim().toLowerCase() === className.toLowerCase()
         );
-        if (existingMatch) {
+        if (existingIdMatch) {
+          isDuplicate = true;
+          duplicateReason = `Student ID-ga ayaa hore loogu isticmaalay (${existingIdMatch.id})`;
+        } else if (existingMatch) {
           isDuplicate = true;
           duplicateReason = `Arday hore ugu jiray fasalka (${existingMatch.id})`;
         }
@@ -312,11 +323,48 @@ export default function StudentImportView({
       });
 
       const seenKeys = new Set<string>();
+      const seenIds = new Set<string>();
+      const seenRolls = new Set<string>();
+      const seenNationalIds = new Set<string>();
       const rowsWithInternalDuplicates = processed.map((row) => {
         const key =
           row.fullName && row.className
             ? `${row.fullName.trim().toLowerCase()}::${row.className.trim().toLowerCase()}`
             : '';
+        const idKey = String(row.data?.id || '').trim().toLowerCase();
+        const rollKey = String(row.rollNumber || '').trim().toLowerCase();
+        const nationalKey = String(row.data?.nationalId || '').trim().toLowerCase();
+        const scopedRollKey = rollKey
+          ? `${row.className.trim().toLowerCase()}::${String(row.section || '').trim().toLowerCase()}::${rollKey}`
+          : '';
+
+        if (idKey && seenIds.has(idKey)) {
+          return {
+            ...row,
+            isValid: false,
+            isDuplicate: true,
+            duplicateReason: 'Student ID isku mid ah ayaa faylkan ku celcelisan'
+          };
+        }
+
+        if (scopedRollKey && seenRolls.has(scopedRollKey)) {
+          return {
+            ...row,
+            isValid: false,
+            isDuplicate: true,
+            duplicateReason:
+              'Roll Number isku mid ah ayaa isla class/section ku celcelisan'
+          };
+        }
+
+        if (nationalKey && seenNationalIds.has(nationalKey)) {
+          return {
+            ...row,
+            isValid: false,
+            isDuplicate: true,
+            duplicateReason: 'National ID isku mid ah ayaa faylkan ku celcelisan'
+          };
+        }
 
         if (key && seenKeys.has(key)) {
           return {
@@ -328,6 +376,9 @@ export default function StudentImportView({
           };
         }
 
+        if (idKey) seenIds.add(idKey);
+        if (scopedRollKey) seenRolls.add(scopedRollKey);
+        if (nationalKey) seenNationalIds.add(nationalKey);
         if (key) seenKeys.add(key);
         return row;
       });
