@@ -33,3 +33,105 @@ create policy service_role_only
   to service_role
   using (true)
   with check (true);
+
+
+-- Keep the live Students table aligned with the canonical schema.
+alter table public.dugsiga_students
+  add column if not exists updated_at timestamptz;
+
+update public.dugsiga_students
+set updated_at = coalesce(updated_at, now())
+where updated_at is null;
+
+alter table public.dugsiga_students
+  alter column updated_at set default now(),
+  alter column updated_at set not null;
+
+alter table public.dugsiga_students
+  drop constraint if exists dugsiga_students_full_name_valid,
+  drop constraint if exists dugsiga_students_class_valid,
+  drop constraint if exists dugsiga_students_gender_valid,
+  drop constraint if exists dugsiga_students_status_valid,
+  drop constraint if exists dugsiga_students_guardian_phone_valid,
+  drop constraint if exists dugsiga_students_guardian_phone_alt_valid,
+  drop constraint if exists dugsiga_students_dob_valid,
+  drop constraint if exists dugsiga_students_created_at_valid,
+  drop constraint if exists dugsiga_students_section_length_valid,
+  drop constraint if exists dugsiga_students_roll_length_valid,
+  drop constraint if exists dugsiga_students_national_id_length_valid;
+
+alter table public.dugsiga_students
+  add constraint dugsiga_students_full_name_valid
+    check (char_length(btrim(full_name)) between 1 and 160),
+  add constraint dugsiga_students_class_valid
+    check (char_length(btrim(class)) between 1 and 120),
+  add constraint dugsiga_students_gender_valid
+    check (gender in ('Male','Female')),
+  add constraint dugsiga_students_status_valid
+    check (status in ('active','inactive','archived')),
+  add constraint dugsiga_students_guardian_phone_valid
+    check (guardian_phone = '' or guardian_phone ~ '^[+0-9()[:space:].-]{7,30}$'),
+  add constraint dugsiga_students_guardian_phone_alt_valid
+    check (guardian_phone_alt is null or guardian_phone_alt = '' or guardian_phone_alt ~ '^[+0-9()[:space:].-]{7,30}$'),
+  add constraint dugsiga_students_dob_valid
+    check (date_of_birth is null or date_of_birth = '' or date_of_birth ~ '^\\d{4}-\\d{2}-\\d{2}$'),
+  add constraint dugsiga_students_created_at_valid
+    check (created_at is null or created_at = '' or created_at ~ '^\\d{4}-\\d{2}-\\d{2}$'),
+  add constraint dugsiga_students_section_length_valid
+    check (section is null or char_length(section) <= 50),
+  add constraint dugsiga_students_roll_length_valid
+    check (roll_number is null or char_length(roll_number) <= 50),
+  add constraint dugsiga_students_national_id_length_valid
+    check (national_id is null or char_length(national_id) <= 80);
+
+alter table public.dugsiga_students
+  alter column gender set default 'Male',
+  alter column guardian_phone set default '',
+  alter column status set default 'active',
+  alter column gender set not null,
+  alter column guardian_phone set not null,
+  alter column status set not null;
+
+drop index if exists public.uq_dugsiga_students_school_roll;
+
+create unique index if not exists uq_dugsiga_students_school_class_section_roll
+  on public.dugsiga_students (
+    school_id,
+    lower(btrim(class)),
+    lower(btrim(coalesce(section,''))),
+    lower(btrim(roll_number))
+  )
+  where roll_number is not null and btrim(roll_number) <> '';
+
+create index if not exists idx_dugsiga_students_school_status_class
+  on public.dugsiga_students (school_id, status, class);
+
+create index if not exists idx_dugsiga_students_school_search_name
+  on public.dugsiga_students (school_id, lower(full_name));
+
+create index if not exists idx_dugsiga_students_school_class_name
+  on public.dugsiga_students (school_id, lower(class), lower(full_name));
+
+create index if not exists idx_dugsiga_students_school_updated_at
+  on public.dugsiga_students (school_id, updated_at desc);
+
+create or replace function public.dugsiga_touch_student_updated_at()
+returns trigger
+language plpgsql
+security invoker
+set search_path = public
+as $$
+begin
+  new.updated_at = timezone('utc'::text, now());
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_dugsiga_students_updated_at on public.dugsiga_students;
+create trigger trg_dugsiga_students_updated_at
+before update on public.dugsiga_students
+for each row
+execute function public.dugsiga_touch_student_updated_at();
+
+revoke all on function public.dugsiga_touch_student_updated_at() from public, anon, authenticated;
+grant execute on function public.dugsiga_touch_student_updated_at() to service_role;
