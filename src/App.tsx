@@ -394,6 +394,7 @@ export default function App() {
             subjects={data.subjects}
             settings={data.settings}
             onAddStudent={data.handleApiAddStudent}
+            onImportStudents={data.handleApiImportStudents}
             onUpdateStudent={data.handleApiUpdateStudent}
             onDeleteStudent={data.handleApiDeleteStudent}
             onBulkUpdate={data.handleApiBulkUpdate}
