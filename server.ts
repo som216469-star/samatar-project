@@ -1565,6 +1565,26 @@ async function findStudentUniquenessConflict(
   return null;
 }
 
+function buildStudentAuditSnapshot(data: Record<string, any> | null): Record<string, any> | null {
+  if (!data) return null;
+
+  return {
+    id: data.id,
+    school_id: data.school_id,
+    full_name: data.full_name,
+    class: data.class,
+    gender: data.gender,
+    status: data.status,
+    section: data.section || "",
+    roll_number: data.roll_number || "",
+    guardian_name: data.guardian_name || "",
+    guardian_relationship: data.guardian_relationship || "",
+    previous_school: data.previous_school || "",
+    created_at: data.created_at || null,
+    updated_at: data.updated_at || null
+  };
+}
+
 async function recordStudentAudit(
   req: express.Request,
   schoolId: string,
@@ -1584,8 +1604,8 @@ async function recordStudentAudit(
       actor_email: actor?.email || null,
       actor_role: actor?.role || null,
       changed_fields: { fields: Array.from(new Set(changedFields)).slice(0, 50) },
-      before_data: beforeData,
-      after_data: afterData
+      before_data: buildStudentAuditSnapshot(beforeData),
+      after_data: buildStudentAuditSnapshot(afterData)
     }]);
     if (error) console.warn("Student audit log failed:", error.message);
   } catch (error: any) {
@@ -2347,7 +2367,8 @@ app.post("/api/students/import", async (req, res) => {
             "guardianRelationship", "guardianPhoneAlt", "section", "rollNumber",
             "nationalId", "previousSchool", "bloodGroup", "medicalNotes", "status"
           ]
-        }
+        },
+        after_data: buildStudentAuditSnapshot(row)
       }));
 
       if (auditRows.length > 0) {
@@ -2740,6 +2761,8 @@ app.get("/api/students/:id/audit", async (req, res) => {
         actorEmail: item.actor_email || "",
         actorRole: item.actor_role || "",
         changedFields: Array.isArray(item.changed_fields?.fields) ? item.changed_fields.fields : [],
+        beforeData: item.before_data || null,
+        afterData: item.after_data || null,
         createdAt: item.created_at
       })));
     }
