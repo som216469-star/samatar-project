@@ -195,22 +195,19 @@ export const StudentsFilterToolbar: React.FC<StudentsFilterToolbarProps> = ({
           </div>
 
           {canViewFinance && (
-                      {/* Fee Status Filter */}
-                      <div className="lg:col-span-2">
-                        <select
-                          value={resolvedFee}
-                          onChange={(e) => resolvedFeeChange(e.target.value)}
-                          aria-label="Filter by fee status"
-                          className="w-full ds-input py-2"
-                        >
-                          <option value="all">Xaaladda Lacagta (All)</option>
-                          <option value="paid">La Bixiyey (Paid)</option>
-                          <option value="partial">Qayb Dhiman (Partial)</option>
-                          <option value="unpaid">Aan Bixinin (Unpaid)</option>
-                        </select>
-                      </div>
-
-
+            <div className="lg:col-span-2">
+              <select
+                value={resolvedFee}
+                onChange={(e) => resolvedFeeChange(e.target.value)}
+                aria-label="Filter by fee status"
+                className="w-full ds-input py-2"
+              >
+                <option value="all">Xaaladda Lacagta (All)</option>
+                <option value="paid">La Bixiyey (Paid)</option>
+                <option value="partial">Qayb Dhiman (Partial)</option>
+                <option value="unpaid">Aan Bixinin (Unpaid)</option>
+              </select>
+            </div>
           )}
 
           {/* Sort By */}
