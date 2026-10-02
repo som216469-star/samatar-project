@@ -205,13 +205,16 @@ export function registerTeacherAuthRoutes(
           })
           .eq("id", teacher.id);
 
-        await supabase
+          await supabase
           .from("dugsiga_users")
           .upsert([
             {
               email: cleanEmail,
               password: passwordHash,
-              verified: true
+              verified: true,
+              role: "teacher",
+              school_id: teacher.schoolId,
+              teacher_id: teacher.id
             }
           ], { onConflict: "email" });
       } catch (sbErr) {
