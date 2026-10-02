@@ -50,6 +50,7 @@ export interface AppShellProps {
     role?: NormalizedRole | string;
     schoolId?: string;
     name?: string;
+    systemRole?: string;
   };
   settings: SystemSettings;
   dbStatus: DbStatus | null;
@@ -109,14 +110,18 @@ export const AppShell: React.FC<AppShellProps> = ({
   const commandDialogRef = useRef<HTMLDivElement | null>(null);
   const commandInputRef = useRef<HTMLInputElement | null>(null);
 
-  const authorizedNavItems = useMemo(() => getAuthorizedNavItems(user.role), [user.role]);
+  const effectiveRole = user.systemRole || user.role;
+  const authorizedNavItems = useMemo(
+    () => getAuthorizedNavItems(effectiveRole),
+    [effectiveRole]
+  );
   const canAddStudent = useMemo(
-    () => canRoleAccessStudentSubSection('add', user.role),
-    [user.role]
+    () => canRoleAccessStudentSubSection('add', effectiveRole),
+    [effectiveRole]
   );
   const canViewTeachers = useMemo(
-    () => canRoleAccessPeopleSubSection('teachers', user.role),
-    [user.role]
+    () => canRoleAccessPeopleSubSection('teachers', effectiveRole),
+    [effectiveRole]
   );
 
   const openCommandPalette = useCallback(() => {
