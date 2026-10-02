@@ -1,4 +1,4 @@
-import nodemailer from "nodemailer";
+import nodemailer, { type Transporter } from "nodemailer";
 
 interface SendInvitationEmailParams {
   toEmail: string;
@@ -8,9 +8,9 @@ interface SendInvitationEmailParams {
   expiresInDays?: number;
 }
 
-let cachedTransporter: nodemailer.Transporter | null = null;
+let cachedTransporter: Transporter | null = null;
 
-function getEmailTransporter(): nodemailer.Transporter | null {
+function getEmailTransporter(): Transporter | null {
   if (cachedTransporter) return cachedTransporter;
 
   const host = process.env.SMTP_HOST || "smtp.gmail.com";
@@ -32,7 +32,7 @@ function getEmailTransporter(): nodemailer.Transporter | null {
         pass
       },
       tls: {
-        rejectUnauthorized: false
+        rejectUnauthorized: true
       }
     });
     return cachedTransporter;
