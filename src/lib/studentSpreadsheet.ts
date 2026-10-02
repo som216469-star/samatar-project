@@ -131,24 +131,10 @@ export async function downloadStudentSpreadsheet(
     )
   ];
 
-  const blob = await writeExcelFile(sheetData, {
+  await writeExcelFile(sheetData, {
     fileName,
-    sheet: {
-      name: sheetName
-    }
+    sheet: sheetName
   });
-
-  const url = URL.createObjectURL(blob);
-  try {
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = fileName;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-  } finally {
-    URL.revokeObjectURL(url);
-  }
 }
 
 export function escapeCsvCell(value: unknown): string {
