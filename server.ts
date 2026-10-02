@@ -2319,6 +2319,7 @@ app.post("/api/students/import", async (req, res) => {
     }
 
     const allClasses = new Set<string>();
+    const classSections = new Map<string, Set<string>>();
     const currentIds = new Set<string>();
     const currentRolls = new Set<string>();
     const currentNationalIds = new Set<string>();
@@ -2326,7 +2327,7 @@ app.post("/api/students/import", async (req, res) => {
 
     if (!useLocalFallback) {
       const [{ data: classesData, error: classesError }, { data: existingData, error: existingError }] = await Promise.all([
-        supabase.from("dugsiga_classes").select("class_name").eq("school_id", schoolId).limit(5000),
+        supabase.from("dugsiga_classes").select("class_name,section").eq("school_id", schoolId).limit(5000),
         supabase.from("dugsiga_students").select("id,full_name,class,section,roll_number,national_id").eq("school_id", schoolId).limit(50000)
       ]);
 
@@ -2335,7 +2336,13 @@ app.post("/api/students/import", async (req, res) => {
 
       for (const row of classesData || []) {
         const name = String(row.class_name || "").trim().toLowerCase();
-        if (name) allClasses.add(name);
+        const section = String(row.section || "").trim().toLowerCase();
+
+        if (name) {
+          allClasses.add(name);
+          if (!classSections.has(name)) classSections.set(name, new Set<string>());
+          if (section) classSections.get(name)!.add(section);
+        }
       }
 
       for (const row of existingData || []) {
@@ -2355,7 +2362,12 @@ app.post("/api/students/import", async (req, res) => {
       for (const row of db.classes || []) {
         if (row.schoolId === schoolId) {
           const name = String(row.className || "").trim().toLowerCase();
-          if (name) allClasses.add(name);
+          const section = String(row.section || "").trim().toLowerCase();
+          if (name) {
+            allClasses.add(name);
+            if (!classSections.has(name)) classSections.set(name, new Set<string>());
+            if (section) classSections.get(name)!.add(section);
+          }
         }
       }
       for (const row of db.students || []) {
@@ -2393,6 +2405,20 @@ app.post("/api/students/import", async (req, res) => {
 
       if (!allClasses.has(classKey)) {
         errors.push({ row: item.row, error: "Fasalka la doortay kama jiro school-kan." });
+        continue;
+      }
+
+      const availableClassSections = classSections.get(classKey) || new Set<string>();
+      if (
+        (availableClassSections.size > 0 && !sectionKey) ||
+        (availableClassSections.size > 0 && sectionKey && !availableClassSections.has(sectionKey))
+      ) {
+        errors.push({
+          row: item.row,
+          error: sectionKey
+            ? "Section-ka la doortay kama jiro fasalkan."
+            : "Fasalkani wuxuu leeyahay Section-yo; fadlan Section dooro."
+        });
         continue;
       }
 
