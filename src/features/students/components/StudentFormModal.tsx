@@ -25,6 +25,7 @@ export interface StudentFormData {
   createdAt: string;
   guardianRelationship: string;
   guardianPhoneAlt: string;
+  emergencyContact: string;
   nationalId: string;
   previousSchool: string;
   bloodGroup: string;
@@ -556,6 +557,28 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                     className="w-full ds-input font-mono"
                   />
                 </div>
+                <div className="space-y-1.5">
+                  <label className="font-semibold text-[var(--color-text-secondary)] block">
+                    Emergency Contact
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.emergencyContact}
+                    onChange={(e) => {
+                      setFormData({ ...formData, emergencyContact: e.target.value });
+                      if (formErrors.emergencyContact)
+                        setFormErrors((prev) => ({ ...prev, emergencyContact: '' }));
+                    }}
+                    placeholder="+252 61 xxx xxxx"
+                    className="w-full ds-input font-mono"
+                  />
+                  {formErrors.emergencyContact && (
+                    <p className="text-[11px] text-[var(--color-danger)] font-semibold">
+                      {formErrors.emergencyContact}
+                    </p>
+                  )}
+                </div>
+
                 <div className="space-y-1.5">
                   <label className="font-semibold text-[var(--color-text-secondary)] block">
                     Xusuusin Caafimaad (Medical Notes)
