@@ -1238,6 +1238,276 @@ function expressWithSupabase(config: any, handler: any) {
   };
 }
 
+
+/* ============================================================================
+   STUDENTS MODULE - PRODUCTION VALIDATION / AUDIT HELPERS
+   ============================================================================ */
+const STUDENT_ALLOWED_STATUSES = new Set(["active", "inactive", "archived"]);
+const STUDENT_ALLOWED_GENDERS = new Set(["Male", "Female"]);
+const STUDENT_MAX_BULK = 200;
+
+function cleanStudentString(value: unknown, field: string, maxLength: number, required = false): { ok: boolean; value: string; error?: string } {
+  if (value === undefined || value === null) {
+    if (required) return { ok: false, value: "", error: \`\${field} waa qasab.\` };
+    return { ok: true, value: "" };
+  }
+  if (typeof value !== "string") {
+    return { ok: false, value: "", error: \`\${field} waa inuu noqdaa qoraal sax ah.\` };
+  }
+  const normalized = value.trim();
+  if (required && !normalized) {
+    return { ok: false, value: "", error: \`\${field} waa qasab.\` };
+  }
+  if (normalized.length > maxLength) {
+    return { ok: false, value: "", error: \`\${field} kama badnaan karo \${maxLength} xaraf.\` };
+  }
+  return { ok: true, value: normalized };
+}
+
+function isValidDateOnly(value: string): boolean {
+  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split("-").map(Number);
+  const d = new Date(Date.UTC(year, month - 1, day));
+  return d.getUTCFullYear() === year && d.getUTCMonth() === month - 1 && d.getUTCDate() === day;
+}
+
+function isValidStudentPhone(value: string): boolean {
+  return !value || /^[+0-9()\\s.-]{7,30}$/.test(value);
+}
+
+function isSafeStudentId(value: string): boolean {
+  return /^[A-Za-z0-9][A-Za-z0-9._-]{1,79}$/.test(value);
+}
+
+function validateStudentPayload(
+  payload: any,
+  options: { partial?: boolean; allowId?: boolean; allowCreatedAt?: boolean } = {}
+): { ok: boolean; value: Record<string, any>; error?: string } {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return { ok: false, value: {}, error: "Xogta ardayga ma saxna." };
+  }
+
+  const partial = options.partial === true;
+  const value: Record<string, any> = {};
+
+  const readString = (key: string, label: string, max: number, required = false) => {
+    const present = Object.prototype.hasOwnProperty.call(payload, key);
+    if (partial && !present) return true;
+    const result = cleanStudentString(payload[key], label, max, required);
+    if (!result.ok) {
+      value.__error = result.error;
+      return false;
+    }
+    value[key] = result.value;
+    return true;
+  };
+
+  if (!readString("fullName", "Magaca ardayga", 160, !partial)) return { ok: false, value: {}, error: value.__error };
+  if (!readString("class", "Fasalka", 120, !partial)) return { ok: false, value: {}, error: value.__error };
+  if (!readString("guardianPhone", "Telefoonka waalidka", 30, false)) return { ok: false, value: {}, error: value.__error };
+  if (!readString("guardianName", "Magaca waalidka", 160, false)) return { ok: false, value: {}, error: value.__error };
+  if (!readString("guardianRelationship", "Xiriirka waalidka", 60, false)) return { ok: false, value: {}, error: value.__error };
+  if (!readString("guardianPhoneAlt", "Telefoonka labaad", 30, false)) return { ok: false, value: {}, error: value.__error };
+  if (!readString("section", "Section", 50, false)) return { ok: false, value: {}, error: value.__error };
+  if (!readString("rollNumber", "Roll Number", 50, false)) return { ok: false, value: {}, error: value.__error };
+  if (!readString("nationalId", "National ID", 80, false)) return { ok: false, value: {}, error: value.__error };
+  if (!readString("previousSchool", "School-kii hore", 160, false)) return { ok: false, value: {}, error: value.__error };
+  if (!readString("bloodGroup", "Blood Group", 20, false)) return { ok: false, value: {}, error: value.__error };
+  if (!readString("address", "Cinwaanka", 500, false)) return { ok: false, value: {}, error: value.__error };
+  if (!readString("medicalNotes", "Medical Notes", 2000, false)) return { ok: false, value: {}, error: value.__error };
+
+  if (!partial || Object.prototype.hasOwnProperty.call(payload, "gender")) {
+    const gender = typeof payload.gender === "string" && payload.gender.trim() ? payload.gender.trim() : partial ? "" : "Male";
+    if (!gender && partial) return { ok: false, value: {}, error: "Jinsiga ma saxna." };
+    if (gender && !STUDENT_ALLOWED_GENDERS.has(gender)) return { ok: false, value: {}, error: "Jinsiga ardayga ma saxna." };
+    if (gender) value.gender = gender;
+  }
+
+  if (!partial || Object.prototype.hasOwnProperty.call(payload, "status")) {
+    const status = typeof payload.status === "string" && payload.status.trim() ? payload.status.trim().toLowerCase() : partial ? "" : "active";
+    if (!status && partial) return { ok: false, value: {}, error: "Xaaladda ardayga ma saxna." };
+    if (status && !STUDENT_ALLOWED_STATUSES.has(status)) return { ok: false, value: {}, error: "Xaaladda ardayga ma saxna." };
+    if (status) value.status = status;
+  }
+
+  if (!partial || Object.prototype.hasOwnProperty.call(payload, "guardianPhone")) {
+    if (!isValidStudentPhone(value.guardianPhone ?? "")) return { ok: false, value: {}, error: "Telefoonka waalidka ma saxna." };
+  }
+
+  if (!partial || Object.prototype.hasOwnProperty.call(payload, "guardianPhoneAlt")) {
+    if (!isValidStudentPhone(value.guardianPhoneAlt ?? "")) return { ok: false, value: {}, error: "Telefoonka labaad ma saxna." };
+  }
+
+  if (!partial || Object.prototype.hasOwnProperty.call(payload, "dateOfBirth")) {
+    const dob = value.dateOfBirth ?? (typeof payload.dateOfBirth === "string" ? payload.dateOfBirth.trim() : "");
+    if (dob) {
+      if (!isValidDateOnly(dob)) return { ok: false, value: {}, error: "Taariikhda dhalashada ma saxna. Isticmaal YYYY-MM-DD." };
+      if (dob > new Date().toISOString().slice(0, 10)) return { ok: false, value: {}, error: "Taariikhda dhalashada mustaqbal ma noqon karto." };
+    }
+    value.dateOfBirth = dob;
+  }
+
+  if (!partial || (options.allowCreatedAt && Object.prototype.hasOwnProperty.call(payload, "createdAt"))) {
+    const createdAt = typeof payload.createdAt === "string" ? payload.createdAt.trim() : "";
+    if (createdAt && !isValidDateOnly(createdAt)) return { ok: false, value: {}, error: "Taariikhda diiwaangelinta ma saxna. Isticmaal YYYY-MM-DD." };
+    if (createdAt && createdAt > new Date().toISOString().slice(0, 10)) return { ok: false, value: {}, error: "Taariikhda diiwaangelintu mustaqbal ma noqon karto." };
+    if (createdAt) value.createdAt = createdAt;
+  }
+
+  if (!partial && options.allowId !== false && Object.prototype.hasOwnProperty.call(payload, "id")) {
+    const id = typeof payload.id === "string" ? payload.id.trim() : "";
+    if (id && !isSafeStudentId(id)) return { ok: false, value: {}, error: "Student ID-ga ma saxna." };
+    if (id) value.id = id;
+  }
+
+  if (!partial || Object.prototype.hasOwnProperty.call(payload, "photo")) {
+    const photo = typeof payload.photo === "string" ? payload.photo.trim() : "";
+    if (photo.length > 1_500_000) return { ok: false, value: {}, error: "Sawirka ardayga aad buu u weyn yahay." };
+    value.photo = photo;
+  }
+
+  if (!partial && !value.createdAt) value.createdAt = new Date().toISOString().slice(0, 10);
+  if (!partial && value.status === undefined) value.status = "active";
+  if (!partial && value.gender === undefined) value.gender = "Male";
+  if (!partial && value.guardianPhone === undefined) value.guardianPhone = "";
+
+  delete value.__error;
+  return { ok: true, value };
+}
+
+function formatStudentRow(s: any): any {
+  return {
+    id: s.id,
+    fullName: s.full_name,
+    class: s.class,
+    gender: s.gender,
+    guardianPhone: s.guardian_phone || "",
+    status: s.status || "active",
+    createdAt: s.created_at || "",
+    updatedAt: s.updated_at || s.created_at || "",
+    photo: s.photo || "",
+    dateOfBirth: s.date_of_birth || "",
+    address: s.address || "",
+    guardianName: s.guardian_name || "",
+    guardianRelationship: s.guardian_relationship || "",
+    guardianPhoneAlt: s.guardian_phone_alt || "",
+    section: s.section || "",
+    rollNumber: s.roll_number || "",
+    nationalId: s.national_id || "",
+    previousSchool: s.previous_school || "",
+    bloodGroup: s.blood_group || "",
+    medicalNotes: s.medical_notes || ""
+  };
+}
+
+async function findStudentUniquenessConflict(
+  schoolId: string,
+  candidate: Record<string, any>,
+  excludeId?: string
+): Promise<string | null> {
+  if (!supabase) return null;
+
+  if (candidate.id) {
+    let query = supabase.from("dugsiga_students").select("id").eq("id", candidate.id).limit(1);
+    if (excludeId) query = query.neq("id", excludeId);
+    const { data, error } = await query;
+    if (error) throw error;
+    if ((data || []).length > 0) return "Student ID-gan horey ayaa loo isticmaalay.";
+  }
+
+  if (candidate.fullName && candidate.class) {
+    let query = supabase
+      .from("dugsiga_students")
+      .select("id")
+      .eq("school_id", schoolId)
+      .eq("class", candidate.class)
+      .ilike("full_name", candidate.fullName)
+      .limit(1);
+    if (excludeId) query = query.neq("id", excludeId);
+    const { data, error } = await query;
+    if (error) throw error;
+    if ((data || []).length > 0) return "Magacan iyo fasalkan arday hore ayaa loogu diiwaangeliyey.";
+  }
+
+  if (candidate.nationalId) {
+    let query = supabase
+      .from("dugsiga_students")
+      .select("id")
+      .eq("school_id", schoolId)
+      .ilike("national_id", candidate.nationalId)
+      .limit(1);
+    if (excludeId) query = query.neq("id", excludeId);
+    const { data, error } = await query;
+    if (error) throw error;
+    if ((data || []).length > 0) return "National ID-gan hore ayaa loogu isticmaalay arday kale.";
+  }
+
+  if (candidate.rollNumber) {
+    let query = supabase
+      .from("dugsiga_students")
+      .select("id")
+      .eq("school_id", schoolId)
+      .ilike("roll_number", candidate.rollNumber)
+      .limit(1);
+    if (excludeId) query = query.neq("id", excludeId);
+    const { data, error } = await query;
+    if (error) throw error;
+    if ((data || []).length > 0) return "Roll Number-kan hore ayaa loogu isticmaalay arday kale.";
+  }
+
+  return null;
+}
+
+async function recordStudentAudit(
+  req: express.Request,
+  schoolId: string,
+  studentId: string,
+  action: "created" | "updated" | "archived" | "restored" | "deleted",
+  changedFields: string[]
+): Promise<void> {
+  if (!supabase || useLocalFallback) return;
+  const actor = getAuthenticatedUser(req, loadLocalDB);
+  try {
+    const { error } = await supabase.from("dugsiga_student_audit").insert([{
+      school_id: schoolId,
+      student_id: studentId,
+      action,
+      actor_email: actor?.email || null,
+      actor_role: actor?.role || null,
+      changed_fields: { fields: Array.from(new Set(changedFields)).slice(0, 50) }
+    }]);
+    if (error) console.warn("Student audit log failed:", error.message);
+  } catch (error: any) {
+    console.warn("Student audit log failed:", error?.message || error);
+  }
+}
+
+async function getStudentDependencyIds(studentIds: string[]): Promise<Set<string>> {
+  const dependentTables = [
+    ["dugsiga_attendance", "student_id"],
+    ["dugsiga_fees", "student_id"],
+    ["dugsiga_exam_scores", "student_id"],
+    ["dugsiga_invoices", "student_id"],
+    ["dugsiga_payments", "student_id"],
+    ["dugsiga_library_loans", "borrower_id"],
+    ["dugsiga_admissions", "student_id"]
+  ] as const;
+
+  const dependentIds = new Set<string>();
+  if (!supabase || studentIds.length === 0) return dependentIds;
+
+  const results = await Promise.all(
+    dependentTables.map(async ([table, column]) => {
+      const { data, error } = await supabase.from(table).select(column).in(column, studentIds).limit(STUDENT_MAX_BULK);
+      if (error) throw error;
+      return (data || []).map((row: any) => String(row[column] || ""));
+    })
+  );
+
+  for (const ids of results) for (const id of ids) if (id) dependentIds.add(id);
+  return dependentIds;
+}
+
 /* ==============================================
    API ROUTES
    ============================================== */
@@ -1565,336 +1835,398 @@ app.post("/api/auth/login", async (req, res) => {
   return res.status(400).json({ error: "Email ama password ayaa qalad ah." });
 });
 
+
 app.get("/api/students", async (req, res) => {
   const schoolId = getSchoolId(req);
   const authUser = getAuthenticatedUser(req, loadLocalDB);
-  const isTeacher = authUser?.role === "teacher";
-  const teacherClasses = authUser?.assignedClasses || [];
+  if (!schoolId || !authUser) return res.status(401).json({ error: "Session-ka lama xaqiijin." });
+
+  const isTeacher = authUser.role === "teacher";
+  const teacherClasses = Array.isArray(authUser.assignedClasses)
+    ? authUser.assignedClasses.map((c) => String(c).trim()).filter(Boolean)
+    : [];
 
   if (!useLocalFallback) {
     try {
       let query = supabase.from("dugsiga_students").select("*").eq("school_id", schoolId).order("full_name", { ascending: true });
-      if (isTeacher && teacherClasses.length > 0) {
+      if (isTeacher) {
+        if (teacherClasses.length === 0) return res.json([]);
         query = query.in("class", teacherClasses);
       }
       const { data, error } = await query;
       if (error) throw error;
-      const students = data.map(s => ({
-        id: s.id,
-        fullName: s.full_name,
-        class: s.class,
-        gender: s.gender,
-        guardianPhone: s.guardian_phone,
-        status: s.status || "active",
-        createdAt: s.created_at,
-        updatedAt: s.updated_at || s.created_at || "",
-        photo: s.photo || "",
-        dateOfBirth: s.date_of_birth || "",
-        address: s.address || "",
-        guardianName: s.guardian_name || "",
-        guardianRelationship: s.guardian_relationship || "",
-        guardianPhoneAlt: s.guardian_phone_alt || "",
-        section: s.section || "",
-        rollNumber: s.roll_number || "",
-        nationalId: s.national_id || "",
-        previousSchool: s.previous_school || "",
-        bloodGroup: s.blood_group || "",
-        medicalNotes: s.medical_notes || ""
-      }));
-      return res.json(students);
-    } catch (e: any) { return handleSupabaseError(res, e, "Soo qaadista Ardayda (Fetch Students)"); }
-  } else {
-    const db = loadLocalDB();
-    let list = (db.students || []).filter((s: any) => s.schoolId === schoolId);
-    if (isTeacher && teacherClasses.length > 0) {
-      list = list.filter((s: any) => teacherClasses.includes(s.class));
+      return res.json((data || []).map(formatStudentRow));
+    } catch (e: any) {
+      return handleSupabaseError(res, e, "Soo qaadista Ardayda (Fetch Students)");
     }
-    res.json(list);
   }
+
+  const db = loadLocalDB();
+  let list = (db.students || []).filter((s: any) => s.schoolId === schoolId);
+  if (isTeacher) {
+    if (teacherClasses.length === 0) return res.json([]);
+    list = list.filter((s: any) => teacherClasses.includes(String(s.class || "").trim()));
+  }
+  return res.json(list);
 });
 
 app.post("/api/students/check-duplicate", async (req, res) => {
   const schoolId = getSchoolId(req);
-  const { fullName, className, studentId, guardianPhone, excludeId } = req.body;
-  if (!fullName && !studentId && !guardianPhone) {
-    return res.json({ hasDuplicate: false, duplicate: false, duplicates: [] });
-  }
+  if (!schoolId) return res.status(401).json({ error: "Session-ka lama xaqiijin." });
 
-  if (!useLocalFallback) {
-    try {
-      let query = supabase.from("dugsiga_students").select("id, full_name, class, guardian_phone").eq("school_id", schoolId);
-      if (excludeId) {
-        query = query.neq("id", excludeId);
-      }
-      const { data, error } = await query;
-      if (error) throw error;
+  const raw = req.body || {};
+  const candidate = validateStudentPayload({
+    fullName: raw.fullName,
+    class: raw.className,
+    guardianPhone: raw.guardianPhone,
+    rollNumber: raw.rollNumber,
+    nationalId: raw.nationalId,
+    gender: raw.gender
+  }, { partial: true });
 
-      const duplicates: any[] = [];
-      const cleanName = (fullName || "").trim().toLowerCase();
+  if (!candidate.ok) return res.status(400).json({ error: candidate.error });
 
-      for (const s of (data || [])) {
-        const sName = (s.full_name || "").trim().toLowerCase();
-        const sameId = studentId && s.id && s.id.toLowerCase() === studentId.trim().toLowerCase();
-        const sameNameClass = cleanName && className && sName === cleanName && s.class === className;
-        const samePhone = guardianPhone && s.guardian_phone && guardianPhone.length > 5 && s.guardian_phone === guardianPhone;
+  try {
+    const conflicts: any[] = [];
+    const excludeId = typeof raw.excludeId === "string" ? raw.excludeId.trim() : undefined;
 
-        if (sameId || sameNameClass || samePhone) {
-          duplicates.push({
-            id: s.id,
-            fullName: s.full_name,
-            class: s.class,
-            guardianPhone: s.guardian_phone,
-            matchReason: sameId
-              ? 'Student ID-gan horey ayaa loo isticmaalay (Same Student ID)'
-              : sameNameClass
-              ? 'Magacan iyo fasalkan arday hore ayaa loogu diiwaangeliyey (Same Name & Class)'
-              : 'Taleefankan waalidka waxaa u diiwaangashan arday kale (Same Guardian Phone)'
-          });
+    if (!useLocalFallback) {
+      const checks = [
+        raw.studentId
+          ? supabase.from("dugsiga_students").select("id,full_name,class,guardian_phone").eq("id", String(raw.studentId).trim()).limit(1)
+          : Promise.resolve({ data: [], error: null }),
+        candidate.value.fullName && candidate.value.class
+          ? supabase.from("dugsiga_students").select("id,full_name,class,guardian_phone").eq("school_id", schoolId).eq("class", candidate.value.class).ilike("full_name", candidate.value.fullName).limit(5)
+          : Promise.resolve({ data: [], error: null }),
+        candidate.value.rollNumber
+          ? supabase.from("dugsiga_students").select("id,full_name,class,guardian_phone,roll_number").eq("school_id", schoolId).ilike("roll_number", candidate.value.rollNumber).limit(5)
+          : Promise.resolve({ data: [], error: null }),
+        candidate.value.nationalId
+          ? supabase.from("dugsiga_students").select("id,full_name,class,guardian_phone,national_id").eq("school_id", schoolId).ilike("national_id", candidate.value.nationalId).limit(5)
+          : Promise.resolve({ data: [], error: null })
+      ];
+
+      const results = await Promise.all(checks);
+      for (const result of results) {
+        if (result.error) throw result.error;
+        for (const row of result.data || []) {
+          if (!excludeId || row.id !== excludeId) conflicts.push(row);
         }
       }
-      const hasDup = duplicates.length > 0;
-      return res.json({
-        hasDuplicate: hasDup,
-        duplicate: hasDup,
-        reason: hasDup ? duplicates[0].matchReason : undefined,
-        existingStudent: hasDup ? duplicates[0] : undefined,
-        duplicates
-      });
-    } catch (e: any) {
-      return res.json({ hasDuplicate: false, duplicate: false, duplicates: [] });
-    }
-  } else {
-    const db = loadLocalDB();
-    const students = (db.students || []).filter((s: any) => s.schoolId === schoolId && (!excludeId || s.id !== excludeId));
-    const duplicates: any[] = [];
-    const cleanName = (fullName || "").trim().toLowerCase();
-
-    for (const s of students) {
-      const sName = (s.fullName || "").trim().toLowerCase();
-      const sameId = studentId && s.id && s.id.toLowerCase() === studentId.trim().toLowerCase();
-      const sameNameClass = cleanName && className && sName === cleanName && s.class === className;
-      const samePhone = guardianPhone && s.guardianPhone && guardianPhone.length > 5 && s.guardianPhone === guardianPhone;
-
-      if (sameId || sameNameClass || samePhone) {
-        duplicates.push({
-          id: s.id,
-          fullName: s.fullName,
-          class: s.class,
-          guardianPhone: s.guardianPhone,
-          matchReason: sameId
-            ? 'Student ID-gan horey ayaa loo isticmaalay (Same Student ID)'
-            : sameNameClass
-            ? 'Magacan iyo fasalkan arday hore ayaa loogu diiwaangeliyey (Same Name & Class)'
-            : 'Taleefankan waalidka waxaa u diiwaangashan arday kale (Same Guardian Phone)'
-        });
+    } else {
+      const students = (loadLocalDB().students || []).filter((s: any) => s.schoolId === schoolId);
+      for (const s of students) {
+        if (excludeId && s.id === excludeId) continue;
+        const sameId = raw.studentId && String(s.id).toLowerCase() === String(raw.studentId).trim().toLowerCase();
+        const sameNameClass = candidate.value.fullName && candidate.value.class &&
+          String(s.fullName || "").trim().toLowerCase() === candidate.value.fullName.toLowerCase() &&
+          String(s.class || "").trim() === candidate.value.class;
+        const sameRoll = candidate.value.rollNumber && String(s.rollNumber || "").trim().toLowerCase() === candidate.value.rollNumber.toLowerCase();
+        const sameNational = candidate.value.nationalId && String(s.nationalId || "").trim().toLowerCase() === candidate.value.nationalId.toLowerCase();
+        if (sameId || sameNameClass || sameRoll || sameNational) conflicts.push(s);
       }
     }
-    const hasDup = duplicates.length > 0;
+
+    const unique = Array.from(new Map(conflicts.map((row) => [row.id, row])).values()).slice(0, 10);
+    const hasDuplicate = unique.length > 0;
     return res.json({
-      hasDuplicate: hasDup,
-      duplicate: hasDup,
-      reason: hasDup ? duplicates[0].matchReason : undefined,
-      existingStudent: hasDup ? duplicates[0] : undefined,
-      duplicates
+      hasDuplicate,
+      duplicate: hasDuplicate,
+      reason: hasDuplicate ? "Xog arday oo isku mid ah ayaa horey u jiray." : undefined,
+      existingStudent: hasDuplicate ? unique[0] : undefined,
+      duplicates: unique
     });
+  } catch (e: any) {
+    return handleSupabaseError(res, e, "Hubinta duplicate-ka ardayga");
   }
 });
 
 app.post("/api/students/bulk", async (req, res) => {
   const schoolId = getSchoolId(req);
-  const { action, studentIds, targetClass, targetStatus } = req.body;
-  if (!Array.isArray(studentIds) || studentIds.length === 0) {
-    return res.status(400).json({ error: "studentIds waa qasab (studentIds array is required)" });
+  const authUser = getAuthenticatedUser(req, loadLocalDB);
+  if (!schoolId || !authUser) return res.status(401).json({ error: "Session-ka lama xaqiijin." });
+
+  const action = typeof req.body?.action === "string" ? req.body.action.trim() : "";
+  const rawIds = Array.isArray(req.body?.studentIds) ? req.body.studentIds : [];
+  const studentIds = Array.from(new Set(
+    rawIds.filter((id: unknown): id is string => typeof id === "string")
+      .map((id) => id.trim()).filter(Boolean)
+  ));
+
+  if (!studentIds.length) return res.status(400).json({ error: "studentIds waa qasab." });
+  if (studentIds.length > STUDENT_MAX_BULK) return res.status(400).json({ error: \`Hal mar kama badnaan karaan \${STUDENT_MAX_BULK} arday.\` });
+  if (!["change_status", "change_class", "archive", "delete"].includes(action)) {
+    return res.status(400).json({ error: "Action-ka bulk-ga ma saxna." });
   }
-  const nowIso = new Date().toISOString();
+
+  const targetStatus = typeof req.body?.targetStatus === "string" ? req.body.targetStatus.trim().toLowerCase() : "";
+  const targetClass = typeof req.body?.targetClass === "string" ? req.body.targetClass.trim() : "";
+  if ((action === "change_status" && !STUDENT_ALLOWED_STATUSES.has(targetStatus)) || (action === "change_class" && !targetClass)) {
+    return res.status(400).json({ error: "Qiimaha bulk-ga ma saxna." });
+  }
 
   if (!useLocalFallback) {
     try {
-      if (action === 'change_status' && targetStatus) {
-        const { error } = await supabase.from("dugsiga_students").update({ status: targetStatus }).in("id", studentIds).eq("school_id", schoolId);
-        if (error) throw error;
-      } else if (action === 'change_class' && targetClass) {
-        const { error } = await supabase.from("dugsiga_students").update({ class: targetClass }).in("id", studentIds).eq("school_id", schoolId);
-        if (error) throw error;
-      } else if (action === 'archive') {
-        const { error } = await supabase.from("dugsiga_students").update({ status: 'archived' }).in("id", studentIds).eq("school_id", schoolId);
-        if (error) throw error;
-      } else if (action === 'delete') {
-        await supabase.from("dugsiga_fees").delete().in("student_id", studentIds).eq("school_id", schoolId);
-        await supabase.from("dugsiga_attendance").delete().in("student_id", studentIds).eq("school_id", schoolId);
-        const { error } = await supabase.from("dugsiga_students").delete().in("id", studentIds).eq("school_id", schoolId);
-        if (error) throw error;
-      } else {
-        return res.status(400).json({ error: "Action aan sax ahayn (Invalid bulk action)" });
+      const { data: rows, error: rowsError } = await supabase.from("dugsiga_students").select("id,class,status").eq("school_id", schoolId).in("id", studentIds);
+      if (rowsError) throw rowsError;
+      const found = rows || [];
+      if (found.length !== studentIds.length) {
+        const foundIds = new Set(found.map((row: any) => row.id));
+        return res.status(404).json({
+          error: "Qaar ka mid ah ardayda lama helin ama school-kan kama tirsana.",
+          missingIds: studentIds.filter((id) => !foundIds.has(id)).slice(0, 20)
+        });
       }
-      return res.json({ success: true, count: studentIds.length });
+
+      if (action === "delete") {
+        const dependentIds = await getStudentDependencyIds(studentIds);
+        if (dependentIds.size > 0) {
+          return res.status(409).json({
+            error: "Qaar ka mid ah ardaydan waxay leeyihiin xog ku xiran. Isticmaal Archive halkii Delete.",
+            dependentCount: dependentIds.size
+          });
+        }
+
+        const { data: deleted, error } = await supabase.from("dugsiga_students").delete().eq("school_id", schoolId).in("id", studentIds).select("id");
+        if (error) throw error;
+        const deletedIds = (deleted || []).map((row: any) => row.id);
+        await Promise.all(deletedIds.map((id) => recordStudentAudit(req, schoolId, id, "deleted", ["student"])));
+        return res.json({ success: true, count: deletedIds.length });
+      }
+
+      const nextStatus = action === "archive" ? "archived" : action === "change_status" ? targetStatus : undefined;
+      const updateObj: any = { updated_at: new Date().toISOString() };
+      if (action === "change_class") updateObj.class = targetClass;
+      if (nextStatus) updateObj.status = nextStatus;
+
+      const { data: updated, error } = await supabase.from("dugsiga_students").update(updateObj).eq("school_id", schoolId).in("id", studentIds).select("id,status");
+      if (error) throw error;
+
+      const updatedRows = updated || [];
+      await Promise.all(updatedRows.map((row: any) =>
+        recordStudentAudit(req, schoolId, row.id, row.status === "archived" ? "archived" : "updated", Object.keys(updateObj).filter((key) => key !== "updated_at"))
+      ));
+      return res.json({ success: true, count: updatedRows.length });
     } catch (e: any) {
       return handleSupabaseError(res, e, "Hawsha guud ee ardayda (Bulk Students Operation)");
     }
-  } else {
-    const db = loadLocalDB();
-    if (action === 'change_status' && targetStatus) {
-      db.students = db.students.map((s: any) => (studentIds.includes(s.id) && s.schoolId === schoolId) ? { ...s, status: targetStatus, updatedAt: nowIso } : s);
-    } else if (action === 'change_class' && targetClass) {
-      db.students = db.students.map((s: any) => (studentIds.includes(s.id) && s.schoolId === schoolId) ? { ...s, class: targetClass, updatedAt: nowIso } : s);
-    } else if (action === 'archive') {
-      db.students = db.students.map((s: any) => (studentIds.includes(s.id) && s.schoolId === schoolId) ? { ...s, status: 'archived', updatedAt: nowIso } : s);
-    } else if (action === 'delete') {
-      db.students = db.students.filter((s: any) => !(studentIds.includes(s.id) && s.schoolId === schoolId));
-      db.fees = db.fees.filter((f: any) => !(studentIds.includes(f.studentId) && f.schoolId === schoolId));
-      db.attendance = db.attendance.filter((a: any) => !(studentIds.includes(a.studentId) && a.schoolId === schoolId));
-    }
-    saveLocalDB(db);
-    return res.json({ success: true, count: studentIds.length });
   }
+
+  const db = loadLocalDB();
+  const selected = (db.students || []).filter((s: any) => s.schoolId === schoolId && studentIds.includes(s.id));
+  if (selected.length !== studentIds.length) return res.status(404).json({ error: "Qaar ka mid ah ardayda lama helin." });
+
+  if (action === "delete") {
+    const hasDependencies =
+      (db.fees || []).some((f: any) => studentIds.includes(f.studentId) && f.schoolId === schoolId) ||
+      (db.attendance || []).some((a: any) => studentIds.includes(a.studentId) && a.schoolId === schoolId) ||
+      (db.examScores || []).some((e: any) => studentIds.includes(e.studentId) && e.schoolId === schoolId);
+    if (hasDependencies) return res.status(409).json({ error: "Qaar ka mid ah ardaydan waxay leeyihiin xog ku xiran. Isticmaal Archive." });
+    db.students = db.students.filter((s: any) => !(studentIds.includes(s.id) && s.schoolId === schoolId));
+  } else {
+    db.students = db.students.map((s: any) => {
+      if (!studentIds.includes(s.id) || s.schoolId !== schoolId) return s;
+      if (action === "change_class") return { ...s, class: targetClass, updatedAt: new Date().toISOString() };
+      return { ...s, status: action === "archive" ? "archived" : targetStatus, updatedAt: new Date().toISOString() };
+    });
+  }
+
+  saveLocalDB(db);
+  return res.json({ success: true, count: studentIds.length });
 });
 
 app.post("/api/students", async (req, res) => {
   const schoolId = getSchoolId(req);
-  const student = req.body;
-  if (!student.fullName || !student.class) return res.status(400).json({ error: "Magaca iyo Class-ka waa qasab." });
-  
-  const studentId = (student.id && String(student.id).trim()) || 'std-' + Math.random().toString(36).substring(2, 11);
-  const createdAt = student.createdAt || new Date().toISOString().split('T')[0];
-  const updatedAt = student.updatedAt || new Date().toISOString();
-  const fullStudent = { 
-    ...student, 
-    id: studentId, 
-    createdAt,
-    updatedAt,
-    status: student.status || "active",
-    gender: student.gender || "Male",
-    dateOfBirth: student.dateOfBirth || "",
-    address: student.address || "",
-    guardianName: student.guardianName || "",
-    guardianRelationship: student.guardianRelationship || "",
-    guardianPhoneAlt: student.guardianPhoneAlt || "",
-    section: student.section || "",
-    rollNumber: student.rollNumber || "",
-    nationalId: student.nationalId || "",
-    previousSchool: student.previousSchool || "",
-    bloodGroup: student.bloodGroup || "",
-    medicalNotes: student.medicalNotes || ""
-  };
+  const authUser = getAuthenticatedUser(req, loadLocalDB);
+  if (!schoolId || !authUser) return res.status(401).json({ error: "Session-ka lama xaqiijin." });
 
-  if (!useLocalFallback) {
-    try {
-      const { data: existing, error: checkError } = await supabase.from("dugsiga_students").select("id").ilike("full_name", student.fullName.trim()).eq("class", student.class).eq("school_id", schoolId).limit(1);
-      if (checkError) throw checkError;
-      if (existing && existing.length > 0) return res.status(400).json({ error: "Ardaygan magacan leh horey ayaa loogu diiwaangeliyey fasalkan. (Duplicate Student)" });
-      
-      const insertObj: any = {
+  const validation = validateStudentPayload(req.body, { partial: false, allowId: true, allowCreatedAt: true });
+  if (!validation.ok) return res.status(400).json({ error: validation.error });
+
+  const student = validation.value;
+  const studentId = student.id || \`STD-\${crypto.randomUUID().slice(0, 8).toUpperCase()}\`;
+  const createdAt = student.createdAt || new Date().toISOString().slice(0, 10);
+  const nowIso = new Date().toISOString();
+
+  try {
+    if (!useLocalFallback) {
+      const conflict = await findStudentUniquenessConflict(schoolId, { ...student, id: studentId });
+      if (conflict) return res.status(409).json({ error: conflict });
+
+      const insertObj = {
         id: studentId,
         school_id: schoolId,
-        full_name: student.fullName.trim(),
+        full_name: student.fullName,
         class: student.class,
         gender: student.gender || "Male",
         guardian_phone: student.guardianPhone || "",
         status: student.status || "active",
-        created_at: createdAt,
         photo: student.photo || "",
         date_of_birth: student.dateOfBirth || "",
         address: student.address || "",
         guardian_name: student.guardianName || "",
+        guardian_relationship: student.guardianRelationship || "",
+        guardian_phone_alt: student.guardianPhoneAlt || "",
         section: student.section || "",
-        roll_number: student.rollNumber || ""
+        roll_number: student.rollNumber || "",
+        national_id: student.nationalId || "",
+        previous_school: student.previousSchool || "",
+        blood_group: student.bloodGroup || "",
+        medical_notes: student.medicalNotes || "",
+        created_at: createdAt,
+        updated_at: nowIso
       };
-      
-      let { error } = await supabase.from("dugsiga_students").insert([insertObj]);
+
+      const { data, error } = await supabase.from("dugsiga_students").insert([insertObj]).select("*").single();
       if (error) {
-        if (error.code === '42703' || (error.message && (error.message.includes('photo') || error.message.includes('date_of_birth') || error.message.includes('section')))) {
-          console.warn("Some columns might not exist on dugsiga_students. Retrying with basic columns.");
-          const basicObj = {
-            id: studentId,
-            school_id: schoolId,
-            full_name: student.fullName.trim(),
-            class: student.class,
-            gender: student.gender || "Male",
-            guardian_phone: student.guardianPhone || "",
-            status: student.status || "active",
-            created_at: createdAt
-          };
-          const retryResult = await supabase.from("dugsiga_students").insert([basicObj]);
-          error = retryResult.error;
-        }
+        if (error.code === "23505") return res.status(409).json({ error: "Student ID, Roll Number, ama National ID hore ayaa loo isticmaalay." });
+        throw error;
       }
-      if (error) throw error;
-      return res.json(fullStudent);
-    } catch (e: any) { return handleSupabaseError(res, e, "Diiwaangelinta Ardayga (Add Student)"); }
-  } else {
+
+      await recordStudentAudit(req, schoolId, studentId, "created", Object.keys(insertObj).filter((key) => !["school_id", "created_at", "updated_at"].includes(key)));
+      return res.status(201).json(formatStudentRow(data));
+    }
+
     const db = loadLocalDB();
-    const isDuplicate = (db.students || []).some((s: any) => s.schoolId === schoolId && s.fullName.trim().toLowerCase() === student.fullName.trim().toLowerCase() && s.class === student.class);
-    if (isDuplicate) return res.status(400).json({ error: "Ardaygan magacan leh horey ayaa loogu diiwaangeliyey fasalkan. (Duplicate Student)" });
-    db.students.push({ ...fullStudent, schoolId, fullName: student.fullName.trim() });
+    const conflict = (db.students || []).some((s: any) =>
+      s.schoolId === schoolId &&
+      s.id !== studentId &&
+      (
+        (s.fullName || "").trim().toLowerCase() === student.fullName.toLowerCase() && (s.class || "").trim() === student.class ||
+        (student.rollNumber && (s.rollNumber || "").trim().toLowerCase() === student.rollNumber.toLowerCase()) ||
+        (student.nationalId && (s.nationalId || "").trim().toLowerCase() === student.nationalId.toLowerCase())
+      )
+    );
+    if (conflict) return res.status(409).json({ error: "Xogtan waxay la mid tahay arday hore." });
+
+    const fullStudent = { ...student, id: studentId, schoolId, createdAt, updatedAt: nowIso };
+    db.students.push(fullStudent);
     saveLocalDB(db);
-    res.json(fullStudent);
+    return res.status(201).json(fullStudent);
+  } catch (e: any) {
+    return handleSupabaseError(res, e, "Diiwaangelinta Ardayga (Add Student)");
   }
 });
 
 app.put("/api/students/:id", async (req, res) => {
   const schoolId = getSchoolId(req);
-  const { id } = req.params;
-  const updates = { ...req.body, updatedAt: new Date().toISOString() };
-  if (!useLocalFallback) {
-    try {
-      const updateObj: any = {};
-      if (updates.fullName !== undefined) updateObj.full_name = updates.fullName;
-      if (updates.class !== undefined) updateObj.class = updates.class;
-      if (updates.gender !== undefined) updateObj.gender = updates.gender;
-      if (updates.guardianPhone !== undefined) updateObj.guardian_phone = updates.guardianPhone;
-      if (updates.status !== undefined) updateObj.status = updates.status;
-      if (updates.photo !== undefined) updateObj.photo = updates.photo;
-      if (updates.dateOfBirth !== undefined) updateObj.date_of_birth = updates.dateOfBirth;
-      if (updates.address !== undefined) updateObj.address = updates.address;
-      if (updates.guardianName !== undefined) updateObj.guardian_name = updates.guardianName;
-      if (updates.section !== undefined) updateObj.section = updates.section;
-      if (updates.rollNumber !== undefined) updateObj.roll_number = updates.rollNumber;
+  const authUser = getAuthenticatedUser(req, loadLocalDB);
+  if (!schoolId || !authUser) return res.status(401).json({ error: "Session-ka lama xaqiijin." });
 
-      let { error } = await supabase.from("dugsiga_students").update(updateObj).eq("id", id).eq("school_id", schoolId);
+  const id = typeof req.params.id === "string" ? req.params.id.trim() : "";
+  if (!isSafeStudentId(id)) return res.status(400).json({ error: "Student ID-ga ma saxna." });
+
+  const validation = validateStudentPayload(req.body, { partial: true });
+  if (!validation.ok) return res.status(400).json({ error: validation.error });
+
+  const updates = validation.value;
+  const mutableKeys = ["fullName","class","gender","guardianPhone","status","photo","dateOfBirth","address","guardianName","guardianRelationship","guardianPhoneAlt","section","rollNumber","nationalId","previousSchool","bloodGroup","medicalNotes"];
+  const changedKeys = mutableKeys.filter((key) => Object.prototype.hasOwnProperty.call(updates, key));
+  if (changedKeys.length === 0) return res.status(400).json({ error: "Wax isbeddel ah lama helin." });
+
+  try {
+    if (!useLocalFallback) {
+      const { data: current, error: currentError } = await supabase.from("dugsiga_students").select("*").eq("school_id", schoolId).eq("id", id).maybeSingle();
+      if (currentError) throw currentError;
+      if (!current) return res.status(404).json({ error: "Ardayga lama helin." });
+
+      const candidate = {
+        id,
+        fullName: updates.fullName ?? current.full_name,
+        class: updates.class ?? current.class,
+        rollNumber: updates.rollNumber ?? current.roll_number,
+        nationalId: updates.nationalId ?? current.national_id
+      };
+      const conflict = await findStudentUniquenessConflict(schoolId, candidate, id);
+      if (conflict) return res.status(409).json({ error: conflict });
+
+      const dbKey: Record<string, string> = {
+        fullName:"full_name", class:"class", gender:"gender", guardianPhone:"guardian_phone", status:"status",
+        photo:"photo", dateOfBirth:"date_of_birth", address:"address", guardianName:"guardian_name",
+        guardianRelationship:"guardian_relationship", guardianPhoneAlt:"guardian_phone_alt", section:"section",
+        rollNumber:"roll_number", nationalId:"national_id", previousSchool:"previous_school",
+        bloodGroup:"blood_group", medicalNotes:"medical_notes"
+      };
+      const updateObj: any = { updated_at: new Date().toISOString() };
+      for (const key of changedKeys) updateObj[dbKey[key]] = updates[key];
+
+      const { data: updated, error } = await supabase.from("dugsiga_students").update(updateObj).eq("school_id", schoolId).eq("id", id).select("*").single();
       if (error) {
-        if (error.code === '42703' || (error.message && (error.message.includes('photo') || error.message.includes('date_of_birth')))) {
-          console.warn("Some columns do not exist. Retrying update with base columns.");
-          const baseUpdate: any = {};
-          if (updates.fullName !== undefined) baseUpdate.full_name = updates.fullName;
-          if (updates.class !== undefined) baseUpdate.class = updates.class;
-          if (updates.gender !== undefined) baseUpdate.gender = updates.gender;
-          if (updates.guardianPhone !== undefined) baseUpdate.guardian_phone = updates.guardianPhone;
-          if (updates.status !== undefined) baseUpdate.status = updates.status;
-          const retryResult = await supabase.from("dugsiga_students").update(baseUpdate).eq("id", id).eq("school_id", schoolId);
-          error = retryResult.error;
-        }
+        if (error.code === "23505") return res.status(409).json({ error: "Student ID, Roll Number, ama National ID hore ayaa loo isticmaalay." });
+        throw error;
       }
-      if (error) throw error;
-      return res.json({ success: true });
-    } catch (e: any) { return handleSupabaseError(res, e, "Tafatirka Ardayga (Update Student)"); }
-  } else {
+
+      const oldStatus = String(current.status || "active");
+      const newStatus = String(updated.status || oldStatus);
+      const auditAction = oldStatus !== "archived" && newStatus === "archived" ? "archived" : oldStatus === "archived" && newStatus === "active" ? "restored" : "updated";
+      await recordStudentAudit(req, schoolId, id, auditAction, changedKeys);
+      return res.json(formatStudentRow(updated));
+    }
+
     const db = loadLocalDB();
-    const idx = db.students.findIndex(s => s.id === id && s.schoolId === schoolId);
-    if (idx > -1) { db.students[idx] = { ...db.students[idx], ...updates }; saveLocalDB(db); return res.json({ success: true }); }
-    res.status(404).json({ error: "Student not found" });
+    const idx = db.students.findIndex((s: any) => s.id === id && s.schoolId === schoolId);
+    if (idx === -1) return res.status(404).json({ error: "Ardayga lama helin." });
+    const current = db.students[idx];
+    const duplicate = (db.students || []).some((s: any) =>
+      s.schoolId === schoolId && s.id !== id &&
+      (
+        (updates.fullName && updates.class && (s.fullName || "").trim().toLowerCase() === updates.fullName.toLowerCase() && (s.class || "").trim() === updates.class) ||
+        (updates.rollNumber && (s.rollNumber || "").trim().toLowerCase() === updates.rollNumber.toLowerCase()) ||
+        (updates.nationalId && (s.nationalId || "").trim().toLowerCase() === updates.nationalId.toLowerCase())
+      )
+    );
+    if (duplicate) return res.status(409).json({ error: "Xogta cusub waxay la mid tahay arday hore." });
+
+    db.students[idx] = { ...current, ...updates, id, schoolId, updatedAt: new Date().toISOString() };
+    saveLocalDB(db);
+    return res.json({ success: true });
+  } catch (e: any) {
+    return handleSupabaseError(res, e, "Tafatirka Ardayga (Update Student)");
   }
 });
 
 app.delete("/api/students/:id", async (req, res) => {
   const schoolId = getSchoolId(req);
-  const { id } = req.params;
-  if (!useLocalFallback) {
-    try {
-      const { error: err1 } = await supabase.from("dugsiga_students").delete().eq("id", id).eq("school_id", schoolId);
-      if (err1) throw err1;
-      const { error: err2 } = await supabase.from("dugsiga_fees").delete().eq("student_id", id).eq("school_id", schoolId);
-      if (err2) throw err2;
-      const { error: err3 } = await supabase.from("dugsiga_attendance").delete().eq("student_id", id).eq("school_id", schoolId);
-      if (err3) throw err3;
+  const authUser = getAuthenticatedUser(req, loadLocalDB);
+  if (!schoolId || !authUser) return res.status(401).json({ error: "Session-ka lama xaqiijin." });
+
+  const id = typeof req.params.id === "string" ? req.params.id.trim() : "";
+  if (!isSafeStudentId(id)) return res.status(400).json({ error: "Student ID-ga ma saxna." });
+
+  try {
+    if (!useLocalFallback) {
+      const { data: current, error: currentError } = await supabase.from("dugsiga_students").select("id,status").eq("school_id", schoolId).eq("id", id).maybeSingle();
+      if (currentError) throw currentError;
+      if (!current) return res.status(404).json({ error: "Ardayga lama helin." });
+
+      const dependentIds = await getStudentDependencyIds([id]);
+      if (dependentIds.has(id)) {
+        return res.status(409).json({ error: "Ardaygan wuxuu leeyahay xog ku xiran. Isticmaal Archive halkii Delete." });
+      }
+
+      const { data: deleted, error } = await supabase.from("dugsiga_students").delete().eq("school_id", schoolId).eq("id", id).select("id");
+      if (error) throw error;
+      if (!deleted || deleted.length === 0) return res.status(404).json({ error: "Ardayga lama helin." });
+
+      await recordStudentAudit(req, schoolId, id, "deleted", ["student"]);
       return res.json({ success: true });
-    } catch (e: any) { return handleSupabaseError(res, e, "Tirtirista Ardayga (Delete Student)"); }
-  } else {
+    }
+
     const db = loadLocalDB();
-    db.students = db.students.filter(s => !(s.id === id && s.schoolId === schoolId));
-    db.fees = db.fees.filter(f => !(f.studentId === id && f.schoolId === schoolId));
-    db.attendance = db.attendance.filter(a => !(a.studentId === id && a.schoolId === schoolId));
+    const current = db.students.find((s: any) => s.id === id && s.schoolId === schoolId);
+    if (!current) return res.status(404).json({ error: "Ardayga lama helin." });
+
+    const hasDependencies =
+      (db.fees || []).some((f: any) => f.studentId === id && f.schoolId === schoolId) ||
+      (db.attendance || []).some((a: any) => a.studentId === id && a.schoolId === schoolId) ||
+      (db.examScores || []).some((e: any) => e.studentId === id && e.schoolId === schoolId);
+    if (hasDependencies) return res.status(409).json({ error: "Ardaygan wuxuu leeyahay xog ku xiran. Isticmaal Archive." });
+
+    db.students = db.students.filter((s: any) => !(s.id === id && s.schoolId === schoolId));
     saveLocalDB(db);
-    res.json({ success: true });
+    return res.json({ success: true });
+  } catch (e: any) {
+    return handleSupabaseError(res, e, "Tirtirista Ardayga (Delete Student)");
   }
 });
 
