@@ -84,7 +84,12 @@ interface StudentsViewProps {
   ) => Promise<{ success: boolean; imported: number; failed: number }>;
   onUpdateStudent: (id: string, updates: any) => Promise<boolean>;
   onDeleteStudent: (id: string) => Promise<boolean>;
-  onBulkUpdate?: (action: string, studentIds: string[], targetValue?: string) => Promise<boolean>;
+  onBulkUpdate?: (
+    action: string,
+    studentIds: string[],
+    targetValue?: string,
+    targetSection?: string
+  ) => Promise<boolean>;
   onRefreshData?: () => void;
   showToast: (msg: string, type: 'success' | 'error' | 'warning' | 'info') => void;
   theme?: 'light' | 'dark';
@@ -747,7 +752,12 @@ export default function StudentsView({
         if (bulkActionModal.action === 'change_class') targetValue = bulkTargetClass;
         if (bulkActionModal.action === 'change_status') targetValue = bulkTargetStatus;
 
-        const success = await onBulkUpdate(bulkActionModal.action, selectedStudentIds, targetValue);
+        const success = await onBulkUpdate(
+          bulkActionModal.action,
+          selectedStudentIds,
+          targetValue,
+          bulkActionModal.action === 'change_class' ? bulkTargetSection : undefined
+        );
         if (!success) return;
 
         showToast(`Hawsha guud ee ${selectedStudentIds.length} arday si guul leh ayaa loo fuliyey!`, "success");
@@ -763,7 +773,10 @@ export default function StudentsView({
 
           let ok = false;
           if (bulkActionModal.action === 'change_class' && bulkTargetClass) {
-            ok = await onUpdateStudent(id, { class: bulkTargetClass });
+            ok = await onUpdateStudent(id, {
+              class: bulkTargetClass,
+              section: bulkTargetSection
+            });
           } else if (bulkActionModal.action === 'change_status') {
             ok = await onUpdateStudent(id, { status: bulkTargetStatus });
           } else if (bulkActionModal.action === 'archive') {
