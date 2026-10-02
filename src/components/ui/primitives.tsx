@@ -87,10 +87,10 @@ export const Button: React.FC<ButtonProps> = ({
   const resolvedRightIcon = renderIconNode(rightIcon, 'w-3.5 h-3.5 shrink-0');
 
   const sizeStyles: Record<ButtonSize, string> = {
-    xs: 'px-2.5 py-1 text-[11px] gap-1.5 rounded-[var(--radius-xs)]',
-    sm: 'px-3 py-1.5 text-xs gap-1.5 rounded-[var(--radius-sm)]',
-    md: 'px-4 py-2 text-xs gap-2 rounded-[var(--radius-sm)]',
-    lg: 'px-5 py-2.5 text-sm gap-2.5 rounded-[var(--radius-md)]'
+    xs: 'min-h-8 px-2.5 py-1 text-[11px] gap-1.5 rounded-[var(--radius-xs)]',
+    sm: 'min-h-9 px-3 py-1.5 text-xs gap-1.5 rounded-[var(--radius-sm)]',
+    md: 'min-h-10 px-4 py-2 text-xs gap-2 rounded-[var(--radius-sm)]',
+    lg: 'min-h-11 px-5 py-2.5 text-sm gap-2.5 rounded-[var(--radius-md)]'
   };
 
   const variantStyles: Record<ButtonVariant, string> = {
@@ -112,7 +112,7 @@ export const Button: React.FC<ButtonProps> = ({
     <button
       type={type}
       disabled={disabled || resolvedLoading}
-      className={`inline-flex items-center justify-center font-semibold tracking-tight transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${sizeStyles[size] || sizeStyles.md} ${variantStyles[variant] || variantStyles.primary} ${
+      className={`inline-flex items-center justify-center font-semibold tracking-normal transition-[background-color,border-color,color,box-shadow,transform] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${sizeStyles[size] || sizeStyles.md} ${variantStyles[variant] || variantStyles.primary} ${
         fullWidth ? 'w-full' : ''
       } ${className}`}
       {...rest}
@@ -276,7 +276,7 @@ export const StatCard: React.FC<StatCardProps> = ({
   return (
     <Card
       onClick={onClick}
-      className="flex flex-col justify-between gap-3 transition-all hover:border-[var(--color-border-strong)]"
+      className="flex min-h-[132px] flex-col justify-between gap-3 transition-[border-color,box-shadow] hover:border-[var(--color-border-strong)]"
     >
       <div className="flex items-start justify-between gap-3">
         <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
@@ -290,7 +290,7 @@ export const StatCard: React.FC<StatCardProps> = ({
       </div>
 
       <div className="space-y-1">
-        <div className="text-2xl sm:text-3xl font-bold tracking-tight font-mono tabular-nums text-[var(--color-text-primary)]">
+        <div className="text-2xl sm:text-3xl font-bold tracking-tight font-mono tabular-nums leading-none text-[var(--color-text-primary)]">
           {value}
         </div>
         {(resolvedSubtitle || trend) && (
@@ -673,7 +673,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
 }) => {
   const resolvedIcon = renderIconNode(icon, 'w-5 h-5');
   return (
-    <div className="ds-surface p-10 text-center flex flex-col items-center justify-center gap-3">
+    <div className="ds-surface min-h-56 p-8 sm:p-10 text-center flex flex-col items-center justify-center gap-3">
       <div className="w-11 h-11 rounded-full bg-[var(--color-surface-muted)] border border-[var(--color-border)] flex items-center justify-center text-[var(--color-text-muted)]">
         {resolvedIcon || <Inbox className="w-5 h-5" />}
       </div>
@@ -699,7 +699,7 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
   message,
   onRetry
 }) => (
-  <div className="ds-surface p-6 border-[var(--color-danger-border)] bg-[var(--color-danger-soft)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4" role="alert">
+  <div className="ds-surface p-5 sm:p-6 border-[var(--color-danger-border)] bg-[var(--color-danger-soft)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4" role="alert">
     <div className="flex items-start gap-3">
       <AlertCircle className="w-5 h-5 text-[var(--color-danger)] shrink-0 mt-0.5" />
       <div>
