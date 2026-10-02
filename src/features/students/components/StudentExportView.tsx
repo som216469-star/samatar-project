@@ -39,7 +39,7 @@ export default function StudentExportView({
   settings,
   onCancel,
   showToast,
-  canViewFinance = true
+  canViewFinance = false
 }: StudentExportViewProps) {
   const [scope, setScope] = useState<'filtered' | 'all' | 'active' | 'inactive' | 'archived' | 'class'>(() =>
     filteredStudents && activeFilterCount > 0 ? 'filtered' : 'all'
