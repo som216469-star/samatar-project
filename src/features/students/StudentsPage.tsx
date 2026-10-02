@@ -1149,6 +1149,7 @@ export default function StudentsView({
     selectedClassFilter !== 'all',
     selectedGenderFilter !== 'all',
     selectedStatusFilter !== 'all',
+    missingGuardianOnly,
     selectedFeeFilter !== 'all',
     selectedRegDateFilter !== 'all'
   ].filter(Boolean).length;
@@ -1570,18 +1571,13 @@ export default function StudentsView({
           onStatusChange={
             studentPermissions.canUpdate
               ? async (st, newStatus) => {
-                  await handleQuickStatusChange(st, newStatus);
-                  setSelectedProfileStudent({ ...st, status: newStatus });
+                  const success = await handleQuickStatusChange(st, newStatus);
+                  if (success) {
+                    setSelectedProfileStudent({ ...st, status: newStatus });
+                  }
                 }
               : undefined
           }
-        />
-        {false && selectedProfileStudent && (
-            const success = await handleQuickStatusChange(st, newStatus);
-            if (success) {
-              setSelectedProfileStudent({ ...st, status: newStatus });
-            }
-          }}
           theme={theme}
         />
       )}
