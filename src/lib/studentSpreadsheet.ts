@@ -132,9 +132,8 @@ export async function downloadStudentSpreadsheet(
   ];
 
   await writeExcelFile(sheetData, {
-    fileName,
     sheet: sheetName
-  });
+  }).toFile(fileName);
 }
 
 export function escapeCsvCell(value: unknown): string {
