@@ -27,6 +27,9 @@ jobs:
       - name: Type-check
         run: npm run lint
 
+      - name: Students production contract checks
+        run: npm run test:students-contract
+
       - name: Production build
         run: npm run build
 
