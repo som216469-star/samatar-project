@@ -237,19 +237,27 @@ export const StudentsRosterTable: React.FC<StudentsRosterTableProps> = ({
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
                             {student.photo ? (
-                              <img
-                                src={student.photo}
-                                alt={fullName}
-                                className="w-9 h-9 rounded-lg object-cover border border-[var(--color-border)] shrink-0 cursor-pointer"
+                              <button
+                                type="button"
                                 onClick={() => onOpenProfile(student)}
-                              />
+                                aria-label={`Open profile for ${fullName}`}
+                                className="shrink-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-brand)]"
+                              >
+                                <img
+                                  src={student.photo}
+                                  alt=""
+                                  className="w-9 h-9 rounded-lg object-cover border border-[var(--color-border)]"
+                                />
+                              </button>
                             ) : (
-                              <div
+                              <button
+                                type="button"
                                 onClick={() => onOpenProfile(student)}
-                                className="w-9 h-9 rounded-lg bg-[var(--color-brand-soft)] border border-[var(--color-brand-border)] text-[var(--color-brand)] flex items-center justify-center font-bold text-xs uppercase shrink-0 cursor-pointer"
+                                aria-label={`Open profile for ${fullName}`}
+                                className="w-9 h-9 rounded-lg bg-[var(--color-brand-soft)] border border-[var(--color-brand-border)] text-[var(--color-brand)] flex items-center justify-center font-bold text-xs uppercase shrink-0 focus:outline-none focus:ring-2 focus:ring-[var(--color-brand)]"
                               >
                                 {fullName.trim() ? fullName.trim().charAt(0) : '?'}
-                              </div>
+                              </button>
                             )}
 
                             <div className="min-w-0">
@@ -401,7 +409,7 @@ export const StudentsRosterTable: React.FC<StudentsRosterTableProps> = ({
 
                         {columns.actions && (
                           <td className="px-4 py-3 text-right">
-                          <div className="flex items-center justify-end gap-1">
+                            <div className="flex items-center justify-end gap-1">
                             <button
                               type="button"
                               onClick={() => onOpenProfile(student)}
@@ -453,8 +461,9 @@ export const StudentsRosterTable: React.FC<StudentsRosterTableProps> = ({
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
-                          </div>
-                        </td>
+                            </div>
+                          </td>
+                        )}
                       </tr>
                     );
                   })
