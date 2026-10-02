@@ -33,15 +33,20 @@ export function registerModernRoutes(app: express.Express, helpers: ModernRouteH
      1. USER PROFILE & RBAC ROLE
      ========================================================================= */
   app.get("/api/user/profile", async (req, res) => {
-    const schoolId = getSchoolId(req);
-    const db = loadLocalDB();
-    const localUser = (db.users || []).find((u: any) => u.email.toLowerCase() === schoolId.toLowerCase());
-    const role = localUser?.role || "School Admin";
+    const authUser = getAuthenticatedUser(req, loadLocalDB);
+    if (!authUser) {
+      return res.status(401).json({ error: "Unauthorized." });
+    }
+
+    const role = authUser.role || "unknown";
     return res.json({
-      email: schoolId,
+      email: authUser.email,
+      schoolId: authUser.schoolId,
       role,
+      name: authUser.name || "",
+      teacherId: authUser.teacherId || "",
       isSuperAdmin: role === "Super Admin",
-      isSchoolAdmin: role === "School Admin" || role === "Super Admin"
+      isSchoolAdmin: role === "School Admin" || role === "Super Admin" || role === "admin"
     });
   });
 
@@ -161,7 +166,10 @@ export function registerModernRoutes(app: express.Express, helpers: ModernRouteH
           try {
             await supabase.from("dugsiga_users").upsert([{
               email: cleanEmail,
-              verified: false
+              verified: false,
+              role: "teacher",
+              school_id: schoolId,
+              teacher_id: id
             }], { onConflict: "email" });
           } catch (uErr) {}
         }
@@ -273,16 +281,39 @@ export function registerModernRoutes(app: express.Express, helpers: ModernRouteH
   app.delete("/api/teachers/:id", async (req, res) => {
     const schoolId = getSchoolId(req);
     const { id } = req.params;
+    const db = loadLocalDB();
+    const existingTeacher = (db.teachers || []).find((t: any) => t.id === id && t.schoolId === schoolId);
 
     if (!getUseLocalFallback() && supabase) {
       try {
-        await supabase.from("dugsiga_teachers").delete().eq("id", id).eq("school_id", schoolId);
-      } catch (e: any) {}
+        const { error: teacherDeleteError } = await supabase
+          .from("dugsiga_teachers")
+          .delete()
+          .eq("id", id)
+          .eq("school_id", schoolId);
+        if (teacherDeleteError) throw teacherDeleteError;
+
+        // Remove the linked login so a deleted teacher cannot authenticate as a stale account.
+        await supabase
+          .from("dugsiga_users")
+          .delete()
+          .eq("teacher_id", id)
+          .eq("school_id", schoolId);
+      } catch (e: any) {
+        return res.status(500).json({ error: e?.message || "Teacher deletion failed." });
+      }
     }
 
-    const db = loadLocalDB();
     if (!db.teachers) db.teachers = [];
     db.teachers = db.teachers.filter((t: any) => !(t.id === id && t.schoolId === schoolId));
+
+    if (db.users) {
+      db.users = db.users.filter((u: any) =>
+        u.teacher_id !== id &&
+        (!existingTeacher?.email || (u.email || "").toLowerCase() !== existingTeacher.email.toLowerCase())
+      );
+    }
+
     saveLocalDB(db);
     return res.json({ success: true });
   });
