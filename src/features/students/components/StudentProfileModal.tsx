@@ -32,6 +32,7 @@ export interface StudentProfileModalProps {
   onClose: () => void;
   onEditStudent?: (student: Student) => void;
   onStatusChange?: (student: Student, newStatus: 'active' | 'inactive' | 'archived') => void;
+  canViewFinance?: boolean;
 }
 
 export default function StudentProfileModal({
@@ -45,7 +46,8 @@ export default function StudentProfileModal({
   currency = '$',
   onClose,
   onEditStudent,
-  onStatusChange
+  onStatusChange,
+  canViewFinance = true
 }: StudentProfileModalProps) {
   type ActivityItem = {
     id: string;
@@ -102,7 +104,11 @@ export default function StudentProfileModal({
   }, [activeTab, student.id]);
 
   const resolvedAttendance = attendance || attendanceRecords || [];
-  const resolvedFees = fees || feeRecords || [];
+  const resolvedFees = canViewFinance ? (fees || feeRecords || []) : [];
+
+  useEffect(() => {
+    if (!canViewFinance && activeTab === 'fees') setActiveTab('overview');
+  }, [canViewFinance, activeTab]);
 
   const studentAttendance = resolvedAttendance.filter((a) => a.studentId === student.id);
   const studentScores = examScores.filter((e) => e.studentId === student.id);
@@ -302,7 +308,7 @@ export default function StudentProfileModal({
           </div>
 
           {/* Quick Metrics */}
-          <div className="grid grid-cols-3 gap-2.5 mt-5 pt-4 border-t border-[var(--color-border)] text-xs">
+          <div className={`grid gap-2.5 mt-5 pt-4 border-t border-[var(--color-border)] text-xs ${canViewFinance ? 'grid-cols-3' : 'grid-cols-2'}`}>
             <div className="bg-[var(--color-surface)] p-3 rounded-lg border border-[var(--color-border)]">
               <span className="text-[10px] text-[var(--color-text-muted)] block font-medium">
                 Heerka Joogitaanka
@@ -319,18 +325,20 @@ export default function StudentProfileModal({
                 {avgScore === null ? '—' : `${avgScore}%`}
               </span>
             </div>
-            <div className="bg-[var(--color-surface)] p-3 rounded-lg border border-[var(--color-border)]">
-              <span className="text-[10px] text-[var(--color-text-muted)] block font-medium">
-                Baaqiga Lacagta
-              </span>
-              <span
-                className={`text-base font-bold font-mono tabular-nums ${
-                  balanceDue > 0 ? 'text-[var(--color-danger)]' : 'text-[var(--color-success)]'
-                }`}
-              >
-                {currency} {balanceDue}
-              </span>
-            </div>
+            {canViewFinance && (
+              <div className="bg-[var(--color-surface)] p-3 rounded-lg border border-[var(--color-border)]">
+                <span className="text-[10px] text-[var(--color-text-muted)] block font-medium">
+                  Baaqiga Lacagta
+                </span>
+                <span
+                  className={`text-base font-bold font-mono tabular-nums ${
+                    balanceDue > 0 ? 'text-[var(--color-danger)]' : 'text-[var(--color-success)]'
+                  }`}
+                >
+                  {currency} {balanceDue}
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -852,7 +860,7 @@ export default function StudentProfileModal({
             </div>
           )}
 
-          {activeTab === 'fees' && (
+          {canViewFinance && activeTab === 'fees' && (
             <div className="space-y-3">
               <div className="flex items-center justify-between p-3 bg-[var(--color-surface-muted)] border border-[var(--color-border)] rounded-lg">
                 <div>
