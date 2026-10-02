@@ -1,5 +1,5 @@
 import { enqueueOfflineAction } from '../utils/offlineSync';
-import { getStoredSession, getAuthToken } from './authStorage';
+import { getAuthToken } from './authStorage';
 
 /**
  * Centralized Institutional API Client.
@@ -7,12 +7,9 @@ import { getStoredSession, getAuthToken } from './authStorage';
  * Authorization is only attached when a short-lived in-memory compatibility token exists.
  */
 export async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-  const session = getStoredSession();
-  const schoolEmail = session?.schoolId || session?.email || '';
   const token = getAuthToken();
 
   const headers = new Headers(init?.headers);
-  if (schoolEmail) headers.set('X-School-Email', schoolEmail);
   if (token) headers.set('Authorization', `Bearer ${token}`);
 
   return window.fetch(input, {
