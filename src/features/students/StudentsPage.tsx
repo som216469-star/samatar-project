@@ -870,12 +870,18 @@ export default function StudentsView({
         classes={classes}
         onImportStudents={async (studentsToImport: any[]) => {
           let okCount = 0;
+          let failedCount = 0;
           for (const st of studentsToImport) {
             const ok = await onAddStudent(st);
             if (ok) okCount++;
+            else failedCount++;
           }
-          if (onRefreshData) onRefreshData();
-          return okCount > 0;
+          if (onRefreshData) await onRefreshData();
+          return {
+            success: okCount > 0 && failedCount === 0,
+            imported: okCount,
+            failed: failedCount
+          };
         }}
         onCancel={() => onNavigateSubSection ? onNavigateSubSection('all') : undefined}
         showToast={showToast}
