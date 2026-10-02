@@ -3204,6 +3204,69 @@ app.put("/api/students/:id", async (req, res) => {
 });
 
 
+app.get("/api/students/:id/attendance", async (req, res) => {
+  const schoolId = getSchoolId(req);
+  const authUser = getAuthenticatedUser(req, loadLocalDB);
+  const id = typeof req.params.id === "string" ? req.params.id.trim() : "";
+
+  if (!schoolId || !authUser) return res.status(401).json({ error: "Session-ka lama xaqiijin." });
+  if (!isSafeStudentId(id)) return res.status(400).json({ error: "Student ID-ga ma saxna." });
+
+  try {
+    if (!useLocalFallback) {
+      const { data: student, error: studentError } = await supabase
+        .from("dugsiga_students")
+        .select("id,class,status")
+        .eq("school_id", schoolId)
+        .eq("id", id)
+        .maybeSingle();
+
+      if (studentError) throw studentError;
+      if (!student) return res.status(404).json({ error: "Ardayga lama helin." });
+
+      if (authUser.role === "teacher") {
+        const assigned = Array.isArray(authUser.assignedClasses)
+          ? authUser.assignedClasses.map((value) => String(value).trim()).filter(Boolean)
+          : [];
+        if (!assigned.includes(String(student.class || "").trim())) {
+          return res.status(403).json({ error: "Macallinku ma heli karo xaadiriska ardaygan." });
+        }
+      }
+
+      const { data, error } = await supabase
+        .from("dugsiga_attendance")
+        .select("date,student_id,status,timestamp,session_type")
+        .eq("school_id", schoolId)
+        .eq("student_id", id)
+        .order("date", { ascending: false })
+        .order("session_type", { ascending: true })
+        .limit(5000);
+
+      if (error) throw error;
+      return res.json((data || []).map((item: any) => ({
+        date: item.date,
+        studentId: item.student_id,
+        status: item.status,
+        timestamp: item.timestamp || "",
+        sessionType: item.session_type || "before_break"
+      })));
+    }
+
+    const db = loadLocalDB();
+    const student = (db.students || []).find((item: any) => item.id === id && item.schoolId === schoolId);
+    if (!student) return res.status(404).json({ error: "Ardayga lama helin." });
+
+    const history = (db.attendance || [])
+      .filter((item: any) => item.studentId === id && item.schoolId === schoolId)
+      .sort((a: any, b: any) => String(b.date || "").localeCompare(String(a.date || "")))
+      .slice(0, 5000);
+
+    return res.json(history);
+  } catch (e: any) {
+    return handleSupabaseError(res, e, "Soo qaadista xaadiriska ardayga");
+  }
+});
+
 app.get("/api/students/:id/audit", async (req, res) => {
   const schoolId = getSchoolId(req);
   const authUser = getAuthenticatedUser(req, loadLocalDB);
