@@ -1407,6 +1407,80 @@ function formatStudentRow(s: any): any {
   };
 }
 
+async function assertStudentClassCapacity(
+  schoolId: string,
+  className: string,
+  additionalStudents: number,
+  excludeStudentIds: string[] = []
+): Promise<{ ok: boolean; error?: string }> {
+  const cleanClass = className.trim();
+  if (!cleanClass || additionalStudents <= 0) return { ok: true };
+
+  if (!useLocalFallback) {
+    const { data: classRows, error: classError } = await supabase
+      .from("dugsiga_classes")
+      .select("id,class_name,capacity")
+      .eq("school_id", schoolId)
+      .eq("class_name", cleanClass)
+      .limit(1);
+
+    if (classError) throw classError;
+    const classRow = classRows?.[0];
+    const capacity = Number(classRow?.capacity);
+
+    if (!classRow || !Number.isFinite(capacity) || capacity <= 0) return { ok: true };
+
+    let query = supabase
+      .from("dugsiga_students")
+      .select("id", { count: "exact", head: true })
+      .eq("school_id", schoolId)
+      .eq("class", cleanClass)
+      .neq("status", "archived");
+
+    if (excludeStudentIds.length > 0) {
+      query = query.not("id", "in", `(${excludeStudentIds.join(",")})`);
+    }
+
+    const { count, error } = await query;
+    if (error) throw error;
+
+    const currentActive = Number(count || 0);
+    if (currentActive + additionalStudents > capacity) {
+      return {
+        ok: false,
+        error: `Fasalka ${cleanClass} wuxuu buuxsamay. Capacity-ga waa ${capacity}, hadda waxaa ku jira ${currentActive} arday firfircoon.`
+      };
+    }
+
+    return { ok: true };
+  }
+
+  const db = loadLocalDB();
+  const classRow = (db.classes || []).find(
+    (item: any) => item.schoolId === schoolId && String(item.className || "").trim() === cleanClass
+  );
+  const capacity = Number(classRow?.capacity);
+  if (!classRow || !Number.isFinite(capacity) || capacity <= 0) return { ok: true };
+
+  const excluded = new Set(excludeStudentIds);
+  const currentActive = (db.students || []).filter(
+    (student: any) =>
+      student.schoolId === schoolId &&
+      String(student.class || "").trim() === cleanClass &&
+      String(student.status || "active").toLowerCase() !== "archived" &&
+      !excluded.has(student.id)
+  ).length;
+
+  if (currentActive + additionalStudents > capacity) {
+    return {
+      ok: false,
+      error: `Fasalka ${cleanClass} wuxuu buuxsamay. Capacity-ga waa ${capacity}, hadda waxaa ku jira ${currentActive} arday firfircoon.`
+    };
+  }
+
+  return { ok: true };
+}
+
 async function studentClassExists(schoolId: string, className: string): Promise<boolean> {
   const cleanClass = className.trim();
   if (!cleanClass) return false;
@@ -2080,6 +2154,7 @@ app.post("/api/students/import", async (req, res) => {
     const batchRolls = new Set<string>();
     const batchNationalIds = new Set<string>();
     const batchNameClasses = new Set<string>();
+    const batchClassCounts = new Map<string, number>();
     const insertRows: any[] = [];
 
     for (const item of normalizedRows) {
@@ -2097,6 +2172,9 @@ app.post("/api/students/import", async (req, res) => {
         errors.push({ row: item.row, error: "Fasalka la doortay kama jiro school-kan." });
         continue;
       }
+
+      batchClassCounts.set(classKey, (batchClassCounts.get(classKey) || 0) + 1);
+
       if (currentIds.has(idKey) || batchIds.has(idKey)) {
         errors.push({ row: item.row, error: "Student ID-ga hore ayaa loo isticmaalay." });
         continue;
@@ -2143,6 +2221,20 @@ app.post("/api/students/import", async (req, res) => {
       if (rollKey) batchRolls.add(scopedRollKey);
       if (nationalKey) batchNationalIds.add(nationalKey);
       batchNameClasses.add(nameKey);
+    }
+
+    if (errors.length === 0 && batchClassCounts.size > 0) {
+      for (const [classKey, additional] of batchClassCounts.entries()) {
+        const className = normalizedRows.find(
+          (item) => String(item.student.class || "").trim().toLowerCase() === classKey
+        )?.student.class;
+        if (!className) continue;
+
+        const capacity = await assertStudentClassCapacity(schoolId, String(className), additional);
+        if (!capacity.ok) {
+          errors.push({ row: 1, error: capacity.error || "Class capacity waa buuxsamay." });
+        }
+      }
     }
 
     if (errors.length > 0) {
@@ -2275,6 +2367,16 @@ app.post("/api/students/bulk", async (req, res) => {
         return res.status(400).json({ error: "Fasalka cusub kama jiro school-kan." });
       }
 
+      if (action === "change_class") {
+        const capacity = await assertStudentClassCapacity(
+          schoolId,
+          targetClass,
+          studentIds.length,
+          studentIds
+        );
+        if (!capacity.ok) return res.status(409).json({ error: capacity.error });
+      }
+
       const { data: rows, error: rowsError } = await supabase.from("dugsiga_students").select("id,class,status").eq("school_id", schoolId).in("id", studentIds);
       if (rowsError) throw rowsError;
       const found = rows || [];
@@ -2362,6 +2464,9 @@ app.post("/api/students", async (req, res) => {
         return res.status(400).json({ error: "Fasalka la doortay kama jiro school-kan." });
       }
 
+      const capacity = await assertStudentClassCapacity(schoolId, student.class, 1);
+      if (!capacity.ok) return res.status(409).json({ error: capacity.error });
+
       const conflict = await findStudentUniquenessConflict(schoolId, { ...student, id: studentId });
       if (conflict) return res.status(409).json({ error: conflict });
 
@@ -2445,6 +2550,13 @@ app.put("/api/students/:id", async (req, res) => {
       const nextClass = updates.class ?? current.class;
       if (updates.class !== undefined && !(await studentClassExists(schoolId, String(nextClass)))) {
         return res.status(400).json({ error: "Fasalka cusub kama jiro school-kan." });
+      }
+      if (
+        updates.class !== undefined &&
+        String(nextClass).trim() !== String(current.class || "").trim()
+      ) {
+        const capacity = await assertStudentClassCapacity(schoolId, String(nextClass), 1, [id]);
+        if (!capacity.ok) return res.status(409).json({ error: capacity.error });
       }
 
       const candidate = {
