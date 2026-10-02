@@ -469,6 +469,20 @@ export function normalizeUserRole(role?: string | null): NormalizedRole {
 
 export function getAuthorizedNavItems(role?: string | null): NavItemConfig[] {
   const rawRole = String(role || '').toLowerCase().trim();
+  const knownRoles = new Set([
+    'admin',
+    'school admin',
+    'super admin',
+    'principal',
+    'teacher',
+    'accountant',
+    'finance',
+    'receptionist',
+    'librarian',
+    'staff'
+  ]);
+  if (!knownRoles.has(rawRole)) return [];
+
   const normalized = normalizeUserRole(role);
   if (normalized === 'admin') {
     return NAVIGATION_CONFIG;
