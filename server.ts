@@ -1281,6 +1281,10 @@ function isSafeStudentId(value: string): boolean {
   return /^[A-Za-z0-9][A-Za-z0-9._-]{1,79}$/.test(value);
 }
 
+function escapeIlikePattern(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
+}
+
 function validateStudentPayload(
   payload: any,
   options: { partial?: boolean; allowId?: boolean; allowCreatedAt?: boolean } = {}
@@ -1522,7 +1526,7 @@ async function findStudentUniquenessConflict(
       .select("id")
       .eq("school_id", schoolId)
       .eq("class", candidate.class)
-      .ilike("full_name", candidate.fullName)
+      .ilike("full_name", escapeIlikePattern(candidate.fullName))
       .limit(1);
     if (excludeId) query = query.neq("id", excludeId);
     const { data, error } = await query;
@@ -1535,7 +1539,7 @@ async function findStudentUniquenessConflict(
       .from("dugsiga_students")
       .select("id")
       .eq("school_id", schoolId)
-      .ilike("national_id", candidate.nationalId)
+      .ilike("national_id", escapeIlikePattern(candidate.nationalId))
       .limit(1);
     if (excludeId) query = query.neq("id", excludeId);
     const { data, error } = await query;
@@ -1550,7 +1554,7 @@ async function findStudentUniquenessConflict(
       .eq("school_id", schoolId)
       .eq("class", candidate.class)
       .eq("section", candidate.section || "")
-      .ilike("roll_number", candidate.rollNumber)
+      .ilike("roll_number", escapeIlikePattern(candidate.rollNumber))
       .limit(1);
     if (excludeId) query = query.neq("id", excludeId);
     const { data, error } = await query;
@@ -2014,11 +2018,11 @@ app.post("/api/students/check-duplicate", async (req, res) => {
               .eq("school_id", schoolId)
               .eq("class", candidate.value.class)
               .eq("section", candidate.value.section || "")
-              .ilike("roll_number", candidate.value.rollNumber)
+              .ilike("roll_number", escapeIlikePattern(candidate.value.rollNumber))
               .limit(5)
           : Promise.resolve({ data: [], error: null }),
         candidate.value.nationalId
-          ? supabase.from("dugsiga_students").select("id,full_name,class,guardian_phone,national_id").eq("school_id", schoolId).ilike("national_id", candidate.value.nationalId).limit(5)
+          ? supabase.from("dugsiga_students").select("id,full_name,class,guardian_phone,national_id").eq("school_id", schoolId).ilike("national_id", escapeIlikePattern(candidate.value.nationalId)).limit(5)
           : Promise.resolve({ data: [], error: null })
       ];
 
