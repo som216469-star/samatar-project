@@ -79,10 +79,7 @@ export async function exportStudentsToExcel(
       'Guardian Relationship': s.guardianRelationship || '-',
       'Guardian Phone Alt': s.guardianPhoneAlt || '-',
       Address: s.address || '-',
-      'National ID': s.nationalId || '-',
       'Previous School': s.previousSchool || '-',
-      'Blood Group': s.bloodGroup || '-',
-      'Medical Notes': s.medicalNotes || '-',
       'Fee Status': fee.status,
       'Paid Amount': `${currency} ${fee.paid}`,
       Balance: `${currency} ${fee.balance}`,
@@ -122,10 +119,7 @@ export function exportStudentsToCSV(
     'Guardian Relationship': s.guardianRelationship || '-',
     'Guardian Phone Alt': s.guardianPhoneAlt || '-',
     Address: s.address || '-',
-    'National ID': s.nationalId || '-',
     'Previous School': s.previousSchool || '-',
-    'Blood Group': s.bloodGroup || '-',
-    'Medical Notes': s.medicalNotes || '-',
     'Registration Date': s.createdAt || '-'
   }));
 
