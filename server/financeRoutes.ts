@@ -41,17 +41,33 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
       };
     }
 
-    const user = (db.users || []).find((u: any) => u.email.toLowerCase() === (authUser?.email || schoolId).toLowerCase());
-    const role = user?.role || "School Admin";
-    
-    // School Admin, admin, and Super Admin always have full access
-    if (role === "School Admin" || role === "Super Admin" || role === "Accountant" || role === "admin" || role === "accountant") {
+    const user = authUser
+      ? (db.users || []).find((u: any) => u.email.toLowerCase() === authUser.email.toLowerCase())
+      : null;
+    const role = user?.role || authUser?.role || "";
+
+    // Only recognized administrator/accounting roles receive finance access.
+    if (
+      role === "School Admin" ||
+      role === "Super Admin" ||
+      role === "Accountant" ||
+      role === "admin" ||
+      role === "accountant"
+    ) {
       return { authorized: true, role, schoolId };
     }
-    
-    // Principal can view, but not necessarily edit all
-    if (role === "Principal" && (requiredPermission.includes("view") || requiredPermission.includes("reports"))) {
+
+    // Principal can view/report only.
+    if (
+      role === "Principal" &&
+      (requiredPermission.includes("view") || requiredPermission.includes("reports"))
+    ) {
       return { authorized: true, role, schoolId };
+    }
+
+    // Unknown roles fail closed instead of silently becoming School Admin.
+    if (!role) {
+      return { authorized: false, role: "unknown", schoolId };
     }
 
     const authorized = hasPermission(role, requiredPermission);
