@@ -52,9 +52,17 @@ export default function StudentExportView({
     id: true,
     fullName: true,
     class: true,
+    section: true,
+    rollNumber: true,
     gender: true,
     guardianPhone: true,
+    guardianPhoneAlt: true,
     guardianName: true,
+    guardianRelationship: true,
+    nationalId: true,
+    previousSchool: true,
+    bloodGroup: true,
+    medicalNotes: true,
     status: true,
     feeStatus: canViewFinance,
     address: true,
@@ -116,9 +124,17 @@ export default function StudentExportView({
       id: val,
       fullName: val,
       class: val,
+      section: val,
+      rollNumber: val,
       gender: val,
       guardianPhone: val,
+      guardianPhoneAlt: val,
       guardianName: val,
+      guardianRelationship: val,
+      nationalId: val,
+      previousSchool: val,
+      bloodGroup: val,
+      medicalNotes: val,
       status: val,
       feeStatus: canViewFinance && val,
       address: val,
@@ -143,9 +159,17 @@ export default function StudentExportView({
         if (selectedColumns.id) row['Student ID'] = s.id;
         if (selectedColumns.fullName) row['Full Name'] = s.fullName;
         if (selectedColumns.class) row['Class'] = s.class;
+        if (selectedColumns.section) row['Section'] = s.section || '-';
+        if (selectedColumns.rollNumber) row['Roll Number'] = s.rollNumber || '-';
         if (selectedColumns.gender) row['Gender'] = s.gender;
         if (selectedColumns.guardianPhone) row['Guardian Phone'] = s.guardianPhone || '-';
+        if (selectedColumns.guardianPhoneAlt) row['Guardian Phone Alt'] = s.guardianPhoneAlt || '-';
         if (selectedColumns.guardianName) row['Guardian Name'] = s.guardianName || '-';
+        if (selectedColumns.guardianRelationship) row['Guardian Relationship'] = s.guardianRelationship || '-';
+        if (selectedColumns.nationalId) row['National ID'] = s.nationalId || '-';
+        if (selectedColumns.previousSchool) row['Previous School'] = s.previousSchool || '-';
+        if (selectedColumns.bloodGroup) row['Blood Group'] = s.bloodGroup || '-';
+        if (selectedColumns.medicalNotes) row['Medical Notes'] = s.medicalNotes || '-';
         if (selectedColumns.status) row['Status'] = s.status || 'active';
         if (canViewFinance && selectedColumns.feeStatus)
           row['Fee Status'] = `${fee.status} (Bal: ${settings.currency} ${fee.balance})`;
@@ -223,6 +247,8 @@ export default function StudentExportView({
         if (selectedColumns.id) headers.push('ID');
         if (selectedColumns.fullName) headers.push('NAME');
         if (selectedColumns.class) headers.push('CLASS');
+        if (selectedColumns.section) headers.push('SECTION');
+        if (selectedColumns.rollNumber) headers.push('ROLL #');
         if (selectedColumns.gender) headers.push('GENDER');
         if (selectedColumns.guardianPhone) headers.push('PHONE');
         if (selectedColumns.status) headers.push('STATUS');
@@ -233,6 +259,8 @@ export default function StudentExportView({
           if (selectedColumns.id) row.push(s.id);
           if (selectedColumns.fullName) row.push(s.fullName);
           if (selectedColumns.class) row.push(s.class);
+          if (selectedColumns.section) row.push(s.section || '-');
+          if (selectedColumns.rollNumber) row.push(s.rollNumber || '-');
           if (selectedColumns.gender) row.push(s.gender);
           if (selectedColumns.guardianPhone) row.push(s.guardianPhone || '-');
           if (selectedColumns.status) row.push((s.status || 'active').toUpperCase());
@@ -627,9 +655,17 @@ export default function StudentExportView({
                 { key: 'id', label: 'Student ID' },
                 { key: 'fullName', label: 'Magaca oo Buuxa (Full Name)' },
                 { key: 'class', label: 'Fasalka (Class)' },
+                { key: 'section', label: 'Section' },
+                { key: 'rollNumber', label: 'Roll Number' },
                 { key: 'gender', label: 'Jinsiga (Gender)' },
+                { key: 'guardianPhoneAlt', label: 'Telefoonka Labaad' },
                 { key: 'guardianPhone', label: 'Telefoonka Waalidka' },
                 { key: 'guardianName', label: 'Magaca Waalidka' },
+                { key: 'guardianRelationship', label: 'Xiriirka Waalidka' },
+                { key: 'nationalId', label: 'National ID' },
+                { key: 'previousSchool', label: 'Previous School' },
+                { key: 'bloodGroup', label: 'Blood Group' },
+                { key: 'medicalNotes', label: 'Medical Notes' },
                 { key: 'status', label: 'Xaaladda (Status)' },
                 ...(canViewFinance
                   ? [{ key: 'feeStatus', label: 'Xaaladda Lacagta (Fee Status)' }]
