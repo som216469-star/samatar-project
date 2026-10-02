@@ -46,6 +46,16 @@ alter table public.dugsiga_students
   alter column updated_at set default now(),
   alter column updated_at set not null;
 
+update public.dugsiga_students
+set
+  gender = coalesce(nullif(btrim(gender), ''), 'Male'),
+  guardian_phone = coalesce(guardian_phone, ''),
+  status = coalesce(nullif(btrim(status), ''), 'active')
+where
+  gender is null or btrim(gender) = ''
+  or guardian_phone is null
+  or status is null or btrim(status) = '';
+
 alter table public.dugsiga_students
   drop constraint if exists dugsiga_students_full_name_valid,
   drop constraint if exists dugsiga_students_class_valid,
@@ -243,6 +253,26 @@ execute function public.dugsiga_enforce_student_class_capacity();
 
 revoke all on function public.dugsiga_enforce_student_class_capacity() from public, anon, authenticated;
 grant execute on function public.dugsiga_enforce_student_class_capacity() to service_role;
+
+create or replace function public.dugsiga_student_audit_immutable()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $
+begin
+  raise exception using errcode = '42501', message = 'Student audit records are append-only.';
+end;
+$;
+
+drop trigger if exists trg_dugsiga_student_audit_immutable on public.dugsiga_student_audit;
+create trigger trg_dugsiga_student_audit_immutable
+before update or delete on public.dugsiga_student_audit
+for each row
+execute function public.dugsiga_student_audit_immutable();
+
+revoke all on function public.dugsiga_student_audit_immutable() from public, anon, authenticated;
+grant execute on function public.dugsiga_student_audit_immutable() to service_role;
 
 
 alter table public.dugsiga_student_audit
