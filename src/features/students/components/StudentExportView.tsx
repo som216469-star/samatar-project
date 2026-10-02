@@ -56,13 +56,13 @@ export default function StudentExportView({
     rollNumber: true,
     gender: true,
     guardianPhone: true,
-    guardianPhoneAlt: true,
+    guardianPhoneAlt: false,
     guardianName: true,
     guardianRelationship: true,
-    nationalId: true,
+    nationalId: false,
     previousSchool: true,
-    bloodGroup: true,
-    medicalNotes: true,
+    bloodGroup: false,
+    medicalNotes: false,
     status: true,
     feeStatus: canViewFinance,
     address: true,
@@ -107,15 +107,32 @@ export default function StudentExportView({
   const currentMonth = monthsList[new Date().getMonth()];
   const currentYear = new Date().getFullYear();
 
+  const currentMonthFeeByStudent = useMemo(() => {
+    const map = new Map<string, FeeRecord>();
+    for (const fee of fees) {
+      if (
+        fee.month === currentMonth &&
+        fee.year === currentYear &&
+        !map.has(fee.studentId)
+      ) {
+        map.set(fee.studentId, fee);
+      }
+    }
+    return map;
+  }, [fees, currentMonth, currentYear]);
+
   const getStudentFeeStatus = (studentId: string) => {
-    const studentFee = fees.find(
-      (f) => f.studentId === studentId && f.month === currentMonth && f.year === currentYear
-    );
-    if (!studentFee) return { status: 'unpaid', paid: 0, balance: settings.feeAmount || 0 };
+    const studentFee = currentMonthFeeByStudent.get(studentId);
+    if (!studentFee) {
+      return { status: 'unpaid', paid: 0, balance: Number(settings.feeAmount) || 0 };
+    }
+
+    const amount = Number(studentFee.amount) || 0;
+    const paid = Number(studentFee.paidAmount) || 0;
     return {
       status: studentFee.status,
-      paid: studentFee.paidAmount,
-      balance: Math.max(0, studentFee.amount - studentFee.paidAmount)
+      paid,
+      balance: Math.max(0, amount - paid)
     };
   };
 
@@ -171,7 +188,7 @@ export default function StudentExportView({
         if (selectedColumns.bloodGroup) row['Blood Group'] = s.bloodGroup || '-';
         if (selectedColumns.medicalNotes) row['Medical Notes'] = s.medicalNotes || '-';
         if (selectedColumns.status) row['Status'] = s.status || 'active';
-        if (canViewFinance && selectedColumns.feeStatus)
+        if (canViewFinance && selectedColumns.feeStatus && fee)
           row['Fee Status'] = `${fee.status} (Bal: ${settings.currency} ${fee.balance})`;
         if (selectedColumns.address) row['Address'] = s.address || '-';
         if (selectedColumns.registrationDate) row['Registration Date'] = s.createdAt || '-';
