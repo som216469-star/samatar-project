@@ -1489,9 +1489,6 @@ function validateStudentPayload(
   };
 
   if (!readString("fullName", "Magaca ardayga", 160, !partial)) return { ok: false, value: {}, error: value.__error };
-  if (value.fullName && value.fullName.split(/\s+/).filter(Boolean).length < 2) {
-    return { ok: false, value: {}, error: "Magaca ardayga waa inuu leeyahay ugu yaraan 2 magac." };
-  }
   if (!readString("class", "Fasalka", 120, !partial)) return { ok: false, value: {}, error: value.__error };
   if (!readString("guardianPhone", "Telefoonka waalidka", 30, false)) return { ok: false, value: {}, error: value.__error };
   if (!readString("guardianName", "Magaca waalidka", 160, false)) return { ok: false, value: {}, error: value.__error };
@@ -2493,6 +2490,11 @@ app.post("/api/students/import", async (req, res) => {
         continue;
       }
 
+      if (validation.value.fullName.split(/\s+/).filter(Boolean).length < 2) {
+        errors.push({ row: index + 1, error: "Magaca ardayga waa inuu leeyahay ugu yaraan 2 magac." });
+        continue;
+      }
+
       normalizedRows.push({ row: index + 1, student: validation.value });
     }
 
@@ -2990,6 +2992,9 @@ app.post("/api/students", async (req, res) => {
   if (!validation.ok) return res.status(400).json({ error: validation.error });
 
   const student = validation.value;
+  if (student.fullName.split(/\s+/).filter(Boolean).length < 2) {
+    return res.status(400).json({ error: "Magaca ardayga waa inuu leeyahay ugu yaraan 2 magac." });
+  }
   const studentId = student.id || `STD-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
   const createdAt = student.createdAt || new Date().toISOString().slice(0, 10);
   const nowIso = new Date().toISOString();
@@ -3101,6 +3106,14 @@ app.put("/api/students/:id", async (req, res) => {
         .maybeSingle();
       if (currentError) throw currentError;
       if (!current) return res.status(404).json({ error: "Ardayga lama helin." });
+
+      if (
+        updates.fullName !== undefined &&
+        String(updates.fullName).trim() !== String(current.full_name || '').trim() &&
+        String(updates.fullName).trim().split(/\s+/).filter(Boolean).length < 2
+      ) {
+        return res.status(400).json({ error: "Magaca cusub waa inuu leeyahay ugu yaraan 2 magac." });
+      }
 
       const nextClass = updates.class ?? current.class;
       if (
