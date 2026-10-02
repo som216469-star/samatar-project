@@ -95,6 +95,8 @@ export interface StudentsActionModalsProps {
   onCloseBulkActionModal: () => void;
   bulkTargetClass: string;
   setBulkTargetClass: React.Dispatch<React.SetStateAction<string>>;
+  bulkTargetSection: string;
+  setBulkTargetSection: React.Dispatch<React.SetStateAction<string>>;
   bulkTargetStatus: 'active' | 'inactive' | 'archived';
   setBulkTargetStatus: React.Dispatch<
     React.SetStateAction<'active' | 'inactive' | 'archived'>
@@ -145,6 +147,8 @@ export const StudentsActionModals: React.FC<StudentsActionModalsProps> = ({
   onCloseBulkActionModal,
   bulkTargetClass = '',
   setBulkTargetClass,
+  bulkTargetSection = '',
+  setBulkTargetSection,
   bulkTargetStatus = 'active',
   setBulkTargetStatus,
   bulkOperating = false,
@@ -580,15 +584,36 @@ export const StudentsActionModals: React.FC<StudentsActionModalsProps> = ({
               </label>
               <select
                 value={bulkTargetClass}
-                onChange={(e) => setBulkTargetClass(e.target.value)}
+                onChange={(e) => {
+                  setBulkTargetClass(e.target.value);
+                  const firstMatch = classes.find((item) => item.className === e.target.value);
+                  setBulkTargetSection(firstMatch?.section || '');
+                }}
                 className="w-full ds-input"
               >
                 {classes.map((c) => (
                   <option key={c.id} value={c.className}>
-                    {c.className}
+                    {c.className}{c.section ? ` · Section ${c.section}` : ''}
                   </option>
                 ))}
               </select>
+
+              {classes.some((item) => item.className === bulkTargetClass && item.section) && (
+                <select
+                  value={bulkTargetSection}
+                  onChange={(e) => setBulkTargetSection(e.target.value)}
+                  className="w-full ds-input mt-2"
+                  aria-label="Target section"
+                >
+                  {classes
+                    .filter((item) => item.className === bulkTargetClass && item.section)
+                    .map((item) => (
+                      <option key={item.id} value={item.section}>
+                        Section {item.section}
+                      </option>
+                    ))}
+                </select>
+              )}
             </div>
           )}
 
