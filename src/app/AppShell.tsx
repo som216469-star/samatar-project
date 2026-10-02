@@ -14,7 +14,8 @@ import {
   Command,
   Users,
   GraduationCap,
-  ShieldCheck
+  ShieldCheck,
+  Star
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -97,7 +98,25 @@ export const AppShell: React.FC<AppShellProps> = ({
   children
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem('dugsi_sidebar_collapsed') === 'true';
+    } catch {
+      return false;
+    }
+  });
+  const [sidebarQuery, setSidebarQuery] = useState('');
+  const [favoriteNavIds, setFavoriteNavIds] = useState<string[]>(() => {
+    try {
+      const raw = localStorage.getItem('dugsi_sidebar_favorites');
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed)
+        ? parsed.filter((value): value is string => typeof value === 'string')
+        : [];
+    } catch {
+      return [];
+    }
+  });
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
     students: true,
     finance: false
@@ -123,6 +142,29 @@ export const AppShell: React.FC<AppShellProps> = ({
     () => canRoleAccessPeopleSubSection('teachers', effectiveRole),
     [effectiveRole]
   );
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('dugsi_sidebar_collapsed', String(sidebarCollapsed));
+    } catch {
+      // Ignore browser storage errors.
+    }
+  }, [sidebarCollapsed]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('dugsi_sidebar_favorites', JSON.stringify(favoriteNavIds));
+    } catch {
+      // Ignore browser storage errors.
+    }
+  }, [favoriteNavIds]);
+
+  const toggleFavoriteNav = useCallback((id: string) => {
+    setFavoriteNavIds((prev) => {
+      if (prev.includes(id)) return prev.filter((item) => item !== id);
+      return [...prev, id].slice(-6);
+    });
+  }, []);
 
   const openCommandPalette = useCallback(() => {
     setCommandOpen(true);
@@ -414,6 +456,50 @@ export const AppShell: React.FC<AppShellProps> = ({
     }
   };
 
+  const sidebarNavItems = useMemo(() => {
+    const query = sidebarQuery.trim().toLowerCase();
+    if (!query) return authorizedNavItems;
+
+    return authorizedNavItems
+      .map((item) => {
+        const itemMatches = [item.label, item.subLabel]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(query));
+
+        const matchingChildren = item.children?.filter((child) =>
+          [child.label, child.subLabel]
+            .filter(Boolean)
+            .some((value) => String(value).toLowerCase().includes(query))
+        );
+
+        if (!itemMatches && (!matchingChildren || matchingChildren.length === 0)) {
+          return null;
+        }
+
+        if (matchingChildren && matchingChildren.length > 0) {
+          return { ...item, children: matchingChildren };
+        }
+
+        return item;
+      })
+      .filter((item): item is NavItemConfig => Boolean(item));
+  }, [authorizedNavItems, sidebarQuery]);
+
+  const favoriteNavItems = useMemo(
+    () => authorizedNavItems.filter((item) => favoriteNavIds.includes(item.id)).slice(0, 6),
+    [authorizedNavItems, favoriteNavIds]
+  );
+
+  useEffect(() => {
+    if (!sidebarQuery.trim()) return;
+    const expansionPatch = Object.fromEntries(
+      sidebarNavItems
+        .filter((item) => item.children && item.children.length > 0)
+        .map((item) => [item.id, true])
+    );
+    setExpandedGroups((prev) => ({ ...prev, ...expansionPatch }));
+  }, [sidebarQuery, sidebarNavItems]);
+
   const renderSidebarContent = (isMobile: boolean = false) => {
     const collapsed = !isMobile && sidebarCollapsed;
 
@@ -471,13 +557,80 @@ export const AppShell: React.FC<AppShellProps> = ({
           )}
         </div>
 
+        {/* Sidebar Search */}
+        {!collapsed && (
+          <div className="px-3 pt-3 pb-1 shrink-0">
+            <div className="flex items-center gap-2 min-h-9 px-3 rounded-[var(--radius-sm)] bg-white/[0.035] border border-white/[0.07] focus-within:border-[var(--color-accent)]/50 focus-within:bg-white/[0.05] transition-colors">
+              <Search className="w-3.5 h-3.5 text-[var(--sidebar-text-muted)] shrink-0" aria-hidden="true" />
+              <input
+                type="search"
+                value={sidebarQuery}
+                onChange={(event) => setSidebarQuery(event.target.value)}
+                placeholder="Find a module..."
+                aria-label="Search sidebar navigation"
+                className="w-full min-w-0 bg-transparent border-0 outline-none text-xs text-white placeholder:text-[var(--sidebar-text-muted)]"
+              />
+              {sidebarQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSidebarQuery('')}
+                  aria-label="Clear sidebar search"
+                  className="p-0.5 rounded text-[var(--sidebar-text-muted)] hover:text-white cursor-pointer"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* 2. Scrollable Grouped Navigation */}
         <nav
           aria-label="Primary Sidebar Navigation"
           className="flex-1 overflow-y-auto px-3 py-4 space-y-5"
         >
-          {NAVIGATION_GROUPS.map((group) => {
-            const items = authorizedNavItems.filter((i) => i.group === group.id);
+          {favoriteNavItems.length > 0 && !sidebarQuery && !collapsed && (
+            <div className="space-y-1 pb-2 mb-1 border-b border-[var(--sidebar-border)]">
+              <div className="px-2.5 pb-1 text-[10px] font-bold uppercase tracking-widest text-[var(--sidebar-text-muted)]">
+                Pinned
+              </div>
+              {favoriteNavItems.map((item) => {
+                const Icon = item.icon;
+                const active = isNavItemActive(item);
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => {
+                      if (item.children?.length) {
+                        toggleExpandItem(item.id);
+                      } else {
+                        onNavigate(item.tab, {
+                          peopleSubSection: item.peopleSubSection,
+                          financeSubSection: item.financeSubSection
+                        });
+                        if (isMobile) setMobileMenuOpen(false);
+                      }
+                    }}
+                    className={'w-full flex items-center gap-2.5 px-2.5 py-2 rounded-[var(--radius-sm)] text-xs cursor-pointer transition-colors ' + (active ? 'bg-[var(--sidebar-active-bg)] text-white font-semibold' : 'text-[var(--sidebar-text)] hover:bg-[var(--sidebar-hover-bg)] hover:text-white')}
+                  >
+                    <Icon className={'w-4 h-4 shrink-0 ' + (active ? 'text-[var(--color-accent)]' : 'text-[var(--sidebar-text-muted)]')} />
+                    <span className="truncate flex-1 text-left">{item.label}</span>
+                    <Star className="w-3 h-3 text-[var(--color-accent)] fill-current shrink-0" aria-hidden="true" />
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {sidebarNavItems.length === 0 ? (
+            <div className="px-3 py-10 text-center">
+              <Search className="w-5 h-5 mx-auto text-[var(--sidebar-text-muted)]" aria-hidden="true" />
+              <p className="mt-2 text-xs font-semibold text-[var(--sidebar-text)]">No modules found</p>
+              <p className="mt-1 text-[11px] text-[var(--sidebar-text-muted)]">Try a different search.</p>
+            </div>
+          ) : NAVIGATION_GROUPS.map((group) => {
+            const items = sidebarNavItems.filter((i) => i.group === group.id);
             if (items.length === 0) return null;
 
             return (
@@ -527,6 +680,25 @@ export const AppShell: React.FC<AppShellProps> = ({
                               />
                               {!collapsed && <span className="truncate">{item.label}</span>}
                             </div>
+
+                            {!collapsed && (
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  toggleFavoriteNav(item.id);
+                                }}
+                                aria-label={favoriteNavIds.includes(item.id) ? `Unpin ${item.label}` : `Pin ${item.label}`}
+                                title={favoriteNavIds.includes(item.id) ? 'Unpin from sidebar' : 'Pin to sidebar'}
+                                className={'p-1 rounded-[var(--radius-xs)] cursor-pointer transition-colors ' + (
+                                  favoriteNavIds.includes(item.id)
+                                    ? 'text-[var(--color-accent)] bg-[var(--color-brand-soft)]'
+                                    : 'text-[var(--sidebar-text-muted)] hover:text-[var(--color-accent)] hover:bg-white/5 opacity-0 group-hover:opacity-100 focus-visible:opacity-100'
+                                )}
+                              >
+                                <Star className={'w-3 h-3 ' + (favoriteNavIds.includes(item.id) ? 'fill-current' : '')} />
+                              </button>
+                            )}
 
                             {!collapsed && (
                               <div className="flex items-center gap-1.5 shrink-0">
@@ -623,7 +795,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                         if (isMobile) setMobileMenuOpen(false);
                       }}
                       title={collapsed ? item.label : undefined}
-                      className={`w-full flex items-center justify-between gap-2.5 px-2.5 py-2 rounded-[var(--radius-sm)] text-xs transition-colors cursor-pointer ${
+                      className={`group w-full flex items-center justify-between gap-2.5 px-2.5 py-2 rounded-[var(--radius-sm)] text-xs transition-colors cursor-pointer ${
                         active
                           ? 'bg-[var(--sidebar-active-bg)] text-white font-semibold border-l-2 border-[var(--color-accent)]'
                           : 'text-[var(--sidebar-text)] hover:bg-[var(--sidebar-hover-bg)] hover:text-white'
@@ -637,6 +809,24 @@ export const AppShell: React.FC<AppShellProps> = ({
                         />
                         {!collapsed && <span className="truncate">{item.label}</span>}
                       </div>
+                      {!collapsed && (
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            toggleFavoriteNav(item.id);
+                          }}
+                          aria-label={favoriteNavIds.includes(item.id) ? `Unpin ${item.label}` : `Pin ${item.label}`}
+                          title={favoriteNavIds.includes(item.id) ? 'Unpin from sidebar' : 'Pin to sidebar'}
+                          className={'p-1 rounded-[var(--radius-xs)] cursor-pointer transition-colors ' + (
+                            favoriteNavIds.includes(item.id)
+                              ? 'text-[var(--color-accent)] bg-[var(--color-brand-soft)]'
+                              : 'text-[var(--sidebar-text-muted)] hover:text-[var(--color-accent)] hover:bg-white/5 opacity-0 group-hover:opacity-100 focus-visible:opacity-100'
+                          )}
+                        >
+                          <Star className={'w-3 h-3 ' + (favoriteNavIds.includes(item.id) ? 'fill-current' : '')} />
+                        </button>
+                      )}
                       {!collapsed && badgeVal !== undefined && badgeVal > 0 && (
                         <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-white/10 text-[var(--sidebar-text)]">
                           {badgeVal}
