@@ -602,7 +602,7 @@ export default function StudentsView({
       photo: '',
       dateOfBirth: '',
       address: '',
-      section: 'A',
+      section: classes.find((item) => item.className === classes[0]?.className)?.section || '',
       rollNumber: '',
       createdAt: new Date().toISOString().split('T')[0],
       guardianRelationship: '',
