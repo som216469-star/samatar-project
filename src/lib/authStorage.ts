@@ -17,7 +17,7 @@ export function getStoredSession(): AuthUser | null {
     if (!parsed || typeof parsed !== 'object') return null;
 
     const { token: _legacyToken, ...safeUser } = parsed as Record<string, unknown>;
-    return safeUser as AuthUser;
+    return safeUser as unknown as AuthUser;
   } catch {
     return null;
   }
