@@ -1544,7 +1544,7 @@ export default function StudentsView({
         onSetPageSize={setPageSize}
         onToggleSelectAll={handleToggleSelectAll}
         onToggleSelectOne={handleToggleSelectOne}
-        getStudentFeeStatus={getStudentFeeStatus}
+        getStudentFeeStatus={studentPermissions.canViewFinance ? getStudentFeeStatus : () => ({ status: 'hidden', balance: 0 })}
         onOpenProfile={handleOpenProfile}
         onOpenEditModal={handleOpenEditModal}
         onQuickStatusChange={handleQuickStatusChange}
@@ -1570,6 +1570,7 @@ export default function StudentsView({
           examScores={examScores}
           subjects={subjects}
           currency={settings.currency}
+          canViewFinance={studentPermissions.canViewFinance}
           onClose={handleCloseProfile}
           onEditStudent={
             studentPermissions.canUpdate
