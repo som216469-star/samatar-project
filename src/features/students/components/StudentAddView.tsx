@@ -263,6 +263,20 @@ export default function StudentAddView({
       errs.guardianPhoneAlt = 'Telefoonka labaad ma saxna';
     }
 
+    if (formData.dateOfBirth) {
+      const parsedDob = new Date(formData.dateOfBirth + 'T00:00:00');
+      if (Number.isNaN(parsedDob.getTime()) || parsedDob > new Date()) {
+        errs.dateOfBirth = 'Taariikhda dhalashada ma saxna';
+      }
+    }
+
+    if (formData.enrollmentDate) {
+      const parsedEnrollmentDate = new Date(formData.enrollmentDate + 'T00:00:00');
+      if (Number.isNaN(parsedEnrollmentDate.getTime()) || parsedEnrollmentDate > new Date()) {
+        errs.enrollmentDate = 'Taariikhda diiwaangelintu ma saxna';
+      }
+    }
+
     setFormErrors(errs);
     if (Object.keys(errs).length > 0) {
       const firstMsg = Object.values(errs)[0];
@@ -460,6 +474,11 @@ export default function StudentAddView({
                 onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
                 className="w-full ds-input"
               />
+              {formErrors.dateOfBirth && (
+                <p className="text-[11px] text-[var(--color-danger)] font-semibold">
+                  {formErrors.dateOfBirth}
+                </p>
+              )}
             </div>
 
             <div className="space-y-1.5">
