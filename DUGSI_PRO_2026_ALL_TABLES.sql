@@ -332,6 +332,30 @@ CREATE TABLE IF NOT EXISTS dugsiga_notifications (
 );
 
 -- ----------------------------------------------------------------------------
+-- STUDENT AUDIT LOG
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS dugsiga_student_audit (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  school_id TEXT NOT NULL,
+  student_id TEXT NOT NULL,
+  action TEXT NOT NULL CHECK (action IN ('created','updated','archived','restored','deleted')),
+  actor_email TEXT,
+  actor_role TEXT,
+  changed_fields JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+CREATE INDEX IF NOT EXISTS idx_dugsiga_student_audit_school_student
+  ON dugsiga_student_audit (school_id, student_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_dugsiga_student_audit_school_action
+  ON dugsiga_student_audit (school_id, action, created_at DESC);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_dugsiga_students_school_national_id
+  ON dugsiga_students (school_id, lower(btrim(national_id)))
+  WHERE national_id IS NOT NULL AND btrim(national_id) <> '';
+
+-- ----------------------------------------------------------------------------
 -- QAYBTA 3: MIISASKA CUSUB EE MAALIYADDA & XISAABAADKA (FINANCE & ACCOUNTING - UPGRADE 2)
 -- ----------------------------------------------------------------------------
 
@@ -509,7 +533,8 @@ DECLARE
     'dugsiga_expenses',
     'dugsiga_income',
     'dugsiga_budgets',
-    'dugsiga_payroll'
+    'dugsiga_payroll',
+     'dugsiga_student_audit'
   ];
 BEGIN
   FOREACH tbl_name IN ARRAY tables_list LOOP
