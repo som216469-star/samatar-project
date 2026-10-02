@@ -2603,18 +2603,11 @@ app.post("/api/students/bulk", async (req, res) => {
         return res.status(400).json({ error: "Fasalka cusub kama jiro school-kan." });
       }
 
-      if (action === "change_class") {
-        const capacity = await assertStudentClassCapacity(
-          schoolId,
-          targetClass,
-          studentIds.length,
-          studentIds,
-          targetSection
-        );
-        if (!capacity.ok) return res.status(409).json({ error: capacity.error });
-      }
-
-      const { data: rows, error: rowsError } = await supabase.from("dugsiga_students").select("id,class,status").eq("school_id", schoolId).in("id", studentIds);
+      const { data: rows, error: rowsError } = await supabase
+        .from("dugsiga_students")
+        .select("id,class,section,status")
+        .eq("school_id", schoolId)
+        .in("id", studentIds);
       if (rowsError) throw rowsError;
       const found = rows || [];
       if (found.length !== studentIds.length) {
@@ -2623,6 +2616,52 @@ app.post("/api/students/bulk", async (req, res) => {
           error: "Qaar ka mid ah ardayda lama helin ama school-kan kama tirsana.",
           missingIds: studentIds.filter((id) => !foundIds.has(id)).slice(0, 20)
         });
+      }
+
+      if (action === "change_class") {
+        const activeToMove = found.filter(
+          (row: any) => String(row.status || 'active').toLowerCase() !== 'archived'
+        ).length;
+        if (activeToMove > 0) {
+          const capacity = await assertStudentClassCapacity(
+            schoolId,
+            targetClass,
+            activeToMove,
+            studentIds,
+            targetSection
+          );
+          if (!capacity.ok) return res.status(409).json({ error: capacity.error });
+        }
+      }
+
+      if (action === "change_status" && targetStatus === 'active') {
+        const activeToRestore = found.filter(
+          (row: any) => String(row.status || 'active').toLowerCase() !== 'active'
+        );
+
+        const capacityGroups = new Map<string, { className: string; section: string; count: number }>();
+        for (const row of activeToRestore) {
+          const className = String(row.class || '').trim();
+          const section = String(row.section || '').trim();
+          const key = className.toLowerCase() + '::' + section.toLowerCase();
+          const currentGroup = capacityGroups.get(key);
+          if (currentGroup) {
+            currentGroup.count += 1;
+          } else {
+            capacityGroups.set(key, { className, section, count: 1 });
+          }
+        }
+
+        for (const group of capacityGroups.values()) {
+          const capacity = await assertStudentClassCapacity(
+            schoolId,
+            group.className,
+            group.count,
+            activeToRestore.map((row: any) => row.id),
+            group.section
+          );
+          if (!capacity.ok) return res.status(409).json({ error: capacity.error });
+        }
       }
 
       if (action === "delete") {
@@ -2826,8 +2865,8 @@ app.put("/api/students/:id", async (req, res) => {
       }
       const nextStatus = updates.status ?? current.status ?? 'active';
       const becomesActive =
-        String(nextStatus).toLowerCase() !== 'archived' &&
-        String(current.status || 'active').toLowerCase() === 'archived';
+        String(nextStatus).toLowerCase() === 'active' &&
+        String(current.status || 'active').toLowerCase() !== 'active';
 
       const classChanged =
         updates.class !== undefined &&
