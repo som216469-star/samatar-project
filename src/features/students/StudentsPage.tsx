@@ -1582,6 +1582,7 @@ export default function StudentsView({
           subjects={subjects}
           currency={settings.currency}
           canViewFinance={studentPermissions.canViewFinance}
+          canViewAudit={studentPermissions.canBulkManage}
           onClose={handleCloseProfile}
           onEditStudent={
             studentPermissions.canUpdate
