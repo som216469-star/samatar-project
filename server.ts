@@ -76,46 +76,17 @@ app.use(express.json({ limit: "10mb" }));
 // Initialize Supabase Client with resilient key resolution
 function deriveSupabaseKey(): string {
   const secretKey = sanitizeEnvValue(process.env.SUPABASE_SECRET_KEY || "");
-  const anonKey = sanitizeEnvValue(process.env.SUPABASE_ANON_KEY || "");
-  const jwksUrlOrSecret = sanitizeEnvValue(process.env.SUPABASE_JWKS_URL || "");
+  const anonKey = sanitizeEnvValue(
+    process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY || ""
+  );
 
-  // 1. If secretKey is already a valid JWT service_role key
-  if (secretKey.startsWith("ey")) {
-    try {
-      const parts = secretKey.split(".");
-      if (parts.length === 3) {
-        const payload = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf-8"));
-        if (payload.role === "service_role") {
-          return secretKey;
-        }
-      }
-    } catch {}
-  }
-
-  // 2. If JWT secret is provided in SUPABASE_JWKS_URL and anonKey is available,
-  // derive the authenticated service_role key for full direct cloud access:
-  if (jwksUrlOrSecret && anonKey.startsWith("ey")) {
-    try {
-      const parts = anonKey.split(".");
-      if (parts.length === 3) {
-        const anonPayload = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf-8"));
-        const servicePayload = { ...anonPayload, role: "service_role" };
-        const h = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
-        const p = Buffer.from(JSON.stringify(servicePayload)).toString("base64url");
-        const s = crypto.createHmac("sha256", jwksUrlOrSecret).update(`${h}.${p}`).digest("base64url");
-        return `${h}.${p}.${s}`;
-      }
-    } catch (e) {
-      console.warn("Could not derive service_role token from JWT secret:", e);
-    }
-  }
-
-  // 3. If secretKey is provided and not a publishable key
+  // Never derive a privileged Supabase key from a JWKS URL.
+  // A JWKS URL is public metadata, not a signing secret.
   if (secretKey && !secretKey.startsWith("sb_publish")) {
     return secretKey;
   }
 
-  return anonKey || secretKey;
+  return anonKey;
 }
 
 const supabaseUrl = parseSupabaseUrl(process.env.SUPABASE_URL || "https://mdvfcqujqjnvfpzowayo.supabase.co");
