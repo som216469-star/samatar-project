@@ -26,6 +26,7 @@ interface StudentImportViewProps {
 
 interface ParsedRow {
   index: number;
+  studentId?: string;
   fullName: string;
   className: string;
   gender: 'Male' | 'Female';
@@ -301,6 +302,7 @@ export default function StudentImportView({
 
         return {
           index: idx + 1,
+          studentId: studentId || undefined,
           fullName,
           className,
           gender,
@@ -331,9 +333,9 @@ export default function StudentImportView({
           row.fullName && row.className
             ? `${row.fullName.trim().toLowerCase()}::${row.className.trim().toLowerCase()}`
             : '';
-        const idKey = String(row.data?.id || '').trim().toLowerCase();
+        const idKey = String(row.studentId || '').trim().toLowerCase();
         const rollKey = String(row.rollNumber || '').trim().toLowerCase();
-        const nationalKey = String(row.data?.nationalId || '').trim().toLowerCase();
+        const nationalKey = String(row.nationalId || '').trim().toLowerCase();
         const scopedRollKey = rollKey
           ? `${row.className.trim().toLowerCase()}::${String(row.section || '').trim().toLowerCase()}::${rollKey}`
           : '';
@@ -417,9 +419,10 @@ export default function StudentImportView({
     setImportProgress(10);
 
     const studentsToImport = importableRows.map((r) => ({
-      id: typeof crypto !== 'undefined' && 'randomUUID' in crypto
-        ? 'STD-' + crypto.randomUUID().slice(0, 8).toUpperCase()
-        : 'STD-' + Date.now().toString(36).toUpperCase(),
+      id: r.studentId ||
+        (typeof crypto !== 'undefined' && 'randomUUID' in crypto
+          ? 'STD-' + crypto.randomUUID().slice(0, 8).toUpperCase()
+          : 'STD-' + Date.now().toString(36).toUpperCase()),
       fullName: r.fullName,
       class: r.className,
       gender: r.gender,
