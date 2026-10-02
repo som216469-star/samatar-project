@@ -1284,8 +1284,13 @@ function validateStudentPayload(
   const partial = options.partial === true;
   const value: Record<string, any> = {};
 
+  const hasValue = (key: string) =>
+    Object.prototype.hasOwnProperty.call(payload, key) &&
+    payload[key] !== undefined &&
+    payload[key] !== null;
+
   const readString = (key: string, label: string, max: number, required = false) => {
-    const present = Object.prototype.hasOwnProperty.call(payload, key);
+    const present = hasValue(key);
     if (partial && !present) return true;
     const result = cleanStudentString(payload[key], label, max, required);
     if (!result.ok) {
@@ -1310,14 +1315,14 @@ function validateStudentPayload(
   if (!readString("address", "Cinwaanka", 500, false)) return { ok: false, value: {}, error: value.__error };
   if (!readString("medicalNotes", "Medical Notes", 2000, false)) return { ok: false, value: {}, error: value.__error };
 
-  if (!partial || Object.prototype.hasOwnProperty.call(payload, "gender")) {
+  if (!partial || hasValue("gender")) {
     const gender = typeof payload.gender === "string" && payload.gender.trim() ? payload.gender.trim() : partial ? "" : "Male";
     if (!gender && partial) return { ok: false, value: {}, error: "Jinsiga ma saxna." };
     if (gender && !STUDENT_ALLOWED_GENDERS.has(gender)) return { ok: false, value: {}, error: "Jinsiga ardayga ma saxna." };
     if (gender) value.gender = gender;
   }
 
-  if (!partial || Object.prototype.hasOwnProperty.call(payload, "status")) {
+  if (!partial || hasValue("status")) {
     const status = typeof payload.status === "string" && payload.status.trim() ? payload.status.trim().toLowerCase() : partial ? "" : "active";
     if (!status && partial) return { ok: false, value: {}, error: "Xaaladda ardayga ma saxna." };
     if (status && !STUDENT_ALLOWED_STATUSES.has(status)) return { ok: false, value: {}, error: "Xaaladda ardayga ma saxna." };
@@ -1332,7 +1337,7 @@ function validateStudentPayload(
     if (!isValidStudentPhone(value.guardianPhoneAlt ?? "")) return { ok: false, value: {}, error: "Telefoonka labaad ma saxna." };
   }
 
-  if (!partial || Object.prototype.hasOwnProperty.call(payload, "dateOfBirth")) {
+  if (!partial || hasValue("dateOfBirth")) {
     const dob = value.dateOfBirth ?? (typeof payload.dateOfBirth === "string" ? payload.dateOfBirth.trim() : "");
     if (dob) {
       if (!isValidDateOnly(dob)) return { ok: false, value: {}, error: "Taariikhda dhalashada ma saxna. Isticmaal YYYY-MM-DD." };
@@ -1341,7 +1346,7 @@ function validateStudentPayload(
     value.dateOfBirth = dob;
   }
 
-  if (!partial || (options.allowCreatedAt && Object.prototype.hasOwnProperty.call(payload, "createdAt"))) {
+  if (!partial || (options.allowCreatedAt && hasValue("createdAt"))) {
     const createdAt = typeof payload.createdAt === "string" ? payload.createdAt.trim() : "";
     if (createdAt && !isValidDateOnly(createdAt)) return { ok: false, value: {}, error: "Taariikhda diiwaangelinta ma saxna. Isticmaal YYYY-MM-DD." };
     if (createdAt && createdAt > new Date().toISOString().slice(0, 10)) return { ok: false, value: {}, error: "Taariikhda diiwaangelintu mustaqbal ma noqon karto." };
@@ -1354,7 +1359,7 @@ function validateStudentPayload(
     if (id) value.id = id;
   }
 
-  if (!partial || Object.prototype.hasOwnProperty.call(payload, "photo")) {
+  if (!partial || hasValue("photo")) {
     const photo = typeof payload.photo === "string" ? payload.photo.trim() : "";
     if (photo.length > 1_500_000) return { ok: false, value: {}, error: "Sawirka ardayga aad buu u weyn yahay." };
     value.photo = photo;
