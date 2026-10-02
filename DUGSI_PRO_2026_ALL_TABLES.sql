@@ -515,6 +515,24 @@ CREATE INDEX IF NOT EXISTS idx_dugsiga_student_audit_school_student
 CREATE INDEX IF NOT EXISTS idx_dugsiga_student_audit_school_action
   ON dugsiga_student_audit (school_id, action, created_at DESC);
 
+CREATE OR REPLACE FUNCTION public.dugsiga_student_audit_immutable()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+BEGIN
+  RAISE EXCEPTION USING errcode = '42501', message = 'Student audit records are append-only.';
+END;
+$function$;
+
+DROP TRIGGER IF EXISTS trg_dugsiga_student_audit_immutable ON public.dugsiga_student_audit;
+CREATE TRIGGER trg_dugsiga_student_audit_immutable
+BEFORE UPDATE OR DELETE ON public.dugsiga_student_audit
+FOR EACH ROW EXECUTE FUNCTION public.dugsiga_student_audit_immutable();
+
+REVOKE EXECUTE ON FUNCTION public.dugsiga_student_audit_immutable() FROM public, anon, authenticated;
+
 -- ----------------------------------------------------------------------------
 -- QAYBTA 3: MIISASKA CUSUB EE MAALIYADDA & XISAABAADKA (FINANCE & ACCOUNTING - UPGRADE 2)
 -- ----------------------------------------------------------------------------
@@ -1532,6 +1550,8 @@ CREATE TABLE IF NOT EXISTS dugsiga_student_audit (
   actor_email TEXT,
   actor_role TEXT,
   changed_fields JSONB NOT NULL DEFAULT '{}'::jsonb,
+  before_data JSONB,
+  after_data JSONB,
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now())
 );
 
