@@ -27,8 +27,9 @@ CREATE TABLE IF NOT EXISTS dugsiga_students (
   school_id TEXT NOT NULL,
   full_name TEXT NOT NULL,
   class TEXT NOT NULL,
-  gender TEXT NOT NULL CHECK (gender IN ('Male','Female')),
-  guardian_phone TEXT NOT NULL CHECK (guardian_phone = '' OR guardian_phone ~ '^[+0-9()[:space:].-]{7,30}
+  gender TEXT NOT NULL DEFAULT 'Male',
+  guardian_phone TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'active',
   photo TEXT,
   date_of_birth TEXT,
   address TEXT,
@@ -41,7 +42,147 @@ CREATE TABLE IF NOT EXISTS dugsiga_students (
   previous_school TEXT,
   blood_group TEXT,
   medical_notes TEXT,
-  created_at TEXT CHECK (created_at IS NULL OR created_at = '' OR created_at ~ '^\\d{4}-\\d{2}-\\d{2}
+  created_at TEXT,
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+DO $students$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'dugsiga_students'::regclass
+      AND conname = 'dugsiga_students_full_name_valid'
+  ) THEN
+    ALTER TABLE dugsiga_students
+      ADD CONSTRAINT dugsiga_students_full_name_valid
+      CHECK (char_length(btrim(full_name)) BETWEEN 1 AND 160);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'dugsiga_students'::regclass
+      AND conname = 'dugsiga_students_class_valid'
+  ) THEN
+    ALTER TABLE dugsiga_students
+      ADD CONSTRAINT dugsiga_students_class_valid
+      CHECK (char_length(btrim(class)) BETWEEN 1 AND 120);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'dugsiga_students'::regclass
+      AND conname = 'dugsiga_students_gender_valid'
+  ) THEN
+    ALTER TABLE dugsiga_students
+      ADD CONSTRAINT dugsiga_students_gender_valid
+      CHECK (gender IN ('Male','Female'));
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'dugsiga_students'::regclass
+      AND conname = 'dugsiga_students_status_valid'
+  ) THEN
+    ALTER TABLE dugsiga_students
+      ADD CONSTRAINT dugsiga_students_status_valid
+      CHECK (status IN ('active','inactive','archived'));
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'dugsiga_students'::regclass
+      AND conname = 'dugsiga_students_guardian_phone_valid'
+  ) THEN
+    ALTER TABLE dugsiga_students
+      ADD CONSTRAINT dugsiga_students_guardian_phone_valid
+      CHECK (guardian_phone = '' OR guardian_phone ~ '^[+0-9()[:space:].-]{7,30}$');
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'dugsiga_students'::regclass
+      AND conname = 'dugsiga_students_guardian_phone_alt_valid'
+  ) THEN
+    ALTER TABLE dugsiga_students
+      ADD CONSTRAINT dugsiga_students_guardian_phone_alt_valid
+      CHECK (guardian_phone_alt IS NULL OR guardian_phone_alt = '' OR guardian_phone_alt ~ '^[+0-9()[:space:].-]{7,30}$');
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'dugsiga_students'::regclass
+      AND conname = 'dugsiga_students_dob_valid'
+  ) THEN
+    ALTER TABLE dugsiga_students
+      ADD CONSTRAINT dugsiga_students_dob_valid
+      CHECK (date_of_birth IS NULL OR date_of_birth = '' OR date_of_birth ~ '^\\d{4}-\\d{2}-\\d{2}$');
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'dugsiga_students'::regclass
+      AND conname = 'dugsiga_students_created_at_valid'
+  ) THEN
+    ALTER TABLE dugsiga_students
+      ADD CONSTRAINT dugsiga_students_created_at_valid
+      CHECK (created_at IS NULL OR created_at = '' OR created_at ~ '^\\d{4}-\\d{2}-\\d{2}$');
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'dugsiga_students'::regclass
+      AND conname = 'dugsiga_students_section_length_valid'
+  ) THEN
+    ALTER TABLE dugsiga_students
+      ADD CONSTRAINT dugsiga_students_section_length_valid
+      CHECK (section IS NULL OR char_length(section) <= 50);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'dugsiga_students'::regclass
+      AND conname = 'dugsiga_students_roll_length_valid'
+  ) THEN
+    ALTER TABLE dugsiga_students
+      ADD CONSTRAINT dugsiga_students_roll_length_valid
+      CHECK (roll_number IS NULL OR char_length(roll_number) <= 50);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'dugsiga_students'::regclass
+      AND conname = 'dugsiga_students_national_id_length_valid'
+  ) THEN
+    ALTER TABLE dugsiga_students
+      ADD CONSTRAINT dugsiga_students_national_id_length_valid
+      CHECK (national_id IS NULL OR char_length(national_id) <= 80);
+  END IF;
+END $students$;
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_dugsiga_students_school_class_section_roll
+  ON dugsiga_students (
+    school_id,
+    lower(btrim(class)),
+    lower(btrim(coalesce(section,''))),
+    lower(btrim(roll_number))
+  )
+  WHERE roll_number IS NOT NULL AND btrim(roll_number) <> '';
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_dugsiga_students_school_national_id
+  ON dugsiga_students (school_id, lower(btrim(national_id)))
+  WHERE national_id IS NOT NULL AND btrim(national_id) <> '';
+
+CREATE INDEX IF NOT EXISTS idx_dugsiga_students_school_status_class
+  ON dugsiga_students (school_id, status, class);
+
+CREATE INDEX IF NOT EXISTS idx_dugsiga_students_school_search_name
+  ON dugsiga_students (school_id, lower(full_name));
+
+CREATE INDEX IF NOT EXISTS idx_dugsiga_students_school_class_name
+  ON dugsiga_students (school_id, lower(class), lower(full_name));
+
+CREATE INDEX IF NOT EXISTS idx_dugsiga_students_school_updated_at
+  ON dugsiga_students (school_id, updated_at DESC);
 
 -- 3. Classes Table (Fasallada Dugsiga)
 CREATE TABLE IF NOT EXISTS dugsiga_classes (
@@ -355,7 +496,6 @@ GRANT EXECUTE ON FUNCTION public.dugsiga_touch_student_updated_at() TO service_r
 
 -- ----------------------------------------------------------------------------
 -- STUDENT AUDIT LOG
--- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS dugsiga_student_audit (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   school_id TEXT NOT NULL,
@@ -374,90 +514,6 @@ CREATE INDEX IF NOT EXISTS idx_dugsiga_student_audit_school_student
 
 CREATE INDEX IF NOT EXISTS idx_dugsiga_student_audit_school_action
   ON dugsiga_student_audit (school_id, action, created_at DESC);
-
--- ----------------------------------------------------------------------------
--- STUDENT DATABASE GUARDRAILS
--- ----------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.dugsiga_validate_student_class_assignment()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $function$
-DECLARE
-  class_count INTEGER;
-  section_rows INTEGER;
-  clean_class TEXT;
-  clean_section TEXT;
-BEGIN
-  clean_class := lower(btrim(coalesce(NEW.class, '')));
-  clean_section := lower(btrim(coalesce(NEW.section, '')));
-
-  IF clean_class = '' THEN
-    RAISE EXCEPTION USING errcode = '23514', message = 'Student class is required.';
-  END IF;
-
-  SELECT count(*)::integer,
-         count(*) FILTER (WHERE btrim(coalesce(c.section, '')) <> '')::integer
-    INTO class_count, section_rows
-  FROM public.dugsiga_classes c
-  WHERE c.school_id = NEW.school_id
-    AND lower(btrim(coalesce(c.class_name, ''))) = clean_class;
-
-  IF class_count = 0 THEN
-    RAISE EXCEPTION USING errcode = '23514',
-      message = format('Student class does not exist: %s.', NEW.class);
-  END IF;
-
-  IF section_rows > 0 THEN
-    IF clean_section = '' THEN
-      RAISE EXCEPTION USING errcode = '23514',
-        message = format('Student section is required for class: %s.', NEW.class);
-    END IF;
-
-    IF NOT EXISTS (
-      SELECT 1
-      FROM public.dugsiga_classes c
-      WHERE c.school_id = NEW.school_id
-        AND lower(btrim(coalesce(c.class_name, ''))) = clean_class
-        AND lower(btrim(coalesce(c.section, ''))) = clean_section
-    ) THEN
-      RAISE EXCEPTION USING errcode = '23514',
-        message = format('Student section does not exist: %s / %s.', NEW.class, NEW.section);
-    END IF;
-  END IF;
-
-  RETURN NEW;
-END;
-$function$;
-
-DROP TRIGGER IF EXISTS trg_dugsiga_students_class_assignment ON public.dugsiga_students;
-CREATE TRIGGER trg_dugsiga_students_class_assignment
-BEFORE INSERT OR UPDATE OF school_id, class, section ON public.dugsiga_students
-FOR EACH ROW EXECUTE FUNCTION public.dugsiga_validate_student_class_assignment();
-
-CREATE OR REPLACE FUNCTION public.dugsiga_student_audit_immutable()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $function$
-BEGIN
-  RAISE EXCEPTION USING errcode = '42501', message = 'Student audit records are append-only.';
-END;
-$function$;
-
-DROP TRIGGER IF EXISTS trg_dugsiga_student_audit_immutable ON public.dugsiga_student_audit;
-CREATE TRIGGER trg_dugsiga_student_audit_immutable
-BEFORE UPDATE OR DELETE ON public.dugsiga_student_audit
-FOR EACH ROW EXECUTE FUNCTION public.dugsiga_student_audit_immutable();
-
-REVOKE EXECUTE ON FUNCTION public.dugsiga_validate_student_class_assignment() FROM public, anon, authenticated;
-REVOKE EXECUTE ON FUNCTION public.dugsiga_student_audit_immutable() FROM public, anon, authenticated;
-
-CREATE UNIQUE INDEX IF NOT EXISTS uq_dugsiga_students_school_national_id
-  ON dugsiga_students (school_id, lower(btrim(national_id)))
-  WHERE national_id IS NOT NULL AND btrim(national_id) <> '';
 
 -- ----------------------------------------------------------------------------
 -- QAYBTA 3: MIISASKA CUSUB EE MAALIYADDA & XISAABAADKA (FINANCE & ACCOUNTING - UPGRADE 2)
