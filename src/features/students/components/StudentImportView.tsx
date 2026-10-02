@@ -176,12 +176,20 @@ export default function StudentImportView({
           'gender'
         ).toLowerCase();
 
-        const gender: 'Male' | 'Female' =
-          rawGender.startsWith('f') ||
-          rawGender.includes('dhed') ||
-          rawGender.includes('girl')
+        const gender: 'Male' | 'Female' | '' =
+          rawGender === 'female' ||
+          rawGender === 'f' ||
+          rawGender === 'dhedig' ||
+          rawGender === 'd' ||
+          rawGender === 'girl'
             ? 'Female'
-            : 'Male';
+            : rawGender === 'male' ||
+              rawGender === 'm' ||
+              rawGender === 'lab'
+            ? 'Male'
+            : rawGender === ''
+            ? ''
+            : '';
 
         const guardianPhone = get(
           'Telefoonka Waalidka (Guardian Phone) *',
@@ -222,6 +230,7 @@ export default function StudentImportView({
           'Xusuusin Caafimaad',
           'medicalNotes'
         );
+        const dateOfBirth = get('Date of Birth', 'dateOfBirth');
 
         const errors: string[] = [];
         if (!fullName) errors.push('Magaca ardayga waa maran');
@@ -243,8 +252,19 @@ export default function StudentImportView({
         if (guardianPhone && !/^[+0-9()\s.-]{7,30}$/.test(guardianPhone)) {
           errors.push('Telefoonka waalidka ma saxna');
         }
+        if (!gender) errors.push('Gender-ka waa inuu noqdaa Male ama Female');
         if (guardianPhoneAlt && !/^[+0-9()\s.-]{7,30}$/.test(guardianPhoneAlt)) {
           errors.push('Telefoonka labaad ma saxna');
+        }
+        if (dateOfBirth) {
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(dateOfBirth)) {
+            errors.push('Date of Birth waa inuu noqdaa YYYY-MM-DD');
+          } else {
+            const date = new Date(dateOfBirth + 'T00:00:00');
+            if (Number.isNaN(date.getTime()) || date > new Date()) {
+              errors.push('Date of Birth ma saxna');
+            }
+          }
         }
         if (nationalId.length > 80) errors.push('National ID aad buu u dheer yahay');
         if (medicalNotes.length > 2000) errors.push('Medical Notes aad bay u dheer yihiin');
