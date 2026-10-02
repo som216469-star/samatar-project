@@ -1,4 +1,5 @@
 import type express from "express";
+import crypto from "crypto";
 import { getAuthenticatedUser } from "./authSession.ts";
 
 interface FinanceRouteHelpers {
@@ -231,7 +232,7 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
 
     const db = getEnsureDB();
     const newStructure = {
-      id: body.id || 'fs-' + Math.random().toString(36).substring(2, 11),
+      id: 'fs-' + crypto.randomUUID(),
       schoolId,
       name: body.name.trim(),
       category: body.category || 'Monthly Tuition',
@@ -342,7 +343,7 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
     const student = (db.students || []).find((s: any) => s.id === body.studentId && s.schoolId === schoolId);
     if (!student) return res.status(404).json({ error: "Ardayga lama helin (Student not found)" });
 
-    const invoiceId = body.id || 'inv-' + Math.random().toString(36).substring(2, 11);
+    const invoiceId = 'inv-' + crypto.randomUUID();
     const invoiceNumber = body.invoiceNumber || `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
     const items = Array.isArray(body.items) && body.items.length > 0 
       ? body.items 
@@ -799,7 +800,7 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
 
     const db = getEnsureDB();
     const newExpense = {
-      id: body.id || 'exp-' + Math.random().toString(36).substring(2, 11),
+      id: 'exp-' + crypto.randomUUID(),
       schoolId,
       expenseId: `EXP-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
       category: body.category,
@@ -966,7 +967,7 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
 
     const db = getEnsureDB();
     const newIncome = {
-      id: body.id || 'inc-' + Math.random().toString(36).substring(2, 11),
+      id: 'inc-' + crypto.randomUUID(),
       schoolId,
       incomeId: `INC-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
       category: body.category,
@@ -1076,7 +1077,7 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
 
     const db = getEnsureDB();
     const newPayroll = {
-      id: body.id || 'pr-' + Math.random().toString(36).substring(2, 11),
+      id: 'pr-' + crypto.randomUUID(),
       schoolId,
       employeeType: body.employeeType || 'Teacher',
       employeeId: body.employeeId,
@@ -1299,7 +1300,7 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
 
     const db = getEnsureDB();
     const newBudget = {
-      id: body.id || 'bg-' + Math.random().toString(36).substring(2, 11),
+      id: 'bg-' + crypto.randomUUID(),
       schoolId,
       academicYear: body.academicYear || '2026-2027',
       period: body.period || 'Annual',
