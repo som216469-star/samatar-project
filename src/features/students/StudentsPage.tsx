@@ -333,6 +333,7 @@ export default function StudentsView({
     const cleanAltPhone = formData.guardianPhoneAlt.trim();
     const cleanId = formData.id.trim().toLowerCase();
     const cleanRoll = formData.rollNumber.trim().toLowerCase();
+    const cleanSection = formData.section.trim().toLowerCase();
     const cleanNationalId = formData.nationalId.trim().toLowerCase();
 
     const timer = setTimeout(() => {
@@ -349,7 +350,9 @@ export default function StudentsView({
         const sameRoll =
           cleanRoll &&
           s.rollNumber &&
-          s.rollNumber.trim().toLowerCase() === cleanRoll;
+          s.rollNumber.trim().toLowerCase() === cleanRoll &&
+          String(s.class || '').trim().toLowerCase() === cleanClass &&
+          String(s.section || '').trim().toLowerCase() === cleanSection;
         const sameNationalId =
           cleanNationalId &&
           s.nationalId &&
@@ -799,7 +802,14 @@ export default function StudentsView({
           students.map((s) => `${String(s.fullName || '').toLowerCase().trim()}|${String(s.class || '').toLowerCase().trim()}`)
         );
         const existingRollSet = new Set(
-          students.map((s) => String(s.rollNumber || '').toLowerCase().trim()).filter(Boolean)
+          students
+            .map((s) => {
+              const roll = String(s.rollNumber || '').toLowerCase().trim();
+              const cls = String(s.class || '').toLowerCase().trim();
+              const section = String(s.section || '').toLowerCase().trim();
+              return roll ? `${cls}::${section}::${roll}` : '';
+            })
+            .filter(Boolean)
         );
         const existingNationalIdSet = new Set(
           students.map((s) => String(s.nationalId || '').toLowerCase().trim()).filter(Boolean)
@@ -909,6 +919,7 @@ export default function StudentsView({
           const rowErrors: string[] = [];
           const nameClassKey = `${fullName.toLowerCase()}|${className.toLowerCase()}`;
           const rollKey = rollNumber.toLowerCase();
+          const sectionKey = section.toLowerCase();
           const nationalKey = nationalId.toLowerCase();
 
           if (!fullName) rowErrors.push("Magaca ardayga waa maqan yahay");
@@ -941,8 +952,9 @@ export default function StudentsView({
           if (existingNamesSet.has(nameClassKey) || seenNames.has(nameClassKey)) {
             rowErrors.push("Ardaygan horey ayaa loogu diiwaangeliyey fasalkan");
           }
-          if (rollKey && (existingRollSet.has(rollKey) || seenRolls.has(rollKey))) {
-            rowErrors.push("Roll Number-kan hore ayaa loo isticmaalay");
+          const scopedRollKey = `${className.toLowerCase()}::${sectionKey}::${rollKey}`;
+          if (rollKey && (existingRollSet.has(scopedRollKey) || seenRolls.has(scopedRollKey))) {
+            rowErrors.push("Roll Number-kan hore ayaa loo isticmaalay fasalkan iyo section-kan");
           }
           if (
             nationalKey &&
@@ -955,7 +967,7 @@ export default function StudentsView({
           if (isValid) {
             valid++;
             seenNames.add(nameClassKey);
-            if (rollKey) seenRolls.add(rollKey);
+            if (rollKey) seenRolls.add(scopedRollKey);
             if (nationalKey) seenNationalIds.add(nationalKey);
           } else {
             errors++;
