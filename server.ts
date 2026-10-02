@@ -1917,8 +1917,7 @@ async function getStudentDependencyIds(studentIds: string[], schoolId: string): 
         .from(table)
         .select(column)
         .eq("school_id", schoolId)
-        .in(column, studentIds)
-        .limit(STUDENT_MAX_BULK);
+        .in(column, studentIds);
       if (error) throw error;
       return (data || []).map((row: any) => String(row[column] || ""));
     })
