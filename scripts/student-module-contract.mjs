@@ -41,6 +41,10 @@ assertContains(server, 'getStudentDependencyIds(studentIds, schoolId)', "tenant-
 assertContains(server, 'recordStudentAudit(', "student audit trail");
 assertContains(server, 'handleStudentSupabaseError(', "safe student DB error handling");
 assertContains(server, 'process.env.NODE_ENV === "production"', "production split-brain protection");
+assertContains(server, 'routeKey === "import"', "student import rate limiting");
+assertContains(server, 'routeKey === "bulk"', "student bulk rate limiting");
+assertContains(server, 'canViewSensitiveStudentData(authUser)', "student sensitive data policy");
+
 
 // Student input and UX contracts.
 assertContains(studentsPage, "getStudentPermissions(userRole)", "frontend student RBAC");
