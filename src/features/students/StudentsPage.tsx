@@ -205,6 +205,7 @@ export default function StudentsView({
     createdAt: '',
     guardianRelationship: '',
     guardianPhoneAlt: '',
+    emergencyContact: '',
     nationalId: '',
     previousSchool: '',
     bloodGroup: '',
@@ -353,6 +354,7 @@ export default function StudentsView({
     const cleanClass = formData.class;
     const cleanPhone = formData.guardianPhone.trim();
     const cleanAltPhone = formData.guardianPhoneAlt.trim();
+    const cleanEmergencyContact = formData.emergencyContact.trim();
     const cleanId = formData.id.trim().toLowerCase();
     const cleanRoll = formData.rollNumber.trim().toLowerCase();
     const cleanSection = formData.section.trim().toLowerCase();
@@ -417,6 +419,7 @@ export default function StudentsView({
     formData.class,
     formData.guardianPhone,
     formData.guardianPhoneAlt,
+    formData.emergencyContact,
     formData.id,
     formData.rollNumber,
     formData.nationalId,
@@ -625,6 +628,7 @@ export default function StudentsView({
       createdAt: new Date().toISOString().split('T')[0],
       guardianRelationship: '',
       guardianPhoneAlt: '',
+      emergencyContact: '',
       nationalId: '',
       previousSchool: '',
       bloodGroup: '',
@@ -653,6 +657,7 @@ export default function StudentsView({
       createdAt: student.createdAt || '',
       guardianRelationship: student.guardianRelationship || '',
       guardianPhoneAlt: student.guardianPhoneAlt || '',
+      emergencyContact: student.emergencyContact || '',
       nationalId: student.nationalId || '',
       previousSchool: student.previousSchool || '',
       bloodGroup: student.bloodGroup || '',
@@ -696,6 +701,10 @@ export default function StudentsView({
 
     if (formData.guardianPhoneAlt && !/^[0-9+()\s.-]{7,30}$/.test(formData.guardianPhoneAlt.trim())) {
       errors.guardianPhoneAlt = 'Telefoonka labaad ma saxna';
+    }
+
+    if (formData.emergencyContact && !/^[0-9+()\s.-]{7,60}$/.test(formData.emergencyContact.trim())) {
+      errors.emergencyContact = 'Emergency Contact ma saxna';
     }
 
     if (formData.dateOfBirth) {
@@ -986,6 +995,11 @@ export default function StudentsView({
           "Guardian Phone Alt",
           "guardianPhoneAlt"
         );
+        const emergencyContact = get(
+          "Emergency Contact",
+          "Emergency Contact Phone",
+          "emergencyContact"
+        );
         const address = get("Address", "Cinwaanka (Address)", "address");
         const dateOfBirth = get("Date of Birth", "dateOfBirth");
         const nationalId = get("National ID", "nationalId");
@@ -1041,6 +1055,9 @@ export default function StudentsView({
         if (guardianPhoneAlt && !/^[+0-9()\s.-]{7,30}$/.test(guardianPhoneAlt)) {
           rowErrors.push("Telefoonka labaad ma saxna");
         }
+        if (emergencyContact && !/^[+0-9()\s.-]{7,60}$/.test(emergencyContact)) {
+          rowErrors.push("Emergency Contact ma saxna");
+        }
         if (nationalId.length > 80) rowErrors.push("National ID aad buu u dheer yahay");
         if (medicalNotes.length > 2000) rowErrors.push("Medical Notes aad bay u dheer yihiin");
         if (dateOfBirth) {
@@ -1092,6 +1109,7 @@ export default function StudentsView({
             guardianName,
             guardianRelationship,
             guardianPhoneAlt,
+            emergencyContact,
             address,
             dateOfBirth,
             nationalId,
