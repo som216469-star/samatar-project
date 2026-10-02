@@ -248,6 +248,8 @@ export default function StudentAddView({
     }
     if (!formData.class) {
       errs.class = 'Fasalka waa qasab (Class is required)';
+    } else if (availableSections.length > 0 && !formData.section.trim()) {
+      errs.section = 'Section-ka waa qasab fasalkan.';
     }
     if (!formData.guardianPhone.trim()) {
       errs.guardianPhone = 'Telefoonka waalidka waa qasab (Guardian phone is required)';
@@ -566,7 +568,7 @@ export default function StudentAddView({
 
             <div className="space-y-1.5">
               <label className="font-semibold text-[var(--color-text-secondary)] block">
-                Qeybta / Section (Optional)
+                {availableSections.length > 0 ? 'Qeybta / Section *' : 'Qeybta / Section (Optional)'}
               </label>
               {availableSections.length > 0 ? (
                 <select
