@@ -769,6 +769,12 @@ export default function StudentsView({
     if (!files || files.length === 0) return;
     const file = files[0];
 
+    if (file.size > 10 * 1024 * 1024) {
+      showToast("Faylka kama badnaan karo 10MB.", "error");
+      e.target.value = '';
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = (evt) => {
       try {
@@ -783,61 +789,205 @@ export default function StudentsView({
           return;
         }
 
-        const classNamesSet = new Set(classes.map(c => c.className.toLowerCase().trim()));
-        const existingNamesSet = new Set(students.map(s => `${s.fullName.toLowerCase().trim()}|${s.class.toLowerCase().trim()}`));
+        if (rawData.length > 500) {
+          showToast("Hal import kama badnaan karo 500 arday.", "error");
+          return;
+        }
+
+        const classNamesSet = new Set(classes.map((item) => item.className.toLowerCase().trim()));
+        const existingNamesSet = new Set(
+          students.map((s) => `${String(s.fullName || '').toLowerCase().trim()}|${String(s.class || '').toLowerCase().trim()}`)
+        );
+        const existingRollSet = new Set(
+          students.map((s) => String(s.rollNumber || '').toLowerCase().trim()).filter(Boolean)
+        );
+        const existingNationalIdSet = new Set(
+          students.map((s) => String(s.nationalId || '').toLowerCase().trim()).filter(Boolean)
+        );
         const parsedRows: any[] = [];
+        const seenNames = new Set<string>();
+        const seenRolls = new Set<string>();
+        const seenNationalIds = new Set<string>();
         let valid = 0;
         let errors = 0;
 
         rawData.forEach((row: any, index: number) => {
-          const rowNum = index + 2; // header is row 1
-          const fullName = String(row["Magaca Ardayga (Full Name) *"] || row["Magaca Ardayga (Full Name)"] || row["fullName"] || row["Full Name"] || "").trim();
-          const className = String(row["Fasalka (Class) *"] || row["Fasalka (Class)"] || row["class"] || row["Class"] || "").trim();
-          const studentId = String(row["Student ID (Optional)"] || row["Student ID"] || row["id"] || "").trim();
-          const section = String(row["Section"] || "").trim();
-          const rollNumber = String(row["Roll Number"] || "").trim();
-          const genderRaw = String(row["Lab/Dhedig (Gender - Male/Female)"] || row["gender"] || "Male").trim();
-          const gender = genderRaw.toLowerCase().startsWith('f') || genderRaw.toLowerCase().startsWith('d') ? 'Female' : 'Male';
-          const guardianPhone = String(row["Telefoonka Waalidka (Guardian Phone)"] || row["guardianPhone"] || "").trim();
-          const guardianName = String(row["Magaca Waalidka (Guardian Name)"] || row["guardianName"] || "").trim();
-          const statusRaw = String(row["Status (active/inactive/archived)"] || row["status"] || "active").toLowerCase().trim();
-          const status = statusRaw === 'archived' ? 'archived' : statusRaw === 'inactive' ? 'inactive' : 'active';
+          const rowNum = index + 2;
+          const fullName = String(
+            row["Magaca Ardayga (Full Name) *"] ||
+            row["Magaca Ardayga (Full Name)"] ||
+            row["fullName"] ||
+            row["Full Name"] ||
+            ""
+          ).trim();
+          const className = String(
+            row["Fasalka (Class) *"] ||
+            row["Fasalka (Class)"] ||
+            row["class"] ||
+            row["Class"] ||
+            ""
+          ).trim();
+          const studentId = String(
+            row["Student ID (Optional)"] ||
+            row["Student ID"] ||
+            row["id"] ||
+            ""
+          ).trim();
+          const section = String(row["Section"] || row["Qeybta (Section)"] || "").trim();
+          const rollNumber = String(row["Roll Number"] || row["RollNumber"] || "").trim();
+          const genderRaw = String(
+            row["Lab/Dhedig (Gender - Male/Female)"] ||
+            row["gender"] ||
+            "Male"
+          ).trim();
+          const genderKey = genderRaw.toLowerCase();
+          const gender =
+            genderKey === "female" ||
+            genderKey === "f" ||
+            genderKey === "dhedig" ||
+            genderKey === "d"
+              ? "Female"
+              : genderKey === "male" ||
+                genderKey === "m" ||
+                genderKey === "lab"
+              ? "Male"
+              : "";
+
+          const guardianPhone = String(
+            row["Telefoonka Waalidka (Guardian Phone)"] ||
+            row["Telefoonka Waalidka (Guardian Phone) *"] ||
+            row["guardianPhone"] ||
+            ""
+          ).trim();
+          const guardianName = String(
+            row["Magaca Waalidka (Guardian Name)"] ||
+            row["guardianName"] ||
+            ""
+          ).trim();
+          const guardianRelationship = String(
+            row["Xiriirka Waalidka (Relationship)"] ||
+            row["Guardian Relationship"] ||
+            row["guardianRelationship"] ||
+            ""
+          ).trim();
+          const guardianPhoneAlt = String(
+            row["Telefoon Labaad (Guardian Phone Alt)"] ||
+            row["Guardian Phone Alt"] ||
+            row["guardianPhoneAlt"] ||
+            ""
+          ).trim();
+          const address = String(row["Address"] || row["address"] || "").trim();
+          const dateOfBirth = String(
+            row["Date of Birth"] ||
+            row["dateOfBirth"] ||
+            ""
+          ).trim();
+          const nationalId = String(row["National ID"] || row["nationalId"] || "").trim();
+          const previousSchool = String(
+            row["Previous School"] ||
+            row["Iskuulkii Hore (Previous School)"] ||
+            row["previousSchool"] ||
+            ""
+          ).trim();
+          const bloodGroup = String(row["Blood Group"] || row["bloodGroup"] || "").trim();
+          const medicalNotes = String(
+            row["Medical Notes"] ||
+            row["Xusuusin Caafimaad"] ||
+            row["medicalNotes"] ||
+            ""
+          ).trim();
+          const statusRaw = String(
+            row["Status (active/inactive/archived)"] ||
+            row["status"] ||
+            "active"
+          ).toLowerCase().trim();
+          const status =
+            statusRaw === "active" || statusRaw === "inactive" || statusRaw === "archived"
+              ? statusRaw
+              : "";
 
           const rowErrors: string[] = [];
+          const nameClassKey = `${fullName.toLowerCase()}|${className.toLowerCase()}`;
+          const rollKey = rollNumber.toLowerCase();
+          const nationalKey = nationalId.toLowerCase();
 
-          if (!fullName) {
-            rowErrors.push("Magaca ardayga waa maqan yahay");
+          if (!fullName) rowErrors.push("Magaca ardayga waa maqan yahay");
+          else if (fullName.split(/\s+/).filter(Boolean).length < 2) {
+            rowErrors.push("Magaca ardayga waa inuu leeyahay ugu yaraan 2 magac");
           }
+
           if (!className) {
             rowErrors.push("Fasalka waa maqan yahay");
-          } else if (classes.length > 0 && !classNamesSet.has(className.toLowerCase().trim())) {
+          } else if (classes.length > 0 && !classNamesSet.has(className.toLowerCase())) {
             rowErrors.push(`Fasalka '${className}' kama jiro nidaamka`);
           }
 
-          const dupKey = `${fullName.toLowerCase()}|${className.toLowerCase()}`;
-          if (existingNamesSet.has(dupKey)) {
+          if (!gender) rowErrors.push("Gender-ka waa inuu noqdaa Male ama Female");
+          if (!guardianPhone) rowErrors.push("Telefoonka waalidka waa qasab");
+          else if (!/^[+0-9()\s.-]{7,30}$/.test(guardianPhone)) {
+            rowErrors.push("Telefoonka waalidka ma saxna");
+          }
+          if (guardianPhoneAlt && !/^[+0-9()\s.-]{7,30}$/.test(guardianPhoneAlt)) {
+            rowErrors.push("Telefoonka labaad ma saxna");
+          }
+          if (!status) rowErrors.push("Status-ku ma saxna");
+          if (dateOfBirth) {
+            const dob = new Date(dateOfBirth + "T00:00:00");
+            if (Number.isNaN(dob.getTime()) || dob > new Date()) {
+              rowErrors.push("Date of Birth ma saxna");
+            }
+          }
+
+          if (existingNamesSet.has(nameClassKey) || seenNames.has(nameClassKey)) {
             rowErrors.push("Ardaygan horey ayaa loogu diiwaangeliyey fasalkan");
+          }
+          if (rollKey && (existingRollSet.has(rollKey) || seenRolls.has(rollKey))) {
+            rowErrors.push("Roll Number-kan hore ayaa loo isticmaalay");
+          }
+          if (
+            nationalKey &&
+            (existingNationalIdSet.has(nationalKey) || seenNationalIds.has(nationalKey))
+          ) {
+            rowErrors.push("National ID-gan hore ayaa loo isticmaalay");
           }
 
           const isValid = rowErrors.length === 0;
-          if (isValid) valid++;
-          else errors++;
+          if (isValid) {
+            valid++;
+            seenNames.add(nameClassKey);
+            if (rollKey) seenRolls.add(rollKey);
+            if (nationalKey) seenNationalIds.add(nationalKey);
+          } else {
+            errors++;
+          }
 
           parsedRows.push({
             rowNum,
             isValid,
             errors: rowErrors,
             data: {
-              id: studentId || 'std-' + Math.random().toString(36).substr(2, 9),
+              id:
+                studentId ||
+                (typeof crypto !== "undefined" && "randomUUID" in crypto
+                  ? "STD-" + crypto.randomUUID().slice(0, 8).toUpperCase()
+                  : "STD-" + Date.now().toString(36).toUpperCase()),
               fullName,
               class: className,
               section,
               rollNumber,
-              gender,
+              gender: gender || "Male",
               guardianPhone,
               guardianName,
-              status,
-              createdAt: new Date().toISOString().split('T')[0]
+              guardianRelationship,
+              guardianPhoneAlt,
+              address,
+              dateOfBirth,
+              nationalId,
+              previousSchool,
+              bloodGroup,
+              medicalNotes,
+              status: status || "active",
+              createdAt: new Date().toISOString().split("T")[0]
             }
           });
         });
