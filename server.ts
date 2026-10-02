@@ -1479,25 +1479,35 @@ async function assertStudentClassCapacity(
   schoolId: string,
   className: string,
   additionalStudents: number,
-  excludeStudentIds: string[] = []
+  excludeStudentIds: string[] = [],
+  sectionName = ''
 ): Promise<{ ok: boolean; error?: string }> {
   const cleanClass = className.trim();
+  const cleanSection = sectionName.trim();
   if (!cleanClass || additionalStudents <= 0) return { ok: true };
 
   if (!useLocalFallback) {
     const { data: classRows, error: classError } = await supabase
       .from("dugsiga_classes")
-      .select("id,class_name,capacity")
+      .select("id,class_name,section,capacity")
       .eq("school_id", schoolId)
       .eq("class_name", cleanClass)
-      .limit(1);
+      .limit(50);
 
     if (classError) throw classError;
-    const classRow = classRows?.[0];
-    const capacity = Number(classRow?.capacity);
 
+    const classRow =
+      (classRows || []).find((row: any) =>
+        cleanSection &&
+        String(row.section || '').trim().toLowerCase() === cleanSection.toLowerCase()
+      ) ||
+      (classRows || []).find((row: any) => !String(row.section || '').trim()) ||
+      (classRows || [])[0];
+
+    const capacity = Number(classRow?.capacity);
     if (!classRow || !Number.isFinite(capacity) || capacity <= 0) return { ok: true };
 
+    const classRowSection = String(classRow.section || '').trim();
     let query = supabase
       .from("dugsiga_students")
       .select("id", { count: "exact", head: true })
@@ -1505,8 +1515,13 @@ async function assertStudentClassCapacity(
       .eq("class", cleanClass)
       .neq("status", "archived");
 
+    if (classRowSection) query = query.eq("section", classRowSection);
+
     if (excludeStudentIds.length > 0) {
-      query = query.not("id", "in", `(${excludeStudentIds.join(",")})`);
+      const safeIds = excludeStudentIds.filter((id) => /^[A-Za-z0-9][A-Za-z0-9._-]{1,79}$/.test(id));
+      if (safeIds.length > 0) {
+        query = query.not("id", "in", `(${safeIds.join(',')})`);
+      }
     }
 
     const { count, error } = await query;
@@ -1514,41 +1529,45 @@ async function assertStudentClassCapacity(
 
     const currentActive = Number(count || 0);
     if (currentActive + additionalStudents > capacity) {
-      return {
-        ok: false,
-        error: `Fasalka ${cleanClass} wuxuu buuxsamay. Capacity-ga waa ${capacity}, hadda waxaa ku jira ${currentActive} arday firfircoon.`
-      };
+      const scope = classRowSection ? cleanClass + ' / ' + classRowSection : cleanClass;
+      return { ok: false, error: `Fasalka ${scope} wuxuu buuxsamay. Capacity-ga waa ${capacity}, hadda waxaa ku jira ${currentActive} arday firfircoon.` };
     }
-
     return { ok: true };
   }
 
   const db = loadLocalDB();
-  const classRow = (db.classes || []).find(
-    (item: any) => item.schoolId === schoolId && String(item.className || "").trim() === cleanClass
+  const classRows = (db.classes || []).filter(
+    (item: any) => item.schoolId === schoolId && String(item.className || '').trim() === cleanClass
   );
+  const classRow =
+    classRows.find((item: any) =>
+      cleanSection && String(item.section || '').trim().toLowerCase() === cleanSection.toLowerCase()
+    ) ||
+    classRows.find((item: any) => !String(item.section || '').trim()) ||
+    classRows[0];
+
   const capacity = Number(classRow?.capacity);
   if (!classRow || !Number.isFinite(capacity) || capacity <= 0) return { ok: true };
 
+  const classRowSection = String(classRow.section || '').trim();
   const excluded = new Set(excludeStudentIds);
-  const currentActive = (db.students || []).filter(
-    (student: any) =>
-      student.schoolId === schoolId &&
-      String(student.class || "").trim() === cleanClass &&
-      String(student.status || "active").toLowerCase() !== "archived" &&
-      !excluded.has(student.id)
-  ).length;
+  const currentActive = (db.students || []).filter((student: any) => {
+    if (student.schoolId !== schoolId) return false;
+    if (String(student.class || '').trim() !== cleanClass) return false;
+    if (String(student.status || 'active').toLowerCase() === 'archived') return false;
+    if (excluded.has(student.id)) return false;
+    if (classRowSection) {
+      return String(student.section || '').trim().toLowerCase() === classRowSection.toLowerCase();
+    }
+    return true;
+  }).length;
 
   if (currentActive + additionalStudents > capacity) {
-    return {
-      ok: false,
-      error: `Fasalka ${cleanClass} wuxuu buuxsamay. Capacity-ga waa ${capacity}, hadda waxaa ku jira ${currentActive} arday firfircoon.`
-    };
+    const scope = classRowSection ? cleanClass + ' / ' + classRowSection : cleanClass;
+    return { ok: false, error: `Fasalka ${scope} wuxuu buuxsamay. Capacity-ga waa ${capacity}, hadda waxaa ku jira ${currentActive} arday firfircoon.` };
   }
-
   return { ok: true };
 }
-
 async function studentClassExists(schoolId: string, className: string): Promise<boolean> {
   const cleanClass = className.trim();
   if (!cleanClass) return false;
@@ -2320,7 +2339,8 @@ app.post("/api/students/import", async (req, res) => {
         continue;
       }
 
-      batchClassCounts.set(classKey, (batchClassCounts.get(classKey) || 0) + 1);
+      const capacityKey = classKey + '::' + sectionKey;
+      batchClassCounts.set(capacityKey, (batchClassCounts.get(capacityKey) || 0) + 1);
 
       if (currentIds.has(idKey) || batchIds.has(idKey)) {
         errors.push({ row: item.row, error: "Student ID-ga hore ayaa loo isticmaalay." });
@@ -2371,13 +2391,24 @@ app.post("/api/students/import", async (req, res) => {
     }
 
     if (errors.length === 0 && batchClassCounts.size > 0) {
-      for (const [classKey, additional] of batchClassCounts.entries()) {
-        const className = normalizedRows.find(
-          (item) => String(item.student.class || "").trim().toLowerCase() === classKey
-        )?.student.class;
+      for (const [capacityKey, additional] of batchClassCounts.entries()) {
+        const separator = capacityKey.indexOf('::');
+        const classKey = separator >= 0 ? capacityKey.slice(0, separator) : capacityKey;
+        const sectionKey = separator >= 0 ? capacityKey.slice(separator + 2) : '';
+        const match = normalizedRows.find((item) =>
+          String(item.student.class || '').trim().toLowerCase() === classKey &&
+          String(item.student.section || '').trim().toLowerCase() === sectionKey
+        );
+        const className = match?.student.class;
         if (!className) continue;
 
-        const capacity = await assertStudentClassCapacity(schoolId, String(className), additional);
+        const capacity = await assertStudentClassCapacity(
+          schoolId,
+          String(className),
+          additional,
+          [],
+          String(match?.student.section || '')
+        );
         if (!capacity.ok) {
           errors.push({ row: 1, error: capacity.error || "Class capacity waa buuxsamay." });
         }
@@ -2505,6 +2536,7 @@ app.post("/api/students/bulk", async (req, res) => {
 
   const targetStatus = typeof req.body?.targetStatus === "string" ? req.body.targetStatus.trim().toLowerCase() : "";
   const targetClass = typeof req.body?.targetClass === "string" ? req.body.targetClass.trim() : "";
+  const targetSection = typeof req.body?.targetSection === "string" ? req.body.targetSection.trim() : "";
   if ((action === "change_status" && !STUDENT_ALLOWED_STATUSES.has(targetStatus)) || (action === "change_class" && !targetClass)) {
     return res.status(400).json({ error: "Qiimaha bulk-ga ma saxna." });
   }
@@ -2520,7 +2552,8 @@ app.post("/api/students/bulk", async (req, res) => {
           schoolId,
           targetClass,
           studentIds.length,
-          studentIds
+          studentIds,
+          targetSection
         );
         if (!capacity.ok) return res.status(409).json({ error: capacity.error });
       }
@@ -2554,7 +2587,12 @@ app.post("/api/students/bulk", async (req, res) => {
 
       const nextStatus = action === "archive" ? "archived" : action === "change_status" ? targetStatus : undefined;
       const updateObj: any = { updated_at: new Date().toISOString() };
-      if (action === "change_class") updateObj.class = targetClass;
+      if (action === "change_class") {
+        updateObj.class = targetClass;
+        if (Object.prototype.hasOwnProperty.call(req.body || {}, "targetSection")) {
+          updateObj.section = targetSection;
+        }
+      }
       if (nextStatus) updateObj.status = nextStatus;
 
       const { data: updated, error } = await supabase.from("dugsiga_students").update(updateObj).eq("school_id", schoolId).in("id", studentIds).select("id,status");
@@ -2612,10 +2650,14 @@ app.post("/api/students", async (req, res) => {
         return res.status(400).json({ error: "Fasalka la doortay kama jiro school-kan." });
       }
 
-      const capacity = await assertStudentClassCapacity(schoolId, student.class, 1);
+      const capacity = await assertStudentClassCapacity(schoolId, student.class, 1, [], student.section || '');
       if (!capacity.ok) return res.status(409).json({ error: capacity.error });
 
-      const conflict = await findStudentUniquenessConflict(schoolId, { ...student, id: studentId });
+      const conflict = await findStudentUniquenessConflict(schoolId, {
+        ...student,
+        id: studentId,
+        section: student.section || ''
+      });
       if (conflict) return res.status(409).json({ error: conflict });
 
       const insertObj = {
@@ -2666,7 +2708,10 @@ app.post("/api/students", async (req, res) => {
       s.id !== studentId &&
       (
         (s.fullName || "").trim().toLowerCase() === student.fullName.toLowerCase() && (s.class || "").trim() === student.class ||
-        (student.rollNumber && (s.rollNumber || "").trim().toLowerCase() === student.rollNumber.toLowerCase()) ||
+        (student.rollNumber &&
+          (s.rollNumber || "").trim().toLowerCase() === student.rollNumber.toLowerCase() &&
+          String(s.class || "").trim().toLowerCase() === String(student.class || "").trim().toLowerCase() &&
+          String(s.section || "").trim().toLowerCase() === String(student.section || "").trim().toLowerCase()) ||
         (student.nationalId && (s.nationalId || "").trim().toLowerCase() === student.nationalId.toLowerCase())
       )
     );
@@ -2711,7 +2756,13 @@ app.put("/api/students/:id", async (req, res) => {
         updates.class !== undefined &&
         String(nextClass).trim() !== String(current.class || "").trim()
       ) {
-        const capacity = await assertStudentClassCapacity(schoolId, String(nextClass), 1, [id]);
+        const capacity = await assertStudentClassCapacity(
+          schoolId,
+          String(nextClass),
+          1,
+          [id],
+          String(updates.section ?? current.section ?? '')
+        );
         if (!capacity.ok) return res.status(409).json({ error: capacity.error });
       }
 
@@ -2720,7 +2771,8 @@ app.put("/api/students/:id", async (req, res) => {
         fullName: updates.fullName ?? current.full_name,
         class: nextClass,
         rollNumber: updates.rollNumber ?? current.roll_number,
-        nationalId: updates.nationalId ?? current.national_id
+        nationalId: updates.nationalId ?? current.national_id,
+        section: updates.section ?? current.section ?? ''
       };
       const conflict = await findStudentUniquenessConflict(schoolId, candidate, id);
       if (conflict) return res.status(409).json({ error: conflict });
@@ -2764,7 +2816,12 @@ app.put("/api/students/:id", async (req, res) => {
       s.schoolId === schoolId && s.id !== id &&
       (
         (updates.fullName && updates.class && (s.fullName || "").trim().toLowerCase() === updates.fullName.toLowerCase() && (s.class || "").trim() === updates.class) ||
-        (updates.rollNumber && (s.rollNumber || "").trim().toLowerCase() === updates.rollNumber.toLowerCase()) ||
+        (updates.rollNumber &&
+          (s.rollNumber || "").trim().toLowerCase() === updates.rollNumber.toLowerCase() &&
+          String(s.class || "").trim().toLowerCase() ===
+            String(updates.class ?? current.class ?? "").trim().toLowerCase() &&
+          String(s.section || "").trim().toLowerCase() ===
+            String(updates.section ?? current.section ?? "").trim().toLowerCase()) ||
         (updates.nationalId && (s.nationalId || "").trim().toLowerCase() === updates.nationalId.toLowerCase())
       )
     );
