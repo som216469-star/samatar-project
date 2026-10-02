@@ -650,11 +650,13 @@ export const AppShell: React.FC<AppShellProps> = ({
 
                   if (hasChildren) {
                     return (
-                      <div className="group flex items-center rounded-[var(--radius-sm)] transition-colors ${
-                        active
-                          ? 'bg-[var(--sidebar-active-bg)] text-white font-semibold'
-                          : 'text-[var(--sidebar-text)] hover:bg-[var(--sidebar-hover-bg)] hover:text-white'
-                      }>
+                      <div
+                        className={`group flex items-center rounded-[var(--radius-sm)] transition-colors ${
+                          active
+                            ? 'bg-[var(--sidebar-active-bg)] text-white font-semibold'
+                            : 'text-[var(--sidebar-text)] hover:bg-[var(--sidebar-hover-bg)] hover:text-white'
+                        }`}
+                      >
                         <button
                           type="button"
                           onClick={() => {
@@ -671,7 +673,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                         >
                           <div className="flex items-center gap-2.5 min-w-0">
                             <Icon
-                              className={`w-4 h-4 shrink-0 ${active ? 'text-[var(--color-accent)]' : 'text-[var(--sidebar-text-muted)]'}`}}
+                              className={`w-4 h-4 shrink-0 ${active ? 'text-[var(--color-accent)]' : 'text-[var(--sidebar-text-muted)]'}`}
                             />
                             {!collapsed && <span className="truncate">{item.label}</span>}
                           </div>
@@ -684,10 +686,27 @@ export const AppShell: React.FC<AppShellProps> = ({
                                 </span>
                               )}
                               <ChevronDown
-                                className={`w-3.5 h-3.5 text-[var(--sidebar-text-muted)] transition-transform duration-150 ${isExpanded ? 'rotate-180 text-white' : ''}`}}
+                                className={`w-3.5 h-3.5 text-[var(--sidebar-text-muted)] transition-transform duration-150 ${isExpanded ? 'rotate-180 text-white' : ''}`}
                               />
                             </div>
                           )}
+                        </button>
+
+                        {!collapsed && (
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              toggleFavoriteNav(item.id);
+                            }}
+                            aria-label={favoriteNavIds.includes(item.id) ? `Unpin ${item.label}` : `Pin ${item.label}`}
+                            title={favoriteNavIds.includes(item.id) ? "Unpin from sidebar" : "Pin to sidebar"}
+                            className={`mr-1.5 p-1.5 rounded-[var(--radius-xs)] cursor-pointer transition-colors ${favoriteNavIds.includes(item.id) ? 'text-[var(--color-accent)] bg-[var(--color-brand-soft)]' : 'text-[var(--sidebar-text-muted)] hover:text-[var(--color-accent)] hover:bg-white/5 opacity-0 group-hover:opacity-100 focus-visible:opacity-100'}`}
+                          >
+                            <Star className={`w-3.5 h-3.5 ${favoriteNavIds.includes(item.id) ? 'fill-current' : ''}`} />
+                          </button>
+                        )}
+                      </div>
                         </button>
 
                         {!collapsed && (
