@@ -174,14 +174,6 @@ begin
     return new;
   end if;
 
-  lock_key := hashtextextended(
-    coalesce(new.school_id, '') || '|' ||
-    lower(btrim(coalesce(new.class, ''))) || '|' ||
-    lower(btrim(coalesce(new.section, ''))),
-    0
-  );
-  perform pg_advisory_xact_lock(lock_key);
-
   select c.capacity, btrim(coalesce(c.section, ''))
     into class_capacity, class_section
   from public.dugsiga_classes c
@@ -202,6 +194,15 @@ begin
   if class_capacity is null or class_capacity <= 0 then
     return new;
   end if;
+
+  -- Lock by actual capacity scope: section-specific or whole-class.
+  lock_key := hashtextextended(
+    coalesce(new.school_id, '') || '|' ||
+    lower(btrim(coalesce(new.class, ''))) || '|' ||
+    lower(btrim(coalesce(class_section, ''))),
+    0
+  );
+  perform pg_advisory_xact_lock(lock_key);
 
   select count(*)::integer
     into active_student_count
