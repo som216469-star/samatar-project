@@ -10,8 +10,11 @@
 /* Public Marketing Website Scoped Typography & Surfaces */
 .landing-root {
   font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, sans-serif;
-  background-color: #06080f;
-  color: #f8fafc;
+  background:
+    radial-gradient(circle at 50% -12%, rgba(139, 92, 246, 0.18), transparent 34%),
+    radial-gradient(circle at 90% 20%, rgba(34, 211, 238, 0.06), transparent 22%),
+    #07070f;
+  color: #f8f7ff;
 }
 
 .landing-display {
@@ -27,8 +30,8 @@
 .landing-grid-bg {
   background-size: 48px 48px;
   background-image: 
-    linear-gradient(to right, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+    linear-gradient(to right, rgba(196, 181, 253, 0.055) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(196, 181, 253, 0.055) 1px, transparent 1px);
 }
 
 /* ==========================================================================
@@ -641,4 +644,21 @@ body {
     from { opacity: 0; transform: translateY(6px); }
     to { opacity: 1; transform: translateY(0); }
   }
+}
+
+/* Landing-page visual refinement */
+.landing-root [class*="border-white/"] {
+  border-color: rgba(255, 255, 255, 0.09) !important;
+}
+
+.landing-root [class*="bg-white/"] {
+  background-color: rgba(255, 255, 255, 0.035) !important;
+}
+
+.landing-root button:not([disabled]) {
+  transition: transform var(--motion-fast), box-shadow var(--motion-fast), background-color var(--motion-fast), border-color var(--motion-fast);
+}
+
+.landing-root button:not([disabled]):hover {
+  transform: translateY(-1px);
 }
