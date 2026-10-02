@@ -1,7 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Download } from 'lucide-react';
+import {
+  Plus,
+  Search,
+  Download,
+  GraduationCap,
+  Briefcase,
+  Users,
+  ShieldCheck
+} from 'lucide-react';
 import { Teacher, StaffMember, Guardian, SchoolClass, SchoolSubject } from '../../types';
-import { ConfirmDialog } from '../../components/ui/primitives';
+import { PageContainer, PageHeader } from '../../components/layout/PageLayout';
+import { Button, Card, ConfirmDialog, StatCard } from '../../components/ui/primitives';
 import { apiFetch } from '../../lib/apiClient';
 import { exportTeachersToPDF, exportTeachersToExcel } from './peopleExportUtils';
 import {
@@ -39,8 +48,6 @@ export default function PeopleView({
   staff,
   guardians,
   classes,
-  subjects,
-  students = [],
   onAddTeacher,
   onUpdateTeacher,
   onDeleteTeacher,
@@ -89,7 +96,7 @@ export default function PeopleView({
 
   const handleResendInvitation = async (teacher: Teacher) => {
     if (!teacher.email || !teacher.email.includes('@')) {
-      showToast("Macallinkani ma laha email sax ah.", "error");
+      showToast('Macallinkani ma laha email sax ah.', 'error');
       return;
     }
     setResendingId(teacher.id);
@@ -100,15 +107,15 @@ export default function PeopleView({
       });
       const data = await res.json();
       if (!res.ok) {
-        showToast(data.error || "Casuumaadda dib looma diri karin.", "error");
+        showToast(data.error || 'Casuumaadda dib looma diri karin.', 'error');
       } else {
         showToast(data.message || `Casuumaad cusub waxaa loo diray ${teacher.email}`);
         if (data.activationLink && navigator.clipboard) {
           navigator.clipboard.writeText(data.activationLink).catch(() => {});
         }
       }
-    } catch (err: any) {
-      showToast("Cilad farsamo ayaa dhacday casuumaadda.", "error");
+    } catch {
+      showToast('Cilad farsamo ayaa dhacday casuumaadda.', 'error');
     } finally {
       setResendingId(null);
     }
@@ -117,11 +124,10 @@ export default function PeopleView({
   const handleCopyActivationLink = async (teacher: Teacher) => {
     try {
       const baseUrl = window.location.origin;
-      let link = "";
+      let link = '';
       if (teacher.invitationToken) {
         link = `${baseUrl}/activate-teacher?token=${teacher.invitationToken}`;
       } else {
-        // Generate or get new link via resend
         const res = await apiFetch(`/api/teachers/${teacher.id}/resend-invitation`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' }
@@ -131,12 +137,12 @@ export default function PeopleView({
       }
       if (navigator.clipboard) {
         await navigator.clipboard.writeText(link);
-        showToast("Link-ga casuumaadda waxaa lagu koobiyeeyay clipboard-kaaga!");
+        showToast('Link-ga casuumaadda waxaa lagu koobiyeeyay clipboard-kaaga!');
       } else {
-        showToast(`Link: ${link}`, "info");
+        showToast(`Link: ${link}`, 'info');
       }
-    } catch (e) {
-      showToast("Ma suurtogalin in link-ga la koobiyeeyo.", "error");
+    } catch {
+      showToast('Ma suurtogalin in link-ga la koobiyeeyo.', 'error');
     }
   };
 
@@ -158,10 +164,10 @@ export default function PeopleView({
             teacher.status = newStatus;
             showToast(`Akoonka macallinka ${teacher.name} waxaa laga dhigay: ${newStatus}`);
           } else {
-            showToast("Cilad ayaa dhacday beddelidda xaaladda.", "error");
+            showToast('Cilad ayaa dhacday beddelidda xaaladda.', 'error');
           }
         } catch {
-          showToast("Cilad farsamo ayaa dhacday.", "error");
+          showToast('Cilad farsamo ayaa dhacday.', 'error');
         } finally {
           setConfirmState((prev) => ({ ...prev, isOpen: false }));
         }
@@ -169,7 +175,6 @@ export default function PeopleView({
     });
   };
 
-  // Modals
   const [showTeacherModal, setShowTeacherModal] = useState(false);
   const [editingTeacher, setEditingTeacher] = useState<Teacher | null>(null);
   const [teacherForm, setTeacherForm] = useState({
@@ -179,7 +184,12 @@ export default function PeopleView({
     gender: 'Male' as 'Male' | 'Female',
     qualification: '',
     specialization: '',
-    employmentStatus: 'Full-Time' as 'Full-Time' | 'Part-Time' | 'Contract' | 'On Leave' | 'Terminated',
+    employmentStatus: 'Full-Time' as
+      | 'Full-Time'
+      | 'Part-Time'
+      | 'Contract'
+      | 'On Leave'
+      | 'Terminated',
     salary: 0,
     hireDate: new Date().toISOString().split('T')[0],
     address: '',
@@ -198,7 +208,12 @@ export default function PeopleView({
     phone: '',
     email: '',
     salary: 0,
-    employmentStatus: 'Full-Time' as 'Full-Time' | 'Part-Time' | 'Contract' | 'On Leave' | 'Terminated',
+    employmentStatus: 'Full-Time' as
+      | 'Full-Time'
+      | 'Part-Time'
+      | 'Contract'
+      | 'On Leave'
+      | 'Terminated',
     hireDate: new Date().toISOString().split('T')[0],
     notes: ''
   });
@@ -217,7 +232,6 @@ export default function PeopleView({
     notes: ''
   });
 
-  // Open Teacher Modal
   const openAddTeacher = () => {
     setEditingTeacher(null);
     setTeacherForm({
@@ -263,27 +277,26 @@ export default function PeopleView({
   const handleTeacherSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!teacherForm.name.trim() || !teacherForm.phone.trim()) {
-      showToast("Magaca iyo taleefanka macallinka waa khasab", "error");
+      showToast('Magaca iyo taleefanka macallinka waa khasab', 'error');
       return;
     }
     setLoading(true);
     try {
       if (editingTeacher) {
         await onUpdateTeacher(editingTeacher.id, teacherForm);
-        showToast("Macallinka si guul leh ayaa loo cusbooneysiiyey");
+        showToast('Macallinka si guul leh ayaa loo cusbooneysiiyey');
       } else {
         await onAddTeacher(teacherForm);
-        showToast("Macallin cusub ayaa si guul leh loogu daray");
+        showToast('Macallin cusub ayaa si guul leh loogu daray');
       }
       setShowTeacherModal(false);
     } catch (err: any) {
-      showToast(err?.message || "Khalad ayaa dhacay", "error");
+      showToast(err?.message || 'Khalad ayaa dhacay', 'error');
     } finally {
       setLoading(false);
     }
   };
 
-  // Open Staff Modal
   const openAddStaff = () => {
     setEditingStaff(null);
     setStaffForm({
@@ -319,27 +332,26 @@ export default function PeopleView({
   const handleStaffSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!staffForm.name.trim() || !staffForm.phone.trim()) {
-      showToast("Magaca iyo taleefanka shaqaalaha waa khasab", "error");
+      showToast('Magaca iyo taleefanka shaqaalaha waa khasab', 'error');
       return;
     }
     setLoading(true);
     try {
       if (editingStaff) {
         await onUpdateStaff(editingStaff.id, staffForm);
-        showToast("Shaqaalaha si guul leh ayaa loo cusbooneysiiyey");
+        showToast('Shaqaalaha si guul leh ayaa loo cusbooneysiiyey');
       } else {
         await onAddStaff(staffForm);
-        showToast("Shaqaale cusub ayaa si guul leh loogu daray");
+        showToast('Shaqaale cusub ayaa si guul leh loogu daray');
       }
       setShowStaffModal(false);
     } catch (err: any) {
-      showToast(err?.message || "Khalad ayaa dhacay", "error");
+      showToast(err?.message || 'Khalad ayaa dhacay', 'error');
     } finally {
       setLoading(false);
     }
   };
 
-  // Open Guardian Modal
   const openAddGuardian = () => {
     setEditingGuardian(null);
     setGuardianForm({
@@ -375,184 +387,247 @@ export default function PeopleView({
   const handleGuardianSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!guardianForm.name.trim() || !guardianForm.phone.trim()) {
-      showToast("Magaca iyo taleefanka waalidka waa khasab", "error");
+      showToast('Magaca iyo taleefanka waalidka waa khasab', 'error');
       return;
     }
     setLoading(true);
     try {
       if (editingGuardian) {
         await onUpdateGuardian(editingGuardian.id, guardianForm);
-        showToast("Waalidka si guul leh ayaa loo cusbooneysiiyey");
+        showToast('Waalidka si guul leh ayaa loo cusbooneysiiyey');
       } else {
         await onAddGuardian(guardianForm);
-        showToast("Waalid cusub ayaa si guul leh loogu daray");
+        showToast('Waalid cusub ayaa si guul leh loogu daray');
       }
       setShowGuardianModal(false);
     } catch (err: any) {
-      showToast(err?.message || "Khalad ayaa dhacay", "error");
+      showToast(err?.message || 'Khalad ayaa dhacay', 'error');
     } finally {
       setLoading(false);
     }
   };
 
-  // Filtered lists
-  const filteredTeachers = teachers.filter(t => 
-    t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    t.phone.includes(searchQuery) ||
-    (t.specialization && t.specialization.toLowerCase().includes(searchQuery.toLowerCase()))
+  const filteredTeachers = teachers.filter(
+    (t) =>
+      t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      t.phone.includes(searchQuery) ||
+      (t.specialization && t.specialization.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
-  const filteredStaff = staff.filter(s => {
-    const matchQuery = s.name.toLowerCase().includes(searchQuery.toLowerCase()) || s.phone.includes(searchQuery);
+  const filteredStaff = staff.filter((s) => {
+    const matchQuery =
+      s.name.toLowerCase().includes(searchQuery.toLowerCase()) || s.phone.includes(searchQuery);
     const matchRole = filterRole === 'All' || s.role === filterRole;
     return matchQuery && matchRole;
   });
 
-  const filteredGuardians = guardians.filter(g => 
-    g.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    g.phone.includes(searchQuery) ||
-    (g.whatsapp && g.whatsapp.includes(searchQuery))
+  const filteredGuardians = guardians.filter(
+    (g) =>
+      g.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      g.phone.includes(searchQuery) ||
+      (g.whatsapp && g.whatsapp.includes(searchQuery))
   );
 
   const exportTeachersPDF = () => exportTeachersToPDF(filteredTeachers, currency);
   const exportTeachersExcel = () => exportTeachersToExcel(filteredTeachers);
 
-  return (
-    <div className="space-y-6">
-      {/* Top Header & Metrics */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl md:text-4xl font-bold font-serif italic text-[#f5f5f5]">
-            Maamulka Shaqaalaha & Waalidiinta (People)
-          </h1>
-          <p className="text-[11px] uppercase tracking-widest text-[#737373] mt-1">
-            Macallimiinta, shaqaalaha maamulka, iyo xogta waalidiinta iskuulka
-          </p>
-        </div>
+  const activeTeachersCount = teachers.filter((t) => t.status !== 'DEACTIVATED').length;
+  const totalTeacherPayroll = teachers.reduce((sum, t) => sum + (Number(t.salary) || 0), 0);
+  const totalStaffPayroll = staff.reduce((sum, s) => sum + (Number(s.salary) || 0), 0);
 
-        {/* Subtabs Selector */}
-        <div className="flex items-center gap-1 bg-[#0f0f0f] border border-[#ffffff10] p-1 rounded-sm">
-          <button
-            onClick={() => { setActiveSubTab('teachers'); setSearchQuery(''); }}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-sm transition-colors ${
-              activeSubTab === 'teachers' 
-                ? 'bg-[#7c3aed] text-white' 
-                : 'text-[#a3a3a3] hover:text-white'
-            }`}
-          >
-            Macallimiinta ({teachers.length})
-          </button>
-          <button
-            onClick={() => { setActiveSubTab('staff'); setSearchQuery(''); }}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-sm transition-colors ${
-              activeSubTab === 'staff' 
-                ? 'bg-[#7c3aed] text-white' 
-                : 'text-[#a3a3a3] hover:text-white'
-            }`}
-          >
-            Shaqaalaha ({staff.length})
-          </button>
-          <button
-            onClick={() => { setActiveSubTab('guardians'); setSearchQuery(''); }}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-sm transition-colors ${
-              activeSubTab === 'guardians' 
-                ? 'bg-[#7c3aed] text-white' 
-                : 'text-[#a3a3a3] hover:text-white'
-            }`}
-          >
-            Waalidiinta ({guardians.length})
-          </button>
-        </div>
+  return (
+    <PageContainer>
+      <PageHeader
+        breadcrumbs={[
+          { label: 'People & HR' },
+          {
+            label:
+              activeSubTab === 'teachers'
+                ? 'Teachers'
+                : activeSubTab === 'staff'
+                ? 'Staff'
+                : 'Guardians'
+          }
+        ]}
+        title="Maamulka Shaqaalaha & Waalidiinta (People)"
+        description="Macallimiinta, shaqaalaha maamulka, iyo xogta waalidiinta iskuulka"
+        actions={
+          <div className="flex items-center gap-1 bg-[var(--color-surface-muted)] border border-[var(--color-border)] p-1 rounded-xl">
+            <button
+              type="button"
+              onClick={() => {
+                setActiveSubTab('teachers');
+                setSearchQuery('');
+              }}
+              className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
+                activeSubTab === 'teachers'
+                  ? 'bg-[var(--color-brand)] text-white shadow-xs'
+                  : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+              }`}
+            >
+              Macallimiinta ({teachers.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveSubTab('staff');
+                setSearchQuery('');
+              }}
+              className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
+                activeSubTab === 'staff'
+                  ? 'bg-[var(--color-brand)] text-white shadow-xs'
+                  : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+              }`}
+            >
+              Shaqaalaha ({staff.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveSubTab('guardians');
+                setSearchQuery('');
+              }}
+              className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
+                activeSubTab === 'guardians'
+                  ? 'bg-[var(--color-brand)] text-white shadow-xs'
+                  : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+              }`}
+            >
+              Waalidiinta ({guardians.length})
+            </button>
+          </div>
+        }
+      />
+
+      {/* Summary KPI Row */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+        <StatCard
+          label="Macallimiinta"
+          value={teachers.length}
+          sublabel={`${activeTeachersCount} firfircoon`}
+          variant="brand"
+          icon={<GraduationCap className="w-4 h-4" />}
+          onClick={() => setActiveSubTab('teachers')}
+        />
+        <StatCard
+          label="Shaqaalaha Maamulka"
+          value={staff.length}
+          sublabel="Waaxaha iskuulka"
+          variant="info"
+          icon={<Briefcase className="w-4 h-4" />}
+          onClick={() => setActiveSubTab('staff')}
+        />
+        <StatCard
+          label="Waalidiinta"
+          value={guardians.length}
+          sublabel="Diiwaanka mas'uuliyiinta"
+          variant="success"
+          icon={<Users className="w-4 h-4" />}
+          onClick={() => setActiveSubTab('guardians')}
+        />
+        <StatCard
+          label="Mushaharka Bisha"
+          value={`${currency} ${(totalTeacherPayroll + totalStaffPayroll).toLocaleString()}`}
+          sublabel="Macallin & Shaqaale"
+          variant="warning"
+          icon={<ShieldCheck className="w-4 h-4" />}
+        />
       </div>
 
       {/* Control Bar: Search, Filters, Add Button, Exports */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-[#0f0f0f] border border-[#ffffff10] p-4 rounded-sm">
-        <div className="flex items-center gap-3 w-full sm:w-auto flex-1">
-          <div className="relative flex-1 max-w-md">
-            <Search className="w-4 h-4 text-[#737373] absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder={
-                activeSubTab === 'teachers' 
-                  ? "Raadi macallin magaciisa ama taleefanka..." 
-                  : activeSubTab === 'staff' 
-                    ? "Raadi shaqaale..." 
-                    : "Raadi waalid..."
-              }
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-[#0a0a0a] border border-[#ffffff10] rounded-sm pl-9 pr-3 py-2 text-xs text-[#f5f5f5] placeholder-[#525252] focus:outline-none focus:border-[#7c3aed]"
-            />
+      <Card padding="sm">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="flex items-center gap-3 w-full sm:w-auto flex-1">
+            <div className="relative flex-1 max-w-md">
+              <Search className="w-4 h-4 text-[var(--color-text-muted)] absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder={
+                  activeSubTab === 'teachers'
+                    ? 'Raadi macallin magaciisa ama taleefanka...'
+                    : activeSubTab === 'staff'
+                    ? 'Raadi shaqaale...'
+                    : 'Raadi waalid...'
+                }
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full ds-input pl-9 pr-3 py-2 text-xs"
+              />
+            </div>
+
+            {activeSubTab === 'staff' && (
+              <select
+                aria-label="Filter staff by role"
+                value={filterRole}
+                onChange={(e) => setFilterRole(e.target.value)}
+                className="ds-input px-3 py-2 text-xs max-w-[180px]"
+              >
+                <option value="All">All Roles</option>
+                <option value="Principal">Principal</option>
+                <option value="Vice Principal">Vice Principal</option>
+                <option value="Accountant">Accountant</option>
+                <option value="Administrator">Administrator</option>
+                <option value="Receptionist">Receptionist</option>
+                <option value="Librarian">Librarian</option>
+                <option value="Staff">Staff</option>
+              </select>
+            )}
           </div>
 
-          {activeSubTab === 'staff' && (
-            <select
-              value={filterRole}
-              onChange={(e) => setFilterRole(e.target.value)}
-              className="bg-[#0a0a0a] border border-[#ffffff10] rounded-sm px-3 py-2 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#7c3aed]"
-            >
-              <option value="All">All Roles</option>
-              <option value="Principal">Principal</option>
-              <option value="Vice Principal">Vice Principal</option>
-              <option value="Accountant">Accountant</option>
-              <option value="Administrator">Administrator</option>
-              <option value="Receptionist">Receptionist</option>
-              <option value="Librarian">Librarian</option>
-              <option value="Staff">Staff</option>
-            </select>
-          )}
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+            {activeSubTab === 'teachers' && (
+              <>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  leftIcon={<Download className="w-3.5 h-3.5 text-[var(--color-brand)]" />}
+                  onClick={exportTeachersPDF}
+                >
+                  PDF
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  leftIcon={<Download className="w-3.5 h-3.5 text-[var(--color-success)]" />}
+                  onClick={exportTeachersExcel}
+                >
+                  Excel
+                </Button>
+                <Button
+                  variant="primary"
+                  size="md"
+                  leftIcon={<Plus className="w-4 h-4" />}
+                  onClick={openAddTeacher}
+                >
+                  Ku dar Macallin
+                </Button>
+              </>
+            )}
+
+            {activeSubTab === 'staff' && (
+              <Button
+                variant="primary"
+                size="md"
+                leftIcon={<Plus className="w-4 h-4" />}
+                onClick={openAddStaff}
+              >
+                Ku dar Shaqaale
+              </Button>
+            )}
+
+            {activeSubTab === 'guardians' && (
+              <Button
+                variant="primary"
+                size="md"
+                leftIcon={<Plus className="w-4 h-4" />}
+                onClick={openAddGuardian}
+              >
+                Ku dar Waalid
+              </Button>
+            )}
+          </div>
         </div>
-
-        <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-          {activeSubTab === 'teachers' && (
-            <>
-              <button
-                onClick={exportTeachersPDF}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-sm border border-[#ffffff10] text-xs font-semibold text-[#a3a3a3] hover:text-white hover:bg-[#ffffff05] transition-colors"
-                title="Dhoofi PDF"
-              >
-                <Download className="w-3.5 h-3.5 text-[#c4b5fd]" />
-                <span className="hidden sm:inline">PDF</span>
-              </button>
-              <button
-                onClick={exportTeachersExcel}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-sm border border-[#ffffff10] text-xs font-semibold text-[#a3a3a3] hover:text-white hover:bg-[#ffffff05] transition-colors"
-                title="Dhoofi Excel"
-              >
-                <Download className="w-3.5 h-3.5 text-emerald-400" />
-                <span className="hidden sm:inline">Excel</span>
-              </button>
-              <button
-                onClick={openAddTeacher}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-sm bg-[#7c3aed] text-white text-xs font-semibold hover:bg-[#6d28d9] transition-colors shadow-sm"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Ku dar Macallin</span>
-              </button>
-            </>
-          )}
-
-          {activeSubTab === 'staff' && (
-            <button
-              onClick={openAddStaff}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-sm bg-[#7c3aed] text-white text-xs font-semibold hover:bg-[#6d28d9] transition-colors shadow-sm"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Ku dar Shaqaale</span>
-            </button>
-          )}
-
-          {activeSubTab === 'guardians' && (
-            <button
-              onClick={openAddGuardian}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-sm bg-[#7c3aed] text-white text-xs font-semibold hover:bg-[#6d28d9] transition-colors shadow-sm"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Ku dar Waalid</span>
-            </button>
-          )}
-        </div>
-      </div>
+      </Card>
 
       {/* Content Displays */}
       {activeSubTab === 'teachers' && (
@@ -646,6 +721,6 @@ export default function PeopleView({
         onConfirm={confirmState.onConfirm}
         onCancel={() => setConfirmState((prev) => ({ ...prev, isOpen: false }))}
       />
-    </div>
+    </PageContainer>
   );
 }

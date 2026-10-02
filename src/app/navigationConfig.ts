@@ -456,3 +456,100 @@ export const NAVIGATION_CONFIG: NavItemConfig[] = [
     group: 'SYSTEM'
   }
 ];
+
+export type NormalizedRole = 'admin' | 'teacher' | 'staff' | 'accountant';
+
+export function normalizeUserRole(role?: string | null): NormalizedRole {
+  const r = (role || 'admin').toLowerCase().trim();
+  if (r === 'teacher') return 'teacher';
+  if (r === 'accountant' || r === 'finance') return 'accountant';
+  if (r === 'staff' || r === 'receptionist' || r === 'librarian') return 'staff';
+  return 'admin';
+}
+
+export function getAuthorizedNavItems(role?: string | null): NavItemConfig[] {
+  const normalized = normalizeUserRole(role);
+  if (normalized === 'admin') {
+    return NAVIGATION_CONFIG;
+  }
+  if (normalized === 'teacher') {
+    const allowedTabs: AppTabId[] = [
+      'overview',
+      'students',
+      'attendance',
+      'classes',
+      'subjects',
+      'exams',
+      'reports',
+      'timetable',
+      'library',
+      'announcements'
+    ];
+    return NAVIGATION_CONFIG.filter((item) => allowedTabs.includes(item.tab)).map(
+      (item) => {
+        if (item.id === 'students' && item.children) {
+          return {
+            ...item,
+            children: item.children.filter((child) =>
+              canRoleAccessStudentSubSection(child.studentSubSection || 'all', normalized)
+            )
+          };
+        }
+        return item;
+      }
+    );
+  }
+  if (normalized === 'accountant') {
+    const allowedTabs: AppTabId[] = [
+      'overview',
+      'students',
+      'reports',
+      'fees',
+      'announcements'
+    ];
+    return NAVIGATION_CONFIG.filter((item) => allowedTabs.includes(item.tab));
+  }
+  // staff
+  const allowedTabs: AppTabId[] = [
+    'overview',
+    'students',
+    'attendance',
+    'classes',
+    'subjects',
+    'reports',
+    'people',
+    'staff_attendance',
+    'timetable',
+    'admissions',
+    'library',
+    'inventory',
+    'announcements'
+  ];
+  return NAVIGATION_CONFIG.filter((item) => allowedTabs.includes(item.tab));
+}
+
+export function canRoleAccessStudentSubSection(
+  subSection: StudentSubSection,
+  role?: string | null
+): boolean {
+  const normalized = normalizeUserRole(role);
+  if (normalized === 'admin' || normalized === 'staff') return true;
+  if (normalized === 'teacher') {
+    return subSection === 'all' || subSection === 'active' || subSection === 'export';
+  }
+  if (normalized === 'accountant') {
+    return subSection === 'all' || subSection === 'active' || subSection === 'export';
+  }
+  return true;
+}
+
+export function canRoleAccessPeopleSubSection(
+  subSection: PeopleSubSection,
+  role?: string | null
+): boolean {
+  const normalized = normalizeUserRole(role);
+  if (normalized === 'admin' || normalized === 'staff') return true;
+  if (normalized === 'teacher') return subSection === 'guardians';
+  return false;
+}
+

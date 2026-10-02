@@ -9,8 +9,8 @@ import {
   DollarSign,
   Award
 } from 'lucide-react';
-import { motion } from 'motion/react';
 import { Student, ExamScore } from '../../types';
+import { Badge, Button, Card, EmptyState } from '../../components/ui/primitives';
 import { getAcademicFeedback } from './reportsPdfExport';
 
 interface StudentReportCardSectionProps {
@@ -53,28 +53,33 @@ export const StudentReportCardSection: React.FC<StudentReportCardSectionProps> =
   onPrint
 }) => {
   return (
-    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+    <div className="space-y-6">
       {/* Student Select and Search Control */}
-      <div className="p-6 rounded-2xl bg-gradient-to-r from-[#161616]/60 to-[#0e0e0e]/80 border border-[#ffffff08] shadow-xl no-print space-y-4">
-        <h2 className="text-lg font-serif italic text-white">
-          Dooro Ardayga si aad u soo saarto Warbixintiisa (Report Card)
-        </h2>
+      <Card className="no-print space-y-4">
+        <div className="space-y-0.5">
+          <h2 className="text-sm font-bold text-[var(--color-text-primary)]">
+            Dooro Ardayga si aad u soo saarto Warbixintiisa (Report Card)
+          </h2>
+          <p className="text-xs text-[var(--color-text-secondary)]">
+            Ku raadi magaca ardayga ama fasalkiisa si aad u daabacdo shahaadada imtixaanka
+          </p>
+        </div>
 
         <div className="relative">
-          <Search className="absolute left-4 top-3.5 w-4 h-4 text-[#525252]" />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-muted)]" />
           <input
             type="text"
             aria-label="Ku raadi magaca ama fasalka ardayga"
             placeholder="Ku raadi magaca ama fasalka ardayga..."
             value={studentSearch}
             onChange={(e) => onChangeStudentSearch(e.target.value)}
-            className="w-full pl-11 pr-5 py-3 rounded-xl border border-[#ffffff10] bg-[#0a0a0a] text-xs uppercase tracking-widest text-[#e5e5e5] placeholder-[#525252] focus:outline-none focus:border-[#7c3aed]/50 transition-colors"
+            className="w-full ds-input pl-10 pr-4 py-2.5 text-xs"
           />
         </div>
 
         {/* Quick search matches */}
         {studentSearch.trim() && (
-          <div className="bg-[#101010] border border-[#ffffff10] rounded-xl overflow-hidden divide-y divide-[#ffffff05] text-xs max-h-56 overflow-y-auto shadow-2xl">
+          <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl overflow-hidden divide-y divide-[var(--color-border)] text-xs max-h-56 overflow-y-auto shadow-[var(--shadow-md)]">
             {searchedStudents.length > 0 ? (
               searchedStudents.map((student) => (
                 <button
@@ -84,16 +89,14 @@ export const StudentReportCardSection: React.FC<StudentReportCardSectionProps> =
                     onSelectStudentId(student.id);
                     onChangeStudentSearch('');
                   }}
-                  className="w-full text-left px-5 py-3 hover:bg-[#7c3aed10] transition-colors flex items-center justify-between text-white font-medium"
+                  className="w-full text-left px-4 py-3 hover:bg-[var(--color-surface-hover)] transition-colors flex items-center justify-between text-[var(--color-text-primary)] font-medium"
                 >
-                  <span className="uppercase tracking-wider">{student.fullName}</span>
-                  <span className="font-mono text-[10px] text-[#737373] uppercase">
-                    Fasalka: {student.class}
-                  </span>
+                  <span>{student.fullName}</span>
+                  <Badge variant="brand">Fasalka: {student.class}</Badge>
                 </button>
               ))
             ) : (
-              <div className="px-5 py-3 text-center text-[#525252]">
+              <div className="px-4 py-3 text-center text-[var(--color-text-muted)]">
                 Wax arday ah oo magacaas leh lama helin.
               </div>
             )}
@@ -102,16 +105,16 @@ export const StudentReportCardSection: React.FC<StudentReportCardSectionProps> =
 
         {/* Selection Status */}
         {selectedStudentId ? (
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-3.5 rounded-xl bg-[#7c3aed0a] border border-[#7c3aed20]">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-[var(--color-brand-soft)] border border-[var(--color-brand-border)]">
             <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-lg bg-[#7c3aed15] text-[#c4b5fd]">
+              <div className="p-2.5 rounded-lg bg-[var(--color-surface)] text-[var(--color-brand)] border border-[var(--color-brand-border)]">
                 <CheckCircle2 className="w-5 h-5" />
               </div>
               <div>
-                <p className="text-xs font-bold text-white uppercase tracking-wider">
+                <p className="text-xs font-bold text-[var(--color-text-primary)]">
                   {students.find((s) => s.id === selectedStudentId)?.fullName}
                 </p>
-                <p className="text-[10px] font-mono text-[#737373] uppercase">
+                <p className="text-[11px] font-mono text-[var(--color-text-secondary)]">
                   Class: {students.find((s) => s.id === selectedStudentId)?.class} | ID:{' '}
                   {selectedStudentId}
                 </p>
@@ -119,65 +122,63 @@ export const StudentReportCardSection: React.FC<StudentReportCardSectionProps> =
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
-              <button
-                type="button"
+              <Button
+                variant="secondary"
+                size="md"
+                leftIcon={<Download className="w-4 h-4 text-[var(--color-success)]" />}
                 onClick={onDownloadPDF}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] uppercase tracking-widest font-bold shadow-lg transition-all"
               >
-                <Download className="w-3.5 h-3.5" />
-                <span>La soo deg (Download PDF)</span>
-              </button>
-              <button
-                type="button"
+                La soo deg (Download PDF)
+              </Button>
+              <Button
+                variant="primary"
+                size="md"
+                leftIcon={<Printer className="w-4 h-4" />}
                 onClick={onPrint}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] hover:from-[#8b5cf6] hover:to-[#7c3aed] text-white text-[10px] uppercase tracking-widest font-bold shadow-lg transition-all"
               >
-                <Printer className="w-3.5 h-3.5" />
-                <span>Daabac (Print Card)</span>
-              </button>
+                Daabac (Print Card)
+              </Button>
             </div>
           </div>
         ) : (
-          <div className="p-4 rounded-xl border border-[#ffffff05] bg-[#ffffff02] text-[#737373] text-xs text-center font-serif italic">
+          <div className="p-4 rounded-xl border border-dashed border-[var(--color-border-strong)] bg-[var(--color-surface-muted)] text-[var(--color-text-secondary)] text-xs text-center">
             Fadlan dooro arday sare ka raadi si aad u bilowdo diyaarinta warqadda natiijada.
           </div>
         )}
-      </div>
+      </Card>
 
       {/* Printable Report Card Template */}
       {selectedStudentId && activeStudent && (
         <div
           id="printable-report-card"
-          className="bg-gradient-to-b from-[#161616]/80 to-[#0d0d0d]/90 border border-[#ffffff08] rounded-3xl p-8 shadow-2xl space-y-8 max-w-4xl mx-auto"
+          className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-6 sm:p-8 shadow-[var(--shadow-md)] space-y-7 max-w-4xl mx-auto"
         >
           {/* Report Header */}
-          <div className="border-b border-[#ffffff10] pb-6 flex flex-col md:flex-row justify-between items-center gap-6">
+          <div className="border-b border-[var(--color-border)] pb-6 flex flex-col md:flex-row justify-between items-center gap-6">
             <div className="flex items-center gap-4 text-center md:text-left">
-              <div className="w-14 h-14 bg-gradient-to-tr from-[#7c3aed] to-[#6d28d9] rounded-2xl flex items-center justify-center text-white font-bold font-mono text-xl shadow-lg">
+              <div className="w-12 h-12 bg-[var(--color-brand)] rounded-xl flex items-center justify-center text-white font-bold font-mono text-lg shadow-sm">
                 DP
               </div>
               <div>
-                <h1 className="text-3xl font-serif italic font-bold text-white tracking-tight">
-                  Dugsiga Portal
+                <h1 className="text-2xl font-bold text-[var(--color-text-primary)] tracking-tight">
+                  DUGSI PRO 2026
                 </h1>
-                <p className="text-[10px] uppercase tracking-widest text-[#737373] font-mono mt-0.5">
-                  Xafiiska Imtixaanaadka & Maamulka
+                <p className="text-[11px] uppercase tracking-wider text-[var(--color-text-muted)] font-mono mt-0.5">
+                  Xafiiska Imtixaanaadka & Maamulka Waxbarashada
                 </p>
               </div>
             </div>
 
-            <div className="text-center md:text-right font-mono text-[10px] text-[#737373] space-y-1">
-              <p className="text-xs uppercase font-bold text-[#c4b5fd] tracking-widest">
-                Warqadda Natiijada (Report Card)
-              </p>
-              <p>Taariikhda: {new Date().toISOString().split('T')[0]}</p>
+            <div className="text-center md:text-right font-mono text-[11px] text-[var(--color-text-secondary)] space-y-1">
+              <Badge variant="brand">Warqadda Natiijada (Report Card)</Badge>
+              <p className="mt-1">Taariikhda: {new Date().toISOString().split('T')[0]}</p>
               <p>ID: {activeStudent.id}</p>
             </div>
           </div>
 
           {/* Student Demographics Info Grid */}
-          <div className="flex flex-col md:flex-row gap-6 bg-[#ffffff02] border border-[#ffffff05] p-5 rounded-2xl items-center">
-            <div className="w-20 h-20 rounded-xl overflow-hidden bg-[#ffffff05] border border-[#ffffff10] flex items-center justify-center shrink-0">
+          <div className="flex flex-col md:flex-row gap-6 bg-[var(--color-surface-muted)] border border-[var(--color-border)] p-5 rounded-xl items-center">
+            <div className="w-20 h-20 rounded-xl overflow-hidden bg-[var(--color-surface)] border border-[var(--color-border)] flex items-center justify-center shrink-0">
               {activeStudent.photo ? (
                 <img
                   src={activeStudent.photo}
@@ -185,41 +186,43 @@ export const StudentReportCardSection: React.FC<StudentReportCardSectionProps> =
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <div className="w-full h-full bg-[#7c3aed]/10 text-[#c4b5fd] flex flex-col items-center justify-center text-center p-1">
-                  <Users className="w-5 h-5 mb-0.5 text-[#c4b5fd]/80" />
-                  <span className="text-[8px] uppercase tracking-wider font-bold">No Photo</span>
+                <div className="w-full h-full bg-[var(--color-brand-soft)] text-[var(--color-brand)] flex flex-col items-center justify-center text-center p-1">
+                  <Users className="w-5 h-5 mb-0.5" />
+                  <span className="text-[9px] uppercase tracking-wider font-bold">No Photo</span>
                 </div>
               )}
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 flex-1 w-full text-left">
               <div>
-                <p className="text-[9px] uppercase tracking-wider text-[#525252] font-semibold">
+                <p className="text-[10px] uppercase tracking-wider text-[var(--color-text-muted)] font-semibold">
                   Magaca (Student Name)
                 </p>
-                <p className="text-xs font-bold text-white uppercase mt-1 tracking-wider">
+                <p className="text-xs font-bold text-[var(--color-text-primary)] mt-1">
                   {activeStudent.fullName}
                 </p>
               </div>
               <div>
-                <p className="text-[9px] uppercase tracking-wider text-[#525252] font-semibold">
+                <p className="text-[10px] uppercase tracking-wider text-[var(--color-text-muted)] font-semibold">
                   Fasalka (Class)
                 </p>
-                <p className="text-xs font-bold text-white uppercase mt-1 font-mono">
+                <p className="text-xs font-bold text-[var(--color-brand)] mt-1 font-mono">
                   {activeStudent.class}
                 </p>
               </div>
               <div>
-                <p className="text-[9px] uppercase tracking-wider text-[#525252] font-semibold">
+                <p className="text-[10px] uppercase tracking-wider text-[var(--color-text-muted)] font-semibold">
                   Lab/Dhedig (Gender)
                 </p>
-                <p className="text-xs font-bold text-white uppercase mt-1">{activeStudent.gender}</p>
+                <p className="text-xs font-bold text-[var(--color-text-primary)] mt-1">
+                  {activeStudent.gender}
+                </p>
               </div>
               <div>
-                <p className="text-[9px] uppercase tracking-wider text-[#525252] font-semibold">
+                <p className="text-[10px] uppercase tracking-wider text-[var(--color-text-muted)] font-semibold">
                   Taleefanka Waalidka
                 </p>
-                <p className="text-xs font-bold text-white font-mono mt-1">
+                <p className="text-xs font-bold text-[var(--color-text-primary)] font-mono mt-1">
                   {activeStudent.guardianPhone || 'N/A'}
                 </p>
               </div>
@@ -228,54 +231,58 @@ export const StudentReportCardSection: React.FC<StudentReportCardSectionProps> =
 
           {/* Attendance & Finance Performance Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-[#121212]/40 border border-[#ffffff05] p-5 rounded-2xl space-y-4">
-              <h3 className="text-sm font-bold uppercase tracking-widest text-[#7c3aed] flex items-center gap-2">
+            <div className="bg-[var(--color-surface-muted)] border border-[var(--color-border)] p-5 rounded-xl space-y-4">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-brand)] flex items-center gap-2">
                 <Calendar className="w-4 h-4" />
                 <span>Xaadirinta (Attendance)</span>
               </h3>
 
               <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                <div className="bg-[#ffffff02] p-3 rounded-xl border border-[#ffffff05]">
-                  <p className="text-[9px] uppercase text-[#737373]">Xaadir (Present)</p>
-                  <p className="text-lg font-bold font-mono text-emerald-400 mt-1">
+                <div className="bg-[var(--color-surface)] p-3 rounded-lg border border-[var(--color-border)]">
+                  <p className="text-[10px] text-[var(--color-text-muted)]">Xaadir (Present)</p>
+                  <p className="text-lg font-bold font-mono text-[var(--color-success)] mt-1">
                     {stdPresentCount}
                   </p>
                 </div>
-                <div className="bg-[#ffffff02] p-3 rounded-xl border border-[#ffffff05]">
-                  <p className="text-[9px] uppercase text-[#737373]">Maqan (Absent)</p>
-                  <p className="text-lg font-bold font-mono text-rose-400 mt-1">
+                <div className="bg-[var(--color-surface)] p-3 rounded-lg border border-[var(--color-border)]">
+                  <p className="text-[10px] text-[var(--color-text-muted)]">Maqan (Absent)</p>
+                  <p className="text-lg font-bold font-mono text-[var(--color-danger)] mt-1">
                     {stdAbsentCount}
                   </p>
                 </div>
-                <div className="bg-[#ffffff02] p-3 rounded-xl border border-[#ffffff05]">
-                  <p className="text-[9px] uppercase text-[#737373]">Celcelis Rate</p>
-                  <p className="text-lg font-bold font-mono text-white mt-1">
+                <div className="bg-[var(--color-surface)] p-3 rounded-lg border border-[var(--color-border)]">
+                  <p className="text-[10px] text-[var(--color-text-muted)]">Celcelis Rate</p>
+                  <p className="text-lg font-bold font-mono text-[var(--color-text-primary)] mt-1">
                     {stdAttendanceRate}%
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="bg-[#121212]/40 border border-[#ffffff05] p-5 rounded-2xl space-y-4">
-              <h3 className="text-sm font-bold uppercase tracking-widest text-[#10b981] flex items-center gap-2">
+            <div className="bg-[var(--color-surface-muted)] border border-[var(--color-border)] p-5 rounded-xl space-y-4">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-success)] flex items-center gap-2">
                 <DollarSign className="w-4 h-4" />
                 <span>Maaliyadda (Fee Status)</span>
               </h3>
 
               <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                <div className="bg-[#ffffff02] p-3 rounded-xl border border-[#ffffff05]">
-                  <p className="text-[9px] uppercase text-[#737373]">Lagu Leeyahay</p>
-                  <p className="text-lg font-bold font-mono text-white mt-1">${stdTotalInvoiced}</p>
+                <div className="bg-[var(--color-surface)] p-3 rounded-lg border border-[var(--color-border)]">
+                  <p className="text-[10px] text-[var(--color-text-muted)]">Lagu Leeyahay</p>
+                  <p className="text-lg font-bold font-mono text-[var(--color-text-primary)] mt-1">
+                    ${stdTotalInvoiced}
+                  </p>
                 </div>
-                <div className="bg-[#ffffff02] p-3 rounded-xl border border-[#ffffff05]">
-                  <p className="text-[9px] uppercase text-[#737373]">La Bixiyey</p>
-                  <p className="text-lg font-bold font-mono text-emerald-400 mt-1">
+                <div className="bg-[var(--color-surface)] p-3 rounded-lg border border-[var(--color-border)]">
+                  <p className="text-[10px] text-[var(--color-text-muted)]">La Bixiyey</p>
+                  <p className="text-lg font-bold font-mono text-[var(--color-success)] mt-1">
                     ${stdTotalPaid}
                   </p>
                 </div>
-                <div className="bg-[#ffffff02] p-3 rounded-xl border border-[#ffffff05]">
-                  <p className="text-[9px] uppercase text-[#737373]">Hoor (Balance)</p>
-                  <p className="text-lg font-bold font-mono text-amber-500 mt-1">${stdBalance}</p>
+                <div className="bg-[var(--color-surface)] p-3 rounded-lg border border-[var(--color-border)]">
+                  <p className="text-[10px] text-[var(--color-text-muted)]">Baaqi (Balance)</p>
+                  <p className="text-lg font-bold font-mono text-[var(--color-warning)] mt-1">
+                    ${stdBalance}
+                  </p>
                 </div>
               </div>
             </div>
@@ -283,56 +290,73 @@ export const StudentReportCardSection: React.FC<StudentReportCardSectionProps> =
 
           {/* Exam Academics performance report */}
           <div className="space-y-4">
-            <h3 className="text-sm font-bold uppercase tracking-widest text-yellow-400 flex items-center gap-2">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-warning)] flex items-center gap-2">
               <Award className="w-4 h-4" />
               <span>Natiijada Academiga (Academic Exam Scores)</span>
             </h3>
 
-            <div className="border border-[#ffffff05] rounded-2xl overflow-hidden bg-[#ffffff01]">
-              <table className="w-full text-center border-collapse">
+            <div className="border border-[var(--color-border)] rounded-xl overflow-hidden bg-[var(--color-surface)]">
+              <table className="w-full text-center text-xs border-collapse">
                 <thead>
-                  <tr className="border-b border-[#ffffff05] bg-[#000000]/20 text-[9px] uppercase font-bold tracking-widest text-[#737373]">
-                    <th className="px-6 py-3.5 text-left">Maaddada (Subject)</th>
-                    <th className="px-4 py-3.5">Imtixaan (Exam)</th>
-                    <th className="px-4 py-3.5">Term</th>
-                    <th className="px-4 py-3.5">Dhibcaha la Helay</th>
-                    <th className="px-4 py-3.5">Dhibcaha Sare</th>
-                    <th className="px-4 py-3.5">Boqolley (%)</th>
-                    <th className="px-6 py-3.5 text-right">Grade</th>
+                  <tr>
+                    <th className="px-5 py-3 text-left">Maaddada (Subject)</th>
+                    <th className="px-4 py-3">Imtixaan (Exam)</th>
+                    <th className="px-4 py-3">Term</th>
+                    <th className="px-4 py-3">Dhibcaha la Helay</th>
+                    <th className="px-4 py-3">Dhibcaha Sare</th>
+                    <th className="px-4 py-3">Boqolley (%)</th>
+                    <th className="px-5 py-3 text-right">Grade</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#ffffff03] text-xs">
+                <tbody>
                   {activeStudentExams.length > 0 ? (
                     activeStudentExams.map((score) => {
                       const percentage = Math.round((score.marksObtained / score.maxMarks) * 100);
-                      let gradeColor = 'text-rose-400';
-                      if (score.grade === 'A') gradeColor = 'text-emerald-400 font-bold';
-                      else if (score.grade === 'B') gradeColor = 'text-teal-400 font-bold';
-                      else if (score.grade === 'C') gradeColor = 'text-sky-400 font-bold';
-                      else if (score.grade === 'D') gradeColor = 'text-amber-400';
-
                       return (
-                        <tr key={score.id} className="text-[#a3a3a3] font-medium">
-                          <td className="px-6 py-3.5 text-left text-white font-serif italic text-sm">
+                        <tr key={score.id}>
+                          <td className="px-5 py-3 text-left font-semibold text-[var(--color-text-primary)]">
                             {score.subjectName}
                           </td>
-                          <td className="px-4 py-3.5 text-[11px]">{score.examName}</td>
-                          <td className="px-4 py-3.5 font-mono text-[10px]">{score.term}</td>
-                          <td className="px-4 py-3.5 font-mono text-white font-semibold">
+                          <td className="px-4 py-3 text-[var(--color-text-secondary)]">
+                            {score.examName}
+                          </td>
+                          <td className="px-4 py-3 font-mono text-[var(--color-text-secondary)]">
+                            {score.term}
+                          </td>
+                          <td className="px-4 py-3 font-mono font-bold text-[var(--color-text-primary)]">
                             {score.marksObtained}
                           </td>
-                          <td className="px-4 py-3.5 font-mono">{score.maxMarks}</td>
-                          <td className="px-4 py-3.5 font-mono">{percentage}%</td>
-                          <td className={`px-6 py-3.5 text-right font-mono text-[11px] ${gradeColor}`}>
-                            {score.grade}
+                          <td className="px-4 py-3 font-mono text-[var(--color-text-muted)]">
+                            {score.maxMarks}
+                          </td>
+                          <td className="px-4 py-3 font-mono text-[var(--color-text-primary)]">
+                            {percentage}%
+                          </td>
+                          <td className="px-5 py-3 text-right">
+                            <Badge
+                              variant={
+                                score.grade === 'A' || score.grade === 'B'
+                                  ? 'success'
+                                  : score.grade === 'C'
+                                  ? 'info'
+                                  : score.grade === 'D'
+                                  ? 'warning'
+                                  : 'danger'
+                              }
+                            >
+                              {score.grade}
+                            </Badge>
                           </td>
                         </tr>
                       );
                     })
                   ) : (
                     <tr>
-                      <td colSpan={7} className="py-8 text-center text-[#525252]">
-                        Wax natiijo imtixaan ah weli looma diiwaangelin ardaygaan.
+                      <td colSpan={7} className="py-8">
+                        <EmptyState
+                          title="Wax natiijo imtixaan ah weli looma diiwaangelin ardaygaan"
+                          description="Geli dhibcaha imtixaanka qaybta Exams si ay halkan uga soo muuqdaan."
+                        />
                       </td>
                     </tr>
                   )}
@@ -343,13 +367,13 @@ export const StudentReportCardSection: React.FC<StudentReportCardSectionProps> =
 
           {/* GPA / Combined Academic feedback footer */}
           {activeStudentExams.length > 0 && (
-            <div className="p-6 bg-gradient-to-r from-[#7c3aed0a] to-[#6d28d905] border border-[#7c3aed15] rounded-2xl flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="p-5 bg-[var(--color-brand-soft)] border border-[var(--color-brand-border)] rounded-xl flex flex-col md:flex-row items-center justify-between gap-4">
               <div className="space-y-1 text-center md:text-left">
-                <p className="text-[9px] uppercase tracking-wider text-[#737373] font-semibold">
+                <p className="text-[10px] uppercase tracking-wider text-[var(--color-text-muted)] font-semibold">
                   Celceliska Guud ee Imtixaanka (Overall Average)
                 </p>
                 <p
-                  className={`text-base font-bold tracking-wide ${
+                  className={`text-sm font-bold ${
                     getAcademicFeedback(stdAvgPercentage).color
                   }`}
                 >
@@ -357,28 +381,34 @@ export const StudentReportCardSection: React.FC<StudentReportCardSectionProps> =
                 </p>
               </div>
 
-              <div className="flex items-center gap-4">
-                <div className="text-center font-mono">
-                  <p className="text-[9px] uppercase text-[#737373]">Boqolley Guud</p>
-                  <p className="text-3xl font-black text-white mt-1">{stdAvgPercentage}%</p>
-                </div>
+              <div className="text-center font-mono">
+                <p className="text-[10px] uppercase text-[var(--color-text-muted)]">
+                  Boqolley Guud
+                </p>
+                <p className="text-2xl font-bold text-[var(--color-brand)] mt-0.5">
+                  {stdAvgPercentage}%
+                </p>
               </div>
             </div>
           )}
 
           {/* Printing Signatures area */}
-          <div className="pt-12 grid grid-cols-2 gap-12 text-center text-xs">
-            <div className="border-t border-[#ffffff10] pt-3 space-y-1">
-              <p className="font-semibold text-white">Saxiixa Macallinka (Class Teacher)</p>
-              <p className="text-[10px] text-[#737373]">Dugsiga Portal Office</p>
+          <div className="pt-8 grid grid-cols-2 gap-12 text-center text-xs">
+            <div className="border-t border-[var(--color-border)] pt-3 space-y-1">
+              <p className="font-semibold text-[var(--color-text-primary)]">
+                Saxiixa Macallinka (Class Teacher)
+              </p>
+              <p className="text-[11px] text-[var(--color-text-muted)]">DUGSI PRO Office</p>
             </div>
-            <div className="border-t border-[#ffffff10] pt-3 space-y-1">
-              <p className="font-semibold text-white">Saxiixa Maamulaha (Headmaster)</p>
-              <p className="text-[10px] text-[#737373]">Shaabadda Iskuulka</p>
+            <div className="border-t border-[var(--color-border)] pt-3 space-y-1">
+              <p className="font-semibold text-[var(--color-text-primary)]">
+                Saxiixa Maamulaha (Headmaster)
+              </p>
+              <p className="text-[11px] text-[var(--color-text-muted)]">Shaabadda Iskuulka</p>
             </div>
           </div>
         </div>
       )}
-    </motion.div>
+    </div>
   );
 };

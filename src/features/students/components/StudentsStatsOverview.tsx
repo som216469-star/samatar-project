@@ -2,270 +2,248 @@ import React from 'react';
 import {
   Users,
   CheckCircle2,
-  AlertCircle,
-  Calendar,
-  AlertTriangle
+  UserX,
+  Archive,
+  Sparkles,
+  PhoneCall,
+  Wallet
 } from 'lucide-react';
 import { Student } from '../../../types';
 import { StudentSubSection } from '../../../app/navigationConfig';
+import { StatCard } from '../../../components/ui/primitives';
 
-export interface StudentDashboardStats {
+export interface StudentComputedStats {
   total: number;
   active: number;
   inactive: number;
   archived: number;
-  newlyRegistered: number;
-  needsAttention: number;
-  male: number;
-  female: number;
-  malePercent: number;
-  femalePercent: number;
-  byClass: Array<{ className: string; count: number }>;
-  recentlyAdded: Student[];
-  recentlyUpdated: Student[];
+  newThisMonth?: number;
+  newlyRegistered?: number;
+  maleCount?: number;
+  femaleCount?: number;
+  male?: number;
+  female?: number;
+  missingGuardian?: number;
+  needsAttention?: number;
+  unpaidStudentsCount?: number;
+  unpaidFeesCount?: number;
+  classBreakdown?: Record<string, number>;
+  byClass?: Array<{ className: string; count: number }>;
+  recentlyAdded?: Student[];
+  recentlyUpdated?: Student[];
 }
 
-interface StudentsStatsOverviewProps {
-  stats: StudentDashboardStats;
+export interface StudentsStatsOverviewProps {
+  stats: StudentComputedStats;
+  subSection?: StudentSubSection;
+  missingGuardianOnly?: boolean;
+  feeStatusFilter?: string;
+  classFilter?: string;
+  onSubSectionChange?: (sub: StudentSubSection) => void;
   onNavigateSubSection?: (sub: StudentSubSection) => void;
-  setSelectedStatusFilter: (val: string) => void;
-  selectedRegDateFilter: string;
-  setSelectedRegDateFilter: (val: string) => void;
-  selectedFeeFilter: string;
-  setSelectedFeeFilter: (val: string) => void;
-  selectedClassFilter: string;
-  setSelectedClassFilter: (val: string) => void;
-  showDashboardDetails: boolean;
-  setShowDashboardDetails: (val: boolean) => void;
-  onOpenProfile: (student: Student) => void;
+  onToggleMissingGuardian?: () => void;
+  onToggleUnpaidFilter?: () => void;
+  onToggleClassFilter?: (className: string) => void;
+  setSelectedStatusFilter?: (val: string) => void;
+  selectedRegDateFilter?: string;
+  setSelectedRegDateFilter?: (val: string) => void;
+  selectedFeeFilter?: string;
+  setSelectedFeeFilter?: (val: string) => void;
+  selectedClassFilter?: string;
+  setSelectedClassFilter?: (val: string) => void;
+  showDashboardDetails?: boolean;
+  setShowDashboardDetails?: React.Dispatch<React.SetStateAction<boolean>>;
+  onOpenProfile?: (student: Student) => void;
 }
 
 export const StudentsStatsOverview: React.FC<StudentsStatsOverviewProps> = ({
   stats,
+  subSection = 'all',
+  missingGuardianOnly = false,
+  feeStatusFilter,
+  classFilter,
+  onSubSectionChange,
   onNavigateSubSection,
+  onToggleMissingGuardian,
+  onToggleUnpaidFilter,
+  onToggleClassFilter,
   setSelectedStatusFilter,
   selectedRegDateFilter,
   setSelectedRegDateFilter,
   selectedFeeFilter,
   setSelectedFeeFilter,
   selectedClassFilter,
-  setSelectedClassFilter,
-  showDashboardDetails,
-  setShowDashboardDetails,
-  onOpenProfile
+  setSelectedClassFilter
 }) => {
+  const safeStats = stats || {
+    total: 0,
+    active: 0,
+    inactive: 0,
+    archived: 0
+  };
+
+  const maleCount = safeStats.maleCount ?? safeStats.male ?? 0;
+  const femaleCount = safeStats.femaleCount ?? safeStats.female ?? 0;
+  const newThisMonth = safeStats.newThisMonth ?? safeStats.newlyRegistered ?? 0;
+  const missingGuardian = safeStats.missingGuardian ?? safeStats.needsAttention ?? 0;
+  const unpaidCount = safeStats.unpaidStudentsCount ?? safeStats.unpaidFeesCount ?? 0;
+
+  const activeClassFilter = classFilter ?? selectedClassFilter ?? 'all';
+  const activeFeeFilter = feeStatusFilter ?? selectedFeeFilter ?? 'all';
+
+  const handleNavigateSub = (target: StudentSubSection) => {
+    if (onSubSectionChange) onSubSectionChange(target);
+    else if (onNavigateSubSection) onNavigateSubSection(target);
+    if (setSelectedStatusFilter) {
+      setSelectedStatusFilter(target === 'all' ? 'all' : target);
+    }
+  };
+
+  const handleClassClick = (cls: string) => {
+    if (onToggleClassFilter) {
+      onToggleClassFilter(cls);
+    } else if (setSelectedClassFilter) {
+      setSelectedClassFilter(cls === 'All' ? 'all' : activeClassFilter === cls ? 'all' : cls);
+    }
+  };
+
+  const handleUnpaidClick = () => {
+    if (onToggleUnpaidFilter) {
+      onToggleUnpaidFilter();
+    } else if (setSelectedFeeFilter) {
+      setSelectedFeeFilter(activeFeeFilter === 'unpaid' ? 'all' : 'unpaid');
+    }
+  };
+
+  const handleAttentionClick = () => {
+    if (onToggleMissingGuardian) {
+      onToggleMissingGuardian();
+    } else if (setSelectedFeeFilter) {
+      setSelectedFeeFilter(activeFeeFilter === 'unpaid' ? 'all' : 'unpaid');
+    }
+  };
+
+  const handleNewThisMonthClick = () => {
+    if (setSelectedRegDateFilter) {
+      setSelectedRegDateFilter(selectedRegDateFilter === 'this_month' ? 'all' : 'this_month');
+    }
+  };
+
+  // Normalize class entries from either stats.classBreakdown or stats.byClass safely
+  const classEntries: Array<[string, number]> = React.useMemo(() => {
+    if (safeStats.classBreakdown && typeof safeStats.classBreakdown === 'object') {
+      return Object.entries(safeStats.classBreakdown);
+    }
+    if (Array.isArray(safeStats.byClass)) {
+      return safeStats.byClass.map((item) => [item.className, item.count]);
+    }
+    return [];
+  }, [safeStats.classBreakdown, safeStats.byClass]);
+
+  const isAllClassesActive =
+    activeClassFilter === 'All' || activeClassFilter === 'all' || !activeClassFilter;
+
   return (
-    <div className="space-y-3">
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
-        {/* Card 1: Total */}
-        <div
-          onClick={() =>
-            onNavigateSubSection ? onNavigateSubSection('all') : setSelectedStatusFilter('all')
-          }
-          className="bg-[#0f0f0f] border border-[#ffffff10] hover:border-[#7c3aed]/40 rounded-sm p-4 space-y-1 cursor-pointer transition-colors"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] uppercase tracking-widest text-[#888888] font-bold">
-              Wadar Guud
-            </span>
-            <Users className="w-4 h-4 text-[#c4b5fd]" />
-          </div>
-          <p className="text-2xl font-bold font-mono text-white">{stats.total}</p>
-          <p className="text-[9px] text-[#737373] uppercase tracking-wider">Total Enrolled</p>
-        </div>
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+        <StatCard
+          label="Wadarta Ardayda"
+          value={safeStats.total ?? 0}
+          sublabel={`${maleCount} Lab · ${femaleCount} Dhedig`}
+          tone="brand"
+          icon={<Users className="w-4 h-4" />}
+          onClick={() => handleNavigateSub('all')}
+        />
 
-        {/* Card 2: Active */}
-        <div
-          onClick={() =>
-            onNavigateSubSection
-              ? onNavigateSubSection('active')
-              : setSelectedStatusFilter('active')
-          }
-          className="bg-[#0f0f0f] border border-[#ffffff10] hover:border-emerald-500/40 rounded-sm p-4 space-y-1 cursor-pointer transition-colors"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] uppercase tracking-widest text-emerald-400 font-bold">
-              Firfircoon
-            </span>
-            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-          </div>
-          <p className="text-2xl font-bold font-mono text-emerald-400">{stats.active}</p>
-          <p className="text-[9px] text-[#737373] uppercase tracking-wider">Active Students</p>
-        </div>
+        <StatCard
+          label="Active"
+          value={safeStats.active ?? 0}
+          sublabel={subSection === 'active' ? 'Waa la xulay' : 'Ardayda dhigata'}
+          tone="success"
+          icon={<CheckCircle2 className="w-4 h-4" />}
+          onClick={() => handleNavigateSub('active')}
+        />
 
-        {/* Card 3: Inactive */}
-        <div
-          onClick={() =>
-            onNavigateSubSection
-              ? onNavigateSubSection('inactive')
-              : setSelectedStatusFilter('inactive')
-          }
-          className="bg-[#0f0f0f] border border-[#ffffff10] hover:border-amber-500/40 rounded-sm p-4 space-y-1 cursor-pointer transition-colors"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] uppercase tracking-widest text-amber-400 font-bold">
-              Joojiyey
-            </span>
-            <AlertCircle className="w-4 h-4 text-amber-400" />
-          </div>
-          <p className="text-2xl font-bold font-mono text-amber-400">{stats.inactive}</p>
-          <p className="text-[9px] text-[#737373] uppercase tracking-wider">Inactive Roster</p>
-        </div>
+        <StatCard
+          label="Inactive"
+          value={safeStats.inactive ?? 0}
+          sublabel={subSection === 'inactive' ? 'Waa la xulay' : 'Hakad ku jira'}
+          tone="danger"
+          icon={<UserX className="w-4 h-4" />}
+          onClick={() => handleNavigateSub('inactive')}
+        />
 
-        {/* Card 4: Newly Registered This Month */}
-        <div
-          onClick={() =>
-            setSelectedRegDateFilter(
-              selectedRegDateFilter === 'this_month' ? 'all' : 'this_month'
-            )
-          }
-          className={`bg-[#0f0f0f] border rounded-sm p-4 space-y-1 cursor-pointer transition-colors ${
-            selectedRegDateFilter === 'this_month'
-              ? 'border-[#7c3aed]'
-              : 'border-[#ffffff10] hover:border-[#7c3aed]/40'
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] uppercase tracking-widest text-[#c4b5fd] font-bold">
-              Cusub Bishan
-            </span>
-            <Calendar className="w-4 h-4 text-[#c4b5fd]" />
-          </div>
-          <p className="text-2xl font-bold font-mono text-white">{stats.newlyRegistered}</p>
-          <p className="text-[9px] text-[#737373] uppercase tracking-wider">Newly Registered</p>
-        </div>
+        <StatCard
+          label="Archived"
+          value={safeStats.archived ?? 0}
+          sublabel={subSection === 'archived' ? 'Waa la xulay' : 'La kaydiyey'}
+          tone="neutral"
+          icon={<Archive className="w-4 h-4" />}
+          onClick={() => handleNavigateSub('archived')}
+        />
 
-        {/* Card 5: Requiring Attention */}
-        <div
-          onClick={() =>
-            setSelectedFeeFilter(selectedFeeFilter === 'attention' ? 'all' : 'attention')
-          }
-          className={`bg-[#0f0f0f] border rounded-sm p-4 space-y-1 cursor-pointer transition-colors ${
-            selectedFeeFilter === 'attention'
-              ? 'border-rose-500'
-              : 'border-[#ffffff10] hover:border-rose-500/40'
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] uppercase tracking-widest text-rose-400 font-bold">
-              U Baahan Fiiro
-            </span>
-            <AlertTriangle className="w-4 h-4 text-rose-400" />
-          </div>
-          <p className="text-2xl font-bold font-mono text-rose-400">{stats.needsAttention}</p>
-          <p className="text-[9px] text-[#737373] uppercase tracking-wider">Needs Attention</p>
-        </div>
+        <StatCard
+          label="Cusub Bishan"
+          value={newThisMonth}
+          sublabel={selectedRegDateFilter === 'this_month' ? 'Filter Active' : '30-kii maalmood'}
+          tone="info"
+          icon={<Sparkles className="w-4 h-4" />}
+          onClick={handleNewThisMonthClick}
+        />
 
-        {/* Card 6: Male / Female Ratio */}
-        <div className="bg-[#0f0f0f] border border-[#ffffff10] rounded-sm p-4 space-y-1.5">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] uppercase tracking-widest text-[#888888] font-bold">
-              Lab & Dhedig
-            </span>
-            <div className="flex items-center gap-1.5 text-[10px] font-mono">
-              <span className="text-[#60a5fa] font-bold">M:{stats.male}</span>
-              <span className="text-[#737373]">·</span>
-              <span className="text-[#f472b6] font-bold">F:{stats.female}</span>
-            </div>
-          </div>
-          <div className="h-2 w-full bg-[#1e1e1e] rounded-full overflow-hidden flex">
-            <div
-              style={{ width: `${stats.malePercent}%` }}
-              className="bg-[#3b82f6] h-full transition-all duration-500"
-              title={`Male: ${stats.malePercent}%`}
-            />
-            <div
-              style={{ width: `${stats.femalePercent}%` }}
-              className="bg-[#ec4899] h-full transition-all duration-500"
-              title={`Female: ${stats.femalePercent}%`}
-            />
-          </div>
-          <div className="flex justify-between text-[9px] text-[#737373] font-mono">
-            <span>{stats.malePercent}% M</span>
-            <button
-              type="button"
-              onClick={() => setShowDashboardDetails(!showDashboardDetails)}
-              className="text-[#c4b5fd] hover:underline font-sans font-semibold"
-            >
-              {showDashboardDetails ? 'Qari Faahfaahinta' : 'Faahfaahin +'}
-            </button>
-          </div>
-        </div>
+        <StatCard
+          label="Waalid / Fiiro"
+          value={missingGuardian}
+          sublabel={missingGuardianOnly ? 'Filter Active' : 'Guji si aad u shaandhayso'}
+          tone="warning"
+          icon={<PhoneCall className="w-4 h-4" />}
+          onClick={handleAttentionClick}
+        />
+
+        <StatCard
+          label="Baaqi Lacageed"
+          value={unpaidCount}
+          sublabel={activeFeeFilter === 'unpaid' ? 'Filter Active' : 'Biil aan la bixin'}
+          tone="danger"
+          icon={<Wallet className="w-4 h-4" />}
+          onClick={handleUnpaidClick}
+        />
       </div>
 
-      {/* Progressive Analytics Drawer: Students by Class, Recently Added & Recently Updated */}
-      {showDashboardDetails && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 bg-[#0f0f0f] border border-[#ffffff10] rounded-sm p-4 animate-fade-in">
-          {/* Students by Class */}
-          <div className="space-y-2">
-            <h4 className="text-[10px] font-mono uppercase tracking-widest text-[#a3a3a3] font-bold border-b border-[#ffffff08] pb-1.5">
-              Ardayda Fasallada (Students by Class)
-            </h4>
-            <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
-              {stats.byClass.length === 0 ? (
-                <p className="text-xs text-[#555555]">Ma jiraan fasallo</p>
-              ) : (
-                stats.byClass.map((item) => (
-                  <div
-                    key={item.className}
-                    onClick={() =>
-                      setSelectedClassFilter(
-                        selectedClassFilter === item.className ? 'all' : item.className
-                      )
-                    }
-                    className="flex items-center justify-between text-xs py-1 px-2 rounded-sm hover:bg-[#ffffff05] cursor-pointer"
-                  >
-                    <span className="text-[#e5e5e5] font-medium">{item.className}</span>
-                    <span className="font-mono text-[#c4b5fd] font-bold">
-                      {item.count} arday
-                    </span>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* Recently Added Students */}
-          <div className="space-y-2">
-            <h4 className="text-[10px] font-mono uppercase tracking-widest text-[#a3a3a3] font-bold border-b border-[#ffffff08] pb-1.5">
-              Dhawaan La Diiwaangeliyey (Recently Added)
-            </h4>
-            <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
-              {stats.recentlyAdded.map((st) => (
-                <div
-                  key={st.id}
-                  onClick={() => onOpenProfile(st)}
-                  className="flex items-center justify-between text-xs py-1 px-2 rounded-sm hover:bg-[#ffffff05] cursor-pointer"
-                >
-                  <span className="text-[#e5e5e5] truncate max-w-[160px]">{st.fullName}</span>
-                  <span className="font-mono text-[10px] text-[#737373]">
-                    {st.class} · {st.createdAt || '-'}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Recently Updated Students */}
-          <div className="space-y-2">
-            <h4 className="text-[10px] font-mono uppercase tracking-widest text-[#a3a3a3] font-bold border-b border-[#ffffff08] pb-1.5">
-              Dhawaan La Cusbooneysiiyey (Recently Updated)
-            </h4>
-            <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
-              {stats.recentlyUpdated.map((st) => (
-                <div
-                  key={st.id}
-                  onClick={() => onOpenProfile(st)}
-                  className="flex items-center justify-between text-xs py-1 px-2 rounded-sm hover:bg-[#ffffff05] cursor-pointer"
-                >
-                  <span className="text-[#e5e5e5] truncate max-w-[160px]">{st.fullName}</span>
-                  <span className="font-mono text-[10px] text-[#737373]">
-                    {st.updatedAt || st.createdAt || '-'}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
+      {/* Quick Class Breakdown Strip */}
+      {classEntries.length > 0 && (
+        <div className="flex items-center gap-2 overflow-x-auto pb-1">
+          <span className="text-[11px] font-semibold text-[var(--color-text-muted)] shrink-0 mr-1">
+            Fasallada:
+          </span>
+          <button
+            type="button"
+            onClick={() => handleClassClick('All')}
+            className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors shrink-0 border cursor-pointer ${
+              isAllClassesActive
+                ? 'bg-[var(--color-brand)] text-white border-[var(--color-brand)]'
+                : 'bg-[var(--color-surface)] text-[var(--color-text-secondary)] border-[var(--color-border)] hover:text-[var(--color-text-primary)]'
+            }`}
+          >
+            Dhammaan ({safeStats.total ?? 0})
+          </button>
+          {classEntries.map(([cls, count]) => (
+            <button
+              key={cls}
+              type="button"
+              onClick={() => handleClassClick(cls)}
+              className={`px-2.5 py-1 rounded-md text-xs font-mono transition-colors shrink-0 flex items-center gap-1.5 border cursor-pointer ${
+                activeClassFilter === cls
+                  ? 'bg-[var(--color-brand-soft)] border-[var(--color-brand-border)] text-[var(--color-brand)] font-semibold'
+                  : 'bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+              }`}
+            >
+              <span>{cls}</span>
+              <span className="px-1.5 py-0.2 rounded bg-[var(--color-surface-muted)] text-[var(--color-text-primary)] font-bold tabular-nums text-[10px]">
+                {count}
+              </span>
+            </button>
+          ))}
         </div>
       )}
     </div>

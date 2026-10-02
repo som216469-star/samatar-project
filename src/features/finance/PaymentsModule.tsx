@@ -1,18 +1,16 @@
-import React, { useState } from "react";
-import { 
-  Search, 
-  Download, 
-  Send, 
-  Receipt, 
-  X, 
-  CheckCircle2, 
-  Calendar,
-  CreditCard
-} from "lucide-react";
-import type { PaymentTransaction, Invoice } from "../../types";
-import { ConfirmDialog } from "../../components/ui/primitives";
-import { formatMoney, exportToExcel, generateReceiptPDF, openWhatsApp } from "./financeUtils";
-import { apiFetch } from "../../lib/apiClient";
+import React, { useState } from 'react';
+import { Search, Download, Send, Receipt } from 'lucide-react';
+import type { PaymentTransaction, Invoice } from '../../types';
+import {
+  Badge,
+  Button,
+  Card,
+  ConfirmDialog,
+  EmptyState,
+  Modal
+} from '../../components/ui/primitives';
+import { formatMoney, exportToExcel, generateReceiptPDF, openWhatsApp } from './financeUtils';
+import { apiFetch } from '../../lib/apiClient';
 
 interface PaymentsModuleProps {
   payments: PaymentTransaction[];
@@ -24,6 +22,11 @@ interface PaymentsModuleProps {
   onClosePaymentModal: () => void;
 }
 
+const inputClass =
+  'w-full px-3.5 py-2.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-emerald-500/60 transition-all';
+const labelClass =
+  'block text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-1.5';
+
 export const PaymentsModule: React.FC<PaymentsModuleProps> = ({
   payments,
   invoices,
@@ -33,17 +36,18 @@ export const PaymentsModule: React.FC<PaymentsModuleProps> = ({
   activeInvoiceForPayment,
   onClosePaymentModal
 }) => {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [methodFilter, setMethodFilter] = useState("All");
+  const [searchQuery, setSearchQuery] = useState('');
+  const [methodFilter, setMethodFilter] = useState('All');
 
-  // Payment Recording State
-  const [selectedInvoiceId, setSelectedInvoiceId] = useState(activeInvoiceForPayment?.id || "");
-  const [paymentAmount, setPaymentAmount] = useState<number>(activeInvoiceForPayment?.balance || 50);
-  const [paymentMethod, setPaymentMethod] = useState("EVC Plus");
-  const [reference, setReference] = useState("");
-  const [notes, setNotes] = useState("");
-  const [receivedBy, setReceivedBy] = useState("Accountant");
-  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split("T")[0]);
+  const [selectedInvoiceId] = useState(activeInvoiceForPayment?.id || '');
+  const [paymentAmount, setPaymentAmount] = useState<number>(
+    activeInvoiceForPayment?.balance || 50
+  );
+  const [paymentMethod, setPaymentMethod] = useState('EVC Plus');
+  const [reference, setReference] = useState('');
+  const [notes, setNotes] = useState('');
+  const [receivedBy] = useState('Accountant');
+  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
   const [submitting, setSubmitting] = useState(false);
   const [confirmState, setConfirmState] = useState<{
     isOpen: boolean;
@@ -52,16 +56,17 @@ export const PaymentsModule: React.FC<PaymentsModuleProps> = ({
     onConfirm: () => void | Promise<void>;
   }>({
     isOpen: false,
-    title: "",
-    message: "",
+    title: '',
+    message: '',
     onConfirm: () => {}
   });
 
-  // Synced invoice if selected
-  const activeInv = invoices.find((inv) => inv.id === (selectedInvoiceId || activeInvoiceForPayment?.id));
+  const activeInv = invoices.find(
+    (inv) => inv.id === (selectedInvoiceId || activeInvoiceForPayment?.id)
+  );
 
   const filteredPayments = payments.filter((p) => {
-    if (methodFilter !== "All" && p.paymentMethod !== methodFilter) return false;
+    if (methodFilter !== 'All' && p.paymentMethod !== methodFilter) return false;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       const matchRec = p.receiptNumber?.toLowerCase().includes(q);
@@ -78,8 +83,8 @@ export const PaymentsModule: React.FC<PaymentsModuleProps> = ({
     if (!activeInv) {
       setConfirmState({
         isOpen: true,
-        title: "Dooro Biilka",
-        message: "Fadlan dooro biilka (Please select an invoice)",
+        title: 'Dooro Biilka',
+        message: 'Fadlan dooro biilka (Please select an invoice)',
         onConfirm: () => setConfirmState((prev) => ({ ...prev, isOpen: false }))
       });
       return;
@@ -87,8 +92,8 @@ export const PaymentsModule: React.FC<PaymentsModuleProps> = ({
     if (paymentAmount <= 0) {
       setConfirmState({
         isOpen: true,
-        title: "Cadadka Lacagta",
-        message: "Cadadka lacagtu waa inuu ka bataa 0 (Amount must be > 0)",
+        title: 'Cadadka Lacagta',
+        message: 'Cadadka lacagtu waa inuu ka bataa 0 (Amount must be > 0)',
         onConfirm: () => setConfirmState((prev) => ({ ...prev, isOpen: false }))
       });
       return;
@@ -96,9 +101,9 @@ export const PaymentsModule: React.FC<PaymentsModuleProps> = ({
 
     setSubmitting(true);
     try {
-      const res = await apiFetch("/api/payments", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const res = await apiFetch('/api/payments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           invoiceId: activeInv.id,
           amount: paymentAmount,
@@ -117,8 +122,8 @@ export const PaymentsModule: React.FC<PaymentsModuleProps> = ({
         const data = await res.json();
         setConfirmState({
           isOpen: true,
-          title: "Khalad",
-          message: data.error || "Khalad ayaa dhacay intii lacagta la qabanayay",
+          title: 'Khalad',
+          message: data.error || 'Khalad ayaa dhacay intii lacagta la qabanayay',
           onConfirm: () => setConfirmState((prev) => ({ ...prev, isOpen: false }))
         });
       }
@@ -135,8 +140,8 @@ export const PaymentsModule: React.FC<PaymentsModuleProps> = ({
     if (!phone) {
       setConfirmState({
         isOpen: true,
-        title: "Telefoon Lama Helin",
-        message: "Telefoonka waalidka lama hayo (No phone number available)",
+        title: 'Telefoon Lama Helin',
+        message: 'Telefoonka waalidka lama hayo (No phone number available)',
         onConfirm: () => setConfirmState((prev) => ({ ...prev, isOpen: false }))
       });
       return;
@@ -147,39 +152,39 @@ export const PaymentsModule: React.FC<PaymentsModuleProps> = ({
 
   const handleExportExcel = () => {
     const exportData = filteredPayments.map((p) => ({
-      "Receipt Number": p.receiptNumber,
-      "Invoice Number": p.invoiceNumber,
+      'Receipt Number': p.receiptNumber,
+      'Invoice Number': p.invoiceNumber,
       Student: p.studentName,
       Class: p.className,
       Amount: p.amount,
-      "Payment Method": p.paymentMethod,
+      'Payment Method': p.paymentMethod,
       Reference: p.reference,
-      "Payment Date": p.paymentDate,
-      "Received By": p.receivedBy,
-      "Remaining Balance": p.remainingBalance
+      'Payment Date': p.paymentDate,
+      'Received By': p.receivedBy,
+      'Remaining Balance': p.remainingBalance
     }));
-    exportToExcel(`Receipts_${schoolName.replace(/\s+/g, "_")}`, "Receipts", exportData);
+    exportToExcel(`Receipts_${schoolName.replace(/\s+/g, '_')}`, 'Receipts', exportData);
   };
 
   return (
     <div className="space-y-4">
       {/* Top Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-2 flex-1 max-w-md">
-          <div className="relative w-full">
-            <Search className="w-4 h-4 text-[#737373] absolute left-3 top-1/2 -translate-y-1/2" />
+      <Card className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2.5 flex-1">
+          <div className="relative w-full sm:max-w-xs">
+            <Search className="w-4 h-4 text-[var(--text-muted)] absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               placeholder="Raadi rasiid, arday, ama tixraac..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 bg-[#0a0a0a] border border-[#ffffff10] rounded-sm text-xs text-[#e5e5e5] placeholder-[#737373] focus:outline-none focus:border-emerald-500"
+              className={`${inputClass} pl-10`}
             />
           </div>
           <select
             value={methodFilter}
             onChange={(e) => setMethodFilter(e.target.value)}
-            className="bg-[#0a0a0a] border border-[#ffffff10] rounded-sm text-xs text-[#a3a3a3] px-3 py-2 focus:outline-none focus:border-emerald-500"
+            className={`${inputClass} w-auto`}
           >
             <option value="All">All Methods</option>
             <option value="Cash">Cash</option>
@@ -191,21 +196,22 @@ export const PaymentsModule: React.FC<PaymentsModuleProps> = ({
           </select>
         </div>
 
-        <button
+        <Button
+          variant="secondary"
+          size="sm"
           onClick={handleExportExcel}
-          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-sm border border-[#ffffff10] bg-[#0f0f0f] hover:bg-[#ffffff05] text-[#a3a3a3] hover:text-[#e5e5e5] text-[10px] uppercase font-bold tracking-wider cursor-pointer"
+          icon={<Download className="w-3.5 h-3.5" />}
         >
-          <Download className="w-3.5 h-3.5" />
-          <span>Excel Receipts</span>
-        </button>
-      </div>
+          Excel Receipts
+        </Button>
+      </Card>
 
       {/* Receipts Table */}
-      <div className="bg-[#0f0f0f] border border-[#ffffff10] rounded-sm overflow-hidden">
+      <Card className="overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-[#0a0a0a] border-b border-[#ffffff10] text-[10px] uppercase font-bold tracking-widest text-[#737373]">
+              <tr className="bg-[var(--bg-elevated)] border-b border-[var(--border-subtle)] text-[11px] uppercase font-bold tracking-wider text-[var(--text-muted)]">
                 <th className="px-5 py-3.5">Rasiid #</th>
                 <th className="px-5 py-3.5">Biilka #</th>
                 <th className="px-5 py-3.5">Ardayga (Student)</th>
@@ -216,45 +222,58 @@ export const PaymentsModule: React.FC<PaymentsModuleProps> = ({
                 <th className="px-5 py-3.5 text-right">Ficillo</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#ffffff08] text-xs">
+            <tbody className="divide-y divide-[var(--border-subtle)] text-xs">
               {filteredPayments.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-5 py-12 text-center text-[#737373] uppercase tracking-wider text-[10px]">
-                    Wax rasiidyo ah oo diiwaangashan ma jiraan.
+                  <td colSpan={8} className="p-8">
+                    <EmptyState
+                      icon={Receipt}
+                      title="Rasiidyo Ma Jiraan"
+                      description="Wax rasiidyo ah oo diiwaangashan ma jiraan."
+                    />
                   </td>
                 </tr>
               ) : (
                 filteredPayments.map((pay) => (
-                  <tr key={pay.id} className="hover:bg-[#ffffff02] transition-colors">
-                    <td className="px-5 py-3.5 font-mono text-emerald-400 font-bold">{pay.receiptNumber}</td>
-                    <td className="px-5 py-3.5 font-mono text-[#a3a3a3]">{pay.invoiceNumber}</td>
-                    <td className="px-5 py-3.5 font-bold text-[#e5e5e5]">
+                  <tr
+                    key={pay.id}
+                    className="hover:bg-[var(--bg-elevated)]/60 transition-colors"
+                  >
+                    <td className="px-5 py-3.5 font-mono text-emerald-500 font-bold">
+                      {pay.receiptNumber}
+                    </td>
+                    <td className="px-5 py-3.5 font-mono text-[var(--text-secondary)]">
+                      {pay.invoiceNumber}
+                    </td>
+                    <td className="px-5 py-3.5 font-bold text-[var(--text-primary)]">
                       <div>{pay.studentName}</div>
-                      <div className="text-[10px] text-[#737373] font-normal">{pay.className}</div>
+                      <div className="text-[11px] text-[var(--text-muted)] font-normal">
+                        {pay.className}
+                      </div>
                     </td>
                     <td className="px-5 py-3.5">
-                      <span className="inline-flex px-2 py-0.5 rounded-xs text-[9px] font-bold uppercase tracking-wider bg-[#ffffff05] border border-[#ffffff10] text-[#e5e5e5]">
-                        {pay.paymentMethod}
-                      </span>
+                      <Badge variant="neutral">{pay.paymentMethod}</Badge>
                     </td>
-                    <td className="px-5 py-3.5 font-mono font-bold text-emerald-400 text-right">
+                    <td className="px-5 py-3.5 font-mono font-bold text-emerald-500 text-right">
                       {formatMoney(pay.amount, currency)}
                     </td>
-                    <td className="px-5 py-3.5 font-mono font-bold text-amber-400 text-right">
+                    <td className="px-5 py-3.5 font-mono font-bold text-amber-500 text-right">
                       {formatMoney(pay.remainingBalance ?? 0, currency)}
                     </td>
-                    <td className="px-5 py-3.5 font-mono text-[#737373]">{pay.paymentDate}</td>
+                    <td className="px-5 py-3.5 font-mono text-[var(--text-muted)]">
+                      {pay.paymentDate}
+                    </td>
                     <td className="px-5 py-3.5 text-right space-x-1">
                       <button
                         onClick={() => generateReceiptPDF(schoolName, currency, pay)}
-                        className="p-1.5 rounded-sm bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 inline-block cursor-pointer"
+                        className="p-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 border border-emerald-500/20 inline-block cursor-pointer transition-colors"
                         title="Dhoofi Rasiid PDF"
                       >
                         <Download className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => handleSendWhatsAppReceipt(pay)}
-                        className="p-1.5 rounded-sm bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 inline-block cursor-pointer"
+                        className="p-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 border border-emerald-500/20 inline-block cursor-pointer transition-colors"
                         title="Ku dir WhatsApp"
                       >
                         <Send className="w-3.5 h-3.5" />
@@ -266,73 +285,72 @@ export const PaymentsModule: React.FC<PaymentsModuleProps> = ({
             </tbody>
           </table>
         </div>
-      </div>
+      </Card>
 
       {/* RECORD PAYMENT MODAL */}
-      {activeInvoiceForPayment && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Qabo Lacag Bixin (Record Payment)"
-        >
-          <div className="bg-[#0f0f0f] border border-[#ffffff10] rounded-sm w-full max-w-lg shadow-2xl p-6 relative">
-            <button
-              className="absolute right-4 top-4 p-1.5 rounded-sm text-[#737373] hover:bg-[#ffffff05]"
-              onClick={onClosePaymentModal}
-            >
-              <X className="w-5 h-5" />
-            </button>
-            <h2 className="text-xl font-bold font-serif text-[#f5f5f5] mb-2">
-              Qabo Lacag Bixin (Record Payment)
-            </h2>
-            <div className="bg-[#0a0a0a] border border-[#ffffff0a] p-3 rounded-sm mb-4 space-y-1">
+      <Modal
+        isOpen={Boolean(activeInvoiceForPayment)}
+        onClose={onClosePaymentModal}
+        title="Qabo Lacag Bixin (Record Payment)"
+        size="md"
+      >
+        {activeInvoiceForPayment && (
+          <>
+            <div className="bg-[var(--bg-elevated)] border border-[var(--border-subtle)] p-3.5 rounded-xl mb-4 space-y-1.5">
               <div className="flex justify-between text-xs">
-                <span className="text-[#737373]">Ardayga:</span>
-                <span className="font-bold text-[#e5e5e5]">{activeInvoiceForPayment.studentName} ({activeInvoiceForPayment.className})</span>
+                <span className="text-[var(--text-muted)]">Ardayga:</span>
+                <span className="font-bold text-[var(--text-primary)]">
+                  {activeInvoiceForPayment.studentName} ({activeInvoiceForPayment.className})
+                </span>
               </div>
               <div className="flex justify-between text-xs">
-                <span className="text-[#737373]">Biilka #:</span>
-                <span className="font-mono text-[#a3a3a3]">{activeInvoiceForPayment.invoiceNumber}</span>
+                <span className="text-[var(--text-muted)]">Biilka #:</span>
+                <span className="font-mono text-[var(--text-secondary)]">
+                  {activeInvoiceForPayment.invoiceNumber}
+                </span>
               </div>
               <div className="flex justify-between text-xs">
-                <span className="text-[#737373]">Wadarta Biilka:</span>
-                <span className="font-mono text-[#e5e5e5]">{formatMoney(activeInvoiceForPayment.total, currency)}</span>
+                <span className="text-[var(--text-muted)]">Wadarta Biilka:</span>
+                <span className="font-mono text-[var(--text-primary)]">
+                  {formatMoney(activeInvoiceForPayment.total, currency)}
+                </span>
               </div>
               <div className="flex justify-between text-xs">
-                <span className="text-[#737373]">Baaqiga Hada (Balance):</span>
-                <span className="font-mono font-bold text-amber-400">{formatMoney(activeInvoiceForPayment.balance, currency)}</span>
+                <span className="text-[var(--text-muted)]">Baaqiga Hada (Balance):</span>
+                <span className="font-mono font-bold text-amber-500">
+                  {formatMoney(activeInvoiceForPayment.balance, currency)}
+                </span>
               </div>
             </div>
 
             <form onSubmit={handleRecordPaymentSubmit} className="space-y-4 text-xs">
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="font-semibold text-[#737373] uppercase tracking-wider text-[9px]">
-                    Cadadka La Bixinayo ({currency}) *
-                  </label>
+                <div>
+                  <label className={labelClass}>Cadadka La Bixinayo ({currency}) *</label>
                   <input
                     type="number"
                     max={activeInvoiceForPayment.balance}
                     min={1}
                     value={paymentAmount}
                     onChange={(e) => setPaymentAmount(Number(e.target.value))}
-                    className="w-full px-3 py-2 rounded-sm border border-[#ffffff10] bg-[#0a0a0a] text-xs text-[#e5e5e5] focus:outline-none focus:border-emerald-500 font-mono font-bold"
+                    className={`${inputClass} font-mono font-bold`}
                     required
                   />
-                  <div className="flex gap-1.5 pt-1">
+                  <div className="flex gap-2 pt-1.5">
                     <button
                       type="button"
                       onClick={() => setPaymentAmount(activeInvoiceForPayment.balance)}
-                      className="text-[9px] text-emerald-400 hover:underline"
+                      className="text-[11px] font-semibold text-emerald-500 hover:underline"
                     >
                       Bixi Dhammaan ({formatMoney(activeInvoiceForPayment.balance, currency)})
                     </button>
                     {activeInvoiceForPayment.balance > 10 && (
                       <button
                         type="button"
-                        onClick={() => setPaymentAmount(Math.round(activeInvoiceForPayment.balance / 2))}
-                        className="text-[9px] text-[#737373] hover:underline"
+                        onClick={() =>
+                          setPaymentAmount(Math.round(activeInvoiceForPayment.balance / 2))
+                        }
+                        className="text-[11px] text-[var(--text-muted)] hover:underline"
                       >
                         Nus (50%)
                       </button>
@@ -340,14 +358,12 @@ export const PaymentsModule: React.FC<PaymentsModuleProps> = ({
                   </div>
                 </div>
 
-                <div className="space-y-1">
-                  <label className="font-semibold text-[#737373] uppercase tracking-wider text-[9px]">
-                    Qaabka Bixinta (Payment Method) *
-                  </label>
+                <div>
+                  <label className={labelClass}>Qaabka Bixinta (Payment Method) *</label>
                   <select
                     value={paymentMethod}
                     onChange={(e) => setPaymentMethod(e.target.value)}
-                    className="w-full px-3 py-2 rounded-sm border border-[#ffffff10] bg-[#0a0a0a] text-xs text-[#e5e5e5] focus:outline-none focus:border-emerald-500"
+                    className={inputClass}
                   >
                     <option value="EVC Plus">EVC Plus</option>
                     <option value="Zaad">Zaad</option>
@@ -360,65 +376,51 @@ export const PaymentsModule: React.FC<PaymentsModuleProps> = ({
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="font-semibold text-[#737373] uppercase tracking-wider text-[9px]">
-                    Tixraaca Bixinta (Tx ID / Ref)
-                  </label>
+                <div>
+                  <label className={labelClass}>Tixraaca Bixinta (Tx ID / Ref)</label>
                   <input
                     type="text"
                     placeholder="e.g. TXN994812"
                     value={reference}
                     onChange={(e) => setReference(e.target.value)}
-                    className="w-full px-3 py-2 rounded-sm border border-[#ffffff10] bg-[#0a0a0a] text-xs text-[#e5e5e5] focus:outline-none focus:border-emerald-500"
+                    className={inputClass}
                   />
                 </div>
-                <div className="space-y-1">
-                  <label className="font-semibold text-[#737373] uppercase tracking-wider text-[9px]">
-                    Taariikhda Bixinta *
-                  </label>
+                <div>
+                  <label className={labelClass}>Taariikhda Bixinta *</label>
                   <input
                     type="date"
                     value={paymentDate}
                     onChange={(e) => setPaymentDate(e.target.value)}
-                    className="w-full px-3 py-2 rounded-sm border border-[#ffffff10] bg-[#0a0a0a] text-xs text-[#e5e5e5] focus:outline-none focus:border-emerald-500"
+                    className={inputClass}
                     required
                   />
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="font-semibold text-[#737373] uppercase tracking-wider text-[9px]">
-                  Qoraal / Notes
-                </label>
+              <div>
+                <label className={labelClass}>Qoraal / Notes</label>
                 <input
                   type="text"
                   placeholder="Fiiro gaar ah..."
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  className="w-full px-3 py-2 rounded-sm border border-[#ffffff10] bg-[#0a0a0a] text-xs text-[#e5e5e5] focus:outline-none focus:border-emerald-500"
+                  className={inputClass}
                 />
               </div>
 
-              <div className="flex justify-end gap-3 pt-3 border-t border-[#ffffff0a]">
-                <button
-                  type="button"
-                  onClick={onClosePaymentModal}
-                  className="px-4 py-2 rounded-sm border border-[#ffffff10] text-[#737373] hover:text-[#e5e5e5] text-[10px] uppercase font-bold"
-                >
+              <div className="flex justify-end gap-2.5 pt-3 border-t border-[var(--border-subtle)]">
+                <Button variant="secondary" type="button" onClick={onClosePaymentModal}>
                   Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="px-5 py-2 rounded-sm bg-emerald-500 hover:bg-emerald-400 text-[#0a0a0a] text-[10px] uppercase font-bold tracking-wider disabled:opacity-50 cursor-pointer shadow-sm"
-                >
-                  {submitting ? "Qabanaya..." : "Confirm & Issue Receipt"}
-                </button>
+                </Button>
+                <Button variant="primary" type="submit" loading={submitting}>
+                  {submitting ? 'Qabanaya...' : 'Confirm & Issue Receipt'}
+                </Button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </Modal>
 
       <ConfirmDialog
         isOpen={confirmState.isOpen}

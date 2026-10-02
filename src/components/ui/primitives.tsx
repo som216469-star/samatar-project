@@ -11,6 +11,45 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
+function renderIconNode(icon: any, defaultClassName = 'w-4 h-4'): React.ReactNode {
+  if (!icon || typeof icon === 'boolean') return null;
+  if (React.isValidElement(icon)) return icon;
+  if (
+    typeof icon === 'function' ||
+    (typeof icon === 'object' && icon !== null && ('render' in icon || '$$typeof' in icon))
+  ) {
+    const IconComp = icon as React.ElementType;
+    return <IconComp className={defaultClassName} />;
+  }
+  return icon;
+}
+
+const TONE_ALIAS_MAP: Record<string, BadgeTone> = {
+  brand: 'brand',
+  indigo: 'brand',
+  purple: 'brand',
+  violet: 'brand',
+  primary: 'brand',
+  success: 'success',
+  emerald: 'success',
+  green: 'success',
+  warning: 'warning',
+  amber: 'warning',
+  yellow: 'warning',
+  danger: 'danger',
+  red: 'danger',
+  rose: 'danger',
+  error: 'danger',
+  info: 'info',
+  blue: 'info',
+  cyan: 'info',
+  sky: 'info',
+  neutral: 'neutral',
+  default: 'neutral',
+  slate: 'neutral',
+  secondary: 'neutral'
+};
+
 /* ============================================================================
    1. BUTTON PRIMITIVE
    ============================================================================ */
@@ -22,9 +61,9 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
   size?: ButtonSize;
   loading?: boolean;
   isLoading?: boolean;
-  icon?: React.ReactNode;
-  leftIcon?: React.ReactNode;
-  rightIcon?: React.ReactNode;
+  icon?: React.ReactNode | React.ElementType;
+  leftIcon?: React.ReactNode | React.ElementType;
+  rightIcon?: React.ReactNode | React.ElementType;
   fullWidth?: boolean;
 }
 
@@ -44,7 +83,8 @@ export const Button: React.FC<ButtonProps> = ({
   ...rest
 }) => {
   const resolvedLoading = Boolean(loading || isLoading);
-  const resolvedLeftIcon = icon ?? leftIcon;
+  const resolvedLeftIcon = renderIconNode(icon ?? leftIcon, 'w-3.5 h-3.5 shrink-0');
+  const resolvedRightIcon = renderIconNode(rightIcon, 'w-3.5 h-3.5 shrink-0');
 
   const sizeStyles: Record<ButtonSize, string> = {
     xs: 'px-2.5 py-1 text-[11px] gap-1.5 rounded-[var(--radius-xs)]',
@@ -72,14 +112,14 @@ export const Button: React.FC<ButtonProps> = ({
     <button
       type={type}
       disabled={disabled || resolvedLoading}
-      className={`inline-flex items-center justify-center font-semibold tracking-tight transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${sizeStyles[size]} ${variantStyles[variant]} ${
+      className={`inline-flex items-center justify-center font-semibold tracking-tight transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${sizeStyles[size] || sizeStyles.md} ${variantStyles[variant] || variantStyles.primary} ${
         fullWidth ? 'w-full' : ''
       } ${className}`}
       {...rest}
     >
       {resolvedLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" /> : resolvedLeftIcon}
       {children && <span>{children}</span>}
-      {!resolvedLoading && rightIcon}
+      {!resolvedLoading && resolvedRightIcon}
     </button>
   );
 };
@@ -90,11 +130,11 @@ export const Button: React.FC<ButtonProps> = ({
 export type BadgeTone = 'success' | 'warning' | 'danger' | 'info' | 'brand' | 'neutral';
 
 export interface StatusBadgeProps {
-  tone?: BadgeTone;
-  variant?: BadgeTone;
+  tone?: BadgeTone | string;
+  variant?: BadgeTone | string;
   children: React.ReactNode;
   dot?: boolean;
-  icon?: React.ReactNode;
+  icon?: React.ReactNode | React.ElementType;
   className?: string;
 }
 
@@ -106,7 +146,10 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
   icon,
   className = ''
 }) => {
-  const resolvedTone: BadgeTone = tone || variant || 'neutral';
+  const rawTone = tone || variant || 'neutral';
+  const resolvedTone: BadgeTone = TONE_ALIAS_MAP[String(rawTone)] || 'neutral';
+  const resolvedIcon = renderIconNode(icon, 'w-3 h-3 shrink-0');
+
   const toneStyles: Record<BadgeTone, string> = {
     success:
       'bg-[var(--color-success-soft)] text-[var(--color-success)] border-[var(--color-success-border)]',
@@ -135,8 +178,8 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
     <span
       className={`inline-flex items-center gap-1.5 px-2 py-0.5 text-[11px] font-semibold rounded-[var(--radius-xs)] border ${toneStyles[resolvedTone]} ${className}`}
     >
-      {icon ? (
-        icon
+      {resolvedIcon ? (
+        resolvedIcon
       ) : dot ? (
         <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${dotColors[resolvedTone]}`} aria-hidden="true" />
       ) : null}
@@ -177,7 +220,7 @@ export const Card: React.FC<CardProps> = ({
   return (
     <div
       onClick={onClick}
-      className={`${elevated ? 'ds-surface-elevated' : 'ds-surface'} ${padMap[padding]} ${
+      className={`${elevated ? 'ds-surface-elevated' : 'ds-surface'} ${padMap[padding] ?? padMap.md} ${
         onClick ? 'cursor-pointer hover:border-[var(--color-brand-border)] transition-colors' : ''
       } ${className}`}
     >
@@ -190,12 +233,16 @@ export interface StatCardProps {
   label: string;
   value: React.ReactNode;
   subtitle?: React.ReactNode;
+  sublabel?: React.ReactNode;
+  subtext?: React.ReactNode;
   trend?: {
     label: string;
     tone?: BadgeTone;
   };
-  icon?: React.ReactNode;
-  tone?: BadgeTone | 'emerald' | 'default';
+  icon?: React.ReactNode | React.ElementType;
+  tone?: BadgeTone | string;
+  variant?: BadgeTone | string;
+  color?: string;
   onClick?: () => void;
 }
 
@@ -203,17 +250,20 @@ export const StatCard: React.FC<StatCardProps> = ({
   label,
   value,
   subtitle,
+  sublabel,
+  subtext,
   trend,
   icon,
-  tone = 'brand',
+  tone,
+  variant,
+  color,
   onClick
 }) => {
-  const normalizedTone: BadgeTone =
-    tone === 'emerald'
-      ? 'success'
-      : tone === 'default'
-      ? 'neutral'
-      : (tone as BadgeTone);
+  const rawTone = tone || variant || color || 'brand';
+  const resolvedSubtitle = subtitle ?? sublabel ?? subtext;
+  const normalizedTone: BadgeTone = TONE_ALIAS_MAP[String(rawTone)] || 'brand';
+  const resolvedIcon = renderIconNode(icon, 'w-4 h-4');
+
   const iconToneMap: Record<BadgeTone, string> = {
     brand: 'bg-[var(--color-brand-soft)] text-[var(--color-brand)] border-[var(--color-brand-border)]',
     success: 'bg-[var(--color-success-soft)] text-[var(--color-success)] border-[var(--color-success-border)]',
@@ -232,9 +282,9 @@ export const StatCard: React.FC<StatCardProps> = ({
         <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
           {label}
         </span>
-        {icon && (
+        {resolvedIcon && (
           <div className={`w-8 h-8 rounded-[var(--radius-sm)] border flex items-center justify-center shrink-0 ${iconToneMap[normalizedTone]}`}>
-            {icon}
+            {resolvedIcon}
           </div>
         )}
       </div>
@@ -243,10 +293,10 @@ export const StatCard: React.FC<StatCardProps> = ({
         <div className="text-2xl sm:text-3xl font-bold tracking-tight font-mono tabular-nums text-[var(--color-text-primary)]">
           {value}
         </div>
-        {(subtitle || trend) && (
+        {(resolvedSubtitle || trend) && (
           <div className="flex items-center justify-between gap-2 pt-1">
-            {subtitle && (
-              <span className="text-xs text-[var(--color-text-secondary)] truncate">{subtitle}</span>
+            {resolvedSubtitle && (
+              <span className="text-xs text-[var(--color-text-secondary)] truncate">{resolvedSubtitle}</span>
             )}
             {trend && (
               <StatusBadge tone={trend.tone || 'neutral'} dot={false}>
@@ -305,7 +355,7 @@ export const FormField: React.FC<FormFieldProps> = ({
 export interface FormSectionProps {
   title: string;
   description?: string;
-  icon?: React.ReactNode;
+  icon?: React.ReactNode | React.ElementType;
   children: React.ReactNode;
   className?: string;
 }
@@ -316,20 +366,23 @@ export const FormSection: React.FC<FormSectionProps> = ({
   icon,
   children,
   className = ''
-}) => (
-  <div className={`ds-surface p-5 space-y-4 ${className}`}>
-    <div className="border-b border-[var(--color-border)] pb-3 flex items-start gap-2.5">
-      {icon && <div className="text-[var(--color-brand)] mt-0.5">{icon}</div>}
-      <div>
-        <h3 className="text-sm font-bold text-[var(--color-text-primary)]">{title}</h3>
-        {description && (
-          <p className="text-xs text-[var(--color-text-muted)] mt-0.5">{description}</p>
-        )}
+}) => {
+  const resolvedIcon = renderIconNode(icon, 'w-4 h-4');
+  return (
+    <div className={`ds-surface p-5 space-y-4 ${className}`}>
+      <div className="border-b border-[var(--color-border)] pb-3 flex items-start gap-2.5">
+        {resolvedIcon && <div className="text-[var(--color-brand)] mt-0.5">{resolvedIcon}</div>}
+        <div>
+          <h3 className="text-sm font-bold text-[var(--color-text-primary)]">{title}</h3>
+          {description && (
+            <p className="text-xs text-[var(--color-text-muted)] mt-0.5">{description}</p>
+          )}
+        </div>
       </div>
+      <div className="space-y-4">{children}</div>
     </div>
-    <div className="space-y-4">{children}</div>
-  </div>
-);
+  );
+};
 
 /* ============================================================================
    5. OVERLAY PRIMITIVES (Modal, Drawer, ConfirmDialog)
@@ -339,6 +392,7 @@ export interface ModalProps {
   onClose: () => void;
   title: string;
   subtitle?: string;
+  description?: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
   size?: 'sm' | 'md' | 'lg' | 'xl';
@@ -349,10 +403,12 @@ export const Modal: React.FC<ModalProps> = ({
   onClose,
   title,
   subtitle,
+  description,
   children,
   footer,
   size = 'md'
 }) => {
+  const resolvedSubtitle = subtitle || description;
   const uniqueId = useId();
   const titleId = `modal-title-${uniqueId}`;
   const descId = `modal-desc-${uniqueId}`;
@@ -452,7 +508,7 @@ export const Modal: React.FC<ModalProps> = ({
           role="dialog"
           aria-modal="true"
           aria-labelledby={titleId}
-          aria-describedby={subtitle ? descId : undefined}
+          aria-describedby={resolvedSubtitle ? descId : undefined}
           onMouseDown={(e) => {
             if (e.target === e.currentTarget) onClose();
           }}
@@ -471,9 +527,9 @@ export const Modal: React.FC<ModalProps> = ({
                 <h2 id={titleId} className="text-base font-bold text-[var(--color-text-primary)]">
                   {title}
                 </h2>
-                {subtitle && (
+                {resolvedSubtitle && (
                   <p id={descId} className="text-xs text-[var(--color-text-muted)] mt-0.5">
-                    {subtitle}
+                    {resolvedSubtitle}
                   </p>
                 )}
               </div>
@@ -510,6 +566,7 @@ export interface ConfirmDialogProps {
   tone?: 'danger' | 'warning' | 'brand' | 'primary';
   variant?: 'danger' | 'warning' | 'brand' | 'primary';
   isLoading?: boolean;
+  loading?: boolean;
   onConfirm: () => void | Promise<void>;
   onCancel: () => void;
 }
@@ -525,12 +582,14 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   tone,
   variant,
   isLoading = false,
+  loading = false,
   onConfirm,
   onCancel
 }) => {
   const resolvedOpen = Boolean(isOpen ?? open);
   const resolvedTone = tone || variant || 'danger';
   const resolvedMessage = message || description || '';
+  const resolvedLoading = Boolean(isLoading || loading);
 
   return (
     <Modal
@@ -540,13 +599,13 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
       size="sm"
       footer={
         <>
-          <Button variant="secondary" size="sm" onClick={onCancel} disabled={isLoading}>
+          <Button variant="secondary" size="sm" onClick={onCancel} disabled={resolvedLoading}>
             {cancelLabel}
           </Button>
           <Button
             variant={resolvedTone === 'danger' ? 'danger' : 'primary'}
             size="sm"
-            loading={isLoading}
+            loading={resolvedLoading}
             onClick={onConfirm}
           >
             {confirmLabel}
@@ -602,7 +661,7 @@ export const LoadingState: React.FC<{ label?: string; rows?: number }> = ({
 export interface EmptyStateProps {
   title: string;
   description?: string;
-  icon?: React.ReactNode;
+  icon?: React.ReactNode | React.ElementType;
   action?: React.ReactNode;
 }
 
@@ -611,20 +670,23 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   description,
   icon,
   action
-}) => (
-  <div className="ds-surface p-10 text-center flex flex-col items-center justify-center gap-3">
-    <div className="w-11 h-11 rounded-full bg-[var(--color-surface-muted)] border border-[var(--color-border)] flex items-center justify-center text-[var(--color-text-muted)]">
-      {icon || <Inbox className="w-5 h-5" />}
+}) => {
+  const resolvedIcon = renderIconNode(icon, 'w-5 h-5');
+  return (
+    <div className="ds-surface p-10 text-center flex flex-col items-center justify-center gap-3">
+      <div className="w-11 h-11 rounded-full bg-[var(--color-surface-muted)] border border-[var(--color-border)] flex items-center justify-center text-[var(--color-text-muted)]">
+        {resolvedIcon || <Inbox className="w-5 h-5" />}
+      </div>
+      <div className="max-w-md space-y-1">
+        <h3 className="text-sm font-bold text-[var(--color-text-primary)]">{title}</h3>
+        {description && (
+          <p className="text-xs text-[var(--color-text-muted)] leading-relaxed">{description}</p>
+        )}
+      </div>
+      {action && <div className="pt-2">{action}</div>}
     </div>
-    <div className="max-w-md space-y-1">
-      <h3 className="text-sm font-bold text-[var(--color-text-primary)]">{title}</h3>
-      {description && (
-        <p className="text-xs text-[var(--color-text-muted)] leading-relaxed">{description}</p>
-      )}
-    </div>
-    {action && <div className="pt-2">{action}</div>}
-  </div>
-);
+  );
+};
 
 export interface ErrorStateProps {
   title?: string;

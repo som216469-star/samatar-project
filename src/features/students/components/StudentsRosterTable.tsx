@@ -1,9 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
-  Users,
   CheckSquare,
   Square,
-  Phone,
+  Users,
+  Plus,
+  Copy,
+  Check,
+  AlertTriangle,
   Eye,
   Edit2,
   RotateCcw,
@@ -13,292 +16,343 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { Student } from '../../../types';
-import { StudentFeeSummary } from './studentsExportUtils';
+import { Badge, Button, Card, EmptyState } from '../../../components/ui/primitives';
 
-interface StudentsRosterTableProps {
-  viewMode: 'table' | 'cards';
+export interface StudentFeeSummary {
+  status: 'paid' | 'partial' | 'unpaid' | string;
+  totalBilled?: number;
+  totalPaid?: number;
+  amount?: number;
+  paid?: number;
+  balance: number;
+}
+
+export interface StudentsRosterTableProps {
+  viewMode: 'table' | 'grid' | 'cards';
   paginatedStudents: Student[];
   filteredStudentsCount: number;
   selectedStudentIds: string[];
-  isAllSelected: boolean;
-  visibleColumns: Record<string, boolean>;
+  allVisibleSelected?: boolean;
+  isAllSelected?: boolean;
+  visibleColumns?: Record<string, boolean>;
+  copiedPhoneId?: string | null;
+  hasActiveFilters?: boolean;
   currency: string;
   currentPage: number;
-  pageSize: number;
   totalPages: number;
-  onSetCurrentPage: (page: number | ((prev: number) => number)) => void;
-  onSetPageSize: (size: number) => void;
-  onToggleSelectAll: () => void;
-  onToggleSelectOne: (id: string) => void;
+  pageSize: number;
   getStudentFeeStatus: (studentId: string) => StudentFeeSummary;
+  onToggleSelectAllVisible?: () => void;
+  onToggleSelectAll?: () => void;
+  onToggleSelectOne: (id: string) => void;
+  onCopyPhone?: (phone: string, id: string) => void;
   onOpenProfile: (student: Student) => void;
   onOpenEditModal: (student: Student) => void;
   onQuickStatusChange: (student: Student, status: 'active' | 'inactive' | 'archived') => void;
   onDeleteStudentClick: (student: Student) => void;
+  onClearAllFilters?: () => void;
+  onOpenAddModal?: () => void;
+  onSetPageSize: (size: number) => void;
+  onSetCurrentPage: React.Dispatch<React.SetStateAction<number>>;
 }
 
 export const StudentsRosterTable: React.FC<StudentsRosterTableProps> = ({
-  viewMode,
-  paginatedStudents,
-  filteredStudentsCount,
-  selectedStudentIds,
+  viewMode = 'table',
+  paginatedStudents = [],
+  filteredStudentsCount = 0,
+  selectedStudentIds = [],
+  allVisibleSelected,
   isAllSelected,
-  visibleColumns,
-  currency,
-  currentPage,
-  pageSize,
-  totalPages,
-  onSetCurrentPage,
-  onSetPageSize,
+  copiedPhoneId: externalCopiedPhoneId,
+  hasActiveFilters = false,
+  currency = '$',
+  currentPage = 1,
+  totalPages = 1,
+  pageSize = 25,
+  getStudentFeeStatus,
+  onToggleSelectAllVisible,
   onToggleSelectAll,
   onToggleSelectOne,
-  getStudentFeeStatus,
+  onCopyPhone,
   onOpenProfile,
   onOpenEditModal,
   onQuickStatusChange,
-  onDeleteStudentClick
+  onDeleteStudentClick,
+  onClearAllFilters,
+  onOpenAddModal,
+  onSetPageSize,
+  onSetCurrentPage
 }) => {
+  const [localCopiedId, setLocalCopiedId] = useState<string | null>(null);
+  const resolvedCopiedId = externalCopiedPhoneId ?? localCopiedId;
+  const resolvedAllSelected = Boolean(allVisibleSelected ?? isAllSelected);
+  const handleSelectAll = onToggleSelectAllVisible || onToggleSelectAll || (() => {});
+
+  const handleCopyPhone = (phone: string, id: string) => {
+    if (onCopyPhone) {
+      onCopyPhone(phone, id);
+      return;
+    }
+    try {
+      navigator.clipboard?.writeText(phone);
+      setLocalCopiedId(id);
+      setTimeout(() => setLocalCopiedId(null), 1800);
+    } catch {}
+  };
+
   return (
-    <>
+    <div className="space-y-4">
       {viewMode === 'table' ? (
-        <div className="bg-[#0f0f0f] border border-[#ffffff10] rounded-sm overflow-hidden shadow-2xl">
+        <Card padding="none" className="overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-[#0a0a0a] border-b border-[#ffffff10] text-[10px] uppercase font-bold tracking-widest text-[#737373]">
-                  <th className="px-4 py-3.5 w-10 text-center">
+                <tr>
+                  <th className="px-4 py-3 w-10">
                     <button
                       type="button"
-                      onClick={onToggleSelectAll}
-                      aria-label={isAllSelected ? 'Deselect All' : 'Select All on this Page'}
-                      className="p-1 text-[#888888] hover:text-white transition-colors"
-                      title={isAllSelected ? 'Deselect All' : 'Select All on this Page'}
+                      onClick={handleSelectAll}
+                      aria-label={
+                        resolvedAllSelected ? 'Deselect all students' : 'Select all visible students'
+                      }
+                      className="flex items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] cursor-pointer"
                     >
-                      {isAllSelected ? (
-                        <CheckSquare className="w-4 h-4 text-[#7c3aed]" />
+                      {resolvedAllSelected ? (
+                        <CheckSquare className="w-4 h-4 text-[var(--color-brand)]" />
                       ) : (
                         <Square className="w-4 h-4" />
                       )}
                     </button>
                   </th>
-                  <th className="px-4 py-3.5">Ardayga / Student</th>
-                  {visibleColumns.id !== false && <th className="px-4 py-3.5">ID / Roll No</th>}
-                  {visibleColumns.class !== false && <th className="px-4 py-3.5">Fasalka / Class</th>}
-                  {visibleColumns.gender !== false && <th className="px-4 py-3.5">Lab/Dhedig</th>}
-                  {visibleColumns.guardian !== false && (
-                    <th className="px-4 py-3.5">Waalidka / Guardian</th>
-                  )}
-                  {visibleColumns.fees !== false && <th className="px-4 py-3.5">Biilka Bisha</th>}
-                  {visibleColumns.status !== false && <th className="px-4 py-3.5">Status</th>}
-                  {visibleColumns.regDate !== false && <th className="px-4 py-3.5">Reg. Date</th>}
-                  {visibleColumns.updated !== false && (
-                    <th className="px-4 py-3.5">Last Updated</th>
-                  )}
-                  <th className="px-4 py-3.5 text-right">Hawlaha / Actions</th>
+                  <th className="px-3 py-3 w-10">#</th>
+                  <th className="px-4 py-3">Ardayga (Student)</th>
+                  <th className="px-4 py-3">Fasalka</th>
+                  <th className="px-4 py-3">Jinsiga</th>
+                  <th className="px-4 py-3">Waalidka & Telefoonka</th>
+                  <th className="px-4 py-3">Biilka</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3 text-right">Ficilada (Actions)</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#ffffff08] text-xs">
+              <tbody className="text-xs">
                 {paginatedStudents.length === 0 ? (
                   <tr>
-                    <td colSpan={11} className="px-6 py-16 text-center">
-                      <div className="flex flex-col items-center justify-center gap-3">
-                        <Users className="w-10 h-10 text-[#333333]" />
-                        <p className="text-sm font-semibold text-[#888888]">
-                          Wax arday ah oo buuxiyey shuruudaha lama helin
-                        </p>
-                        <p className="text-xs text-[#555555]">
-                          Isku day inaad beddesho erayada raadinta ama filter-yada aad dooratay.
-                        </p>
-                      </div>
+                    <td colSpan={9} className="py-10">
+                      <EmptyState
+                        icon={<Users className="w-6 h-6" />}
+                        title="Wax arday ah lama helin"
+                        description={
+                          hasActiveFilters
+                            ? 'Ma jiraan arday waafaqsan shaandhaynta aad dooratay.'
+                            : 'Weli wax arday ah laguma darin diiwaanka dugsiga.'
+                        }
+                        action={
+                          (hasActiveFilters && onClearAllFilters) || onOpenAddModal ? (
+                            <div className="flex items-center gap-2">
+                              {hasActiveFilters && onClearAllFilters && (
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  onClick={onClearAllFilters}
+                                >
+                                  Masax Shaandhaynta
+                                </Button>
+                              )}
+                              {onOpenAddModal && (
+                                <Button
+                                  size="sm"
+                                  variant="primary"
+                                  leftIcon={<Plus className="w-3.5 h-3.5" />}
+                                  onClick={onOpenAddModal}
+                                >
+                                  Arday Cusub
+                                </Button>
+                              )}
+                            </div>
+                          ) : undefined
+                        }
+                      />
                     </td>
                   </tr>
                 ) : (
-                  paginatedStudents.map((student) => {
+                  paginatedStudents.map((student, idx) => {
                     const isSelected = selectedStudentIds.includes(student.id);
-                    const feeInfo = getStudentFeeStatus(student.id);
+                    const feeInfo = getStudentFeeStatus
+                      ? getStudentFeeStatus(student.id)
+                      : { status: 'unpaid', balance: 0 };
+                    const rowNumber = (currentPage - 1) * pageSize + idx + 1;
+                    const fullName = student.fullName || 'Unnamed';
 
                     return (
                       <tr
                         key={student.id}
-                        className={`transition-colors ${
-                          isSelected ? 'bg-[#7c3aed]/10' : 'hover:bg-[#ffffff02]'
-                        }`}
+                        className={isSelected ? 'bg-[var(--color-brand-soft)]' : ''}
                       >
-                        <td className="px-4 py-3 text-center">
+                        <td className="px-4 py-3">
                           <button
                             type="button"
                             onClick={() => onToggleSelectOne(student.id)}
-                            aria-label={`Select ${student.fullName}`}
-                            className="p-1 text-[#888888] hover:text-white transition-colors"
+                            aria-label={`Select ${fullName}`}
+                            className="flex items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] cursor-pointer"
                           >
                             {isSelected ? (
-                              <CheckSquare className="w-4 h-4 text-[#7c3aed]" />
+                              <CheckSquare className="w-4 h-4 text-[var(--color-brand)]" />
                             ) : (
                               <Square className="w-4 h-4" />
                             )}
                           </button>
                         </td>
 
+                        <td className="px-3 py-3 text-[var(--color-text-muted)] font-mono tabular-nums">
+                          {rowNumber}
+                        </td>
+
                         <td className="px-4 py-3">
-                          <div
-                            className="flex items-center gap-3 cursor-pointer group"
-                            onClick={() => onOpenProfile(student)}
-                            title="Fiiri 360° Profile-ka Ardayga"
-                          >
+                          <div className="flex items-center gap-3">
                             {student.photo ? (
                               <img
                                 src={student.photo}
-                                alt={student.fullName}
-                                className="w-9 h-9 rounded-full object-cover border border-[#ffffff15] group-hover:border-[#7c3aed] transition-colors"
+                                alt={fullName}
+                                className="w-9 h-9 rounded-lg object-cover border border-[var(--color-border)] shrink-0 cursor-pointer"
+                                onClick={() => onOpenProfile(student)}
                               />
                             ) : (
                               <div
-                                className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs uppercase border ${
-                                  student.gender === 'Female'
-                                    ? 'bg-[#ec4899]/15 border-[#ec4899]/30 text-[#f472b6]'
-                                    : 'bg-[#3b82f6]/15 border-[#3b82f6]/30 text-[#60a5fa]'
-                                }`}
+                                onClick={() => onOpenProfile(student)}
+                                className="w-9 h-9 rounded-lg bg-[var(--color-brand-soft)] border border-[var(--color-brand-border)] text-[var(--color-brand)] flex items-center justify-center font-bold text-xs uppercase shrink-0 cursor-pointer"
                               >
-                                {student.fullName.trim() ? student.fullName.trim().charAt(0) : '?'}
+                                {fullName.trim() ? fullName.trim().charAt(0) : '?'}
                               </div>
                             )}
 
-                            <div>
-                              <p className="font-bold text-[#f0f0f0] group-hover:text-[#c4b5fd] transition-colors flex items-center gap-1.5">
-                                <span>{student.fullName}</span>
-                              </p>
-                              <p className="text-[10px] text-[#737373] font-mono">
-                                {student.guardianName
-                                  ? `Waalid: ${student.guardianName}`
-                                  : `ID: ${student.id}`}
-                              </p>
+                            <div className="min-w-0">
+                              <button
+                                type="button"
+                                onClick={() => onOpenProfile(student)}
+                                className="font-semibold text-[var(--color-text-primary)] hover:text-[var(--color-brand)] transition-colors text-left block truncate max-w-[200px] cursor-pointer"
+                              >
+                                {fullName}
+                              </button>
+                              <div className="flex items-center gap-1.5 text-[11px] text-[var(--color-text-muted)] font-mono">
+                                <span>{student.id}</span>
+                                {student.rollNumber && (
+                                  <>
+                                    <span>·</span>
+                                    <span>Roll #{student.rollNumber}</span>
+                                  </>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </td>
 
-                        {visibleColumns.id !== false && (
-                          <td className="px-4 py-3 font-mono text-[11px] text-[#a3a3a3]">
-                            <div>
-                              <span className="text-white font-semibold">{student.id}</span>
-                              {student.rollNumber && (
-                                <p className="text-[9px] text-[#737373] mt-0.5">
-                                  Roll: {student.rollNumber}
+                        <td className="px-4 py-3">
+                          <Badge variant="neutral">
+                            {student.class}
+                            {student.section ? ` (${student.section})` : ''}
+                          </Badge>
+                        </td>
+
+                        <td className="px-4 py-3">
+                          <Badge variant={student.gender === 'Female' ? 'brand' : 'info'}>
+                            {student.gender === 'Female' ? 'Dhedig' : 'Lab'}
+                          </Badge>
+                        </td>
+
+                        <td className="px-4 py-3">
+                          {student.guardianPhone || student.guardianName ? (
+                            <div className="space-y-0.5">
+                              {student.guardianName && (
+                                <p className="text-[var(--color-text-primary)] font-medium text-xs truncate max-w-[160px]">
+                                  {student.guardianName}
                                 </p>
                               )}
+                              {student.guardianPhone ? (
+                                <div className="flex items-center gap-1.5">
+                                  <a
+                                    href={`tel:${student.guardianPhone}`}
+                                    className="font-mono text-[11px] text-[var(--color-brand)] hover:underline"
+                                  >
+                                    {student.guardianPhone}
+                                  </a>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleCopyPhone(student.guardianPhone, student.id)}
+                                    aria-label={`Copy phone for ${fullName}`}
+                                    className="p-0.5 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors cursor-pointer"
+                                    title="Koobiye Telefoonka"
+                                  >
+                                    {resolvedCopiedId === student.id ? (
+                                      <Check className="w-3 h-3 text-[var(--color-success)]" />
+                                    ) : (
+                                      <Copy className="w-3 h-3" />
+                                    )}
+                                  </button>
+                                </div>
+                              ) : (
+                                <span className="text-[11px] text-[var(--color-warning)] flex items-center gap-1">
+                                  <AlertTriangle className="w-3 h-3" /> Telefoon ma jiro
+                                </span>
+                              )}
                             </div>
-                          </td>
-                        )}
-
-                        {visibleColumns.class !== false && (
-                          <td className="px-4 py-3">
-                            <span className="font-semibold text-[#e5e5e5]">{student.class}</span>
-                            {student.section && (
-                              <span className="ml-1.5 text-[10px] text-[#888888] font-mono">
-                                · Sec {student.section}
-                              </span>
-                            )}
-                          </td>
-                        )}
-
-                        {visibleColumns.gender !== false && (
-                          <td className="px-4 py-3">
-                            <span
-                              className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider ${
-                                student.gender === 'Female' ? 'text-[#f472b6]' : 'text-[#60a5fa]'
-                              }`}
-                            >
-                              <span
-                                className={`w-1.5 h-1.5 rounded-full ${
-                                  student.gender === 'Female' ? 'bg-[#ec4899]' : 'bg-[#3b82f6]'
-                                }`}
-                              />
-                              {student.gender}
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[11px] text-[var(--color-warning)]">
+                              <AlertTriangle className="w-3 h-3" /> Lama diiwaangelin
                             </span>
-                          </td>
-                        )}
+                          )}
+                        </td>
 
-                        {visibleColumns.guardian !== false && (
-                          <td className="px-4 py-3">
-                            {student.guardianPhone ? (
-                              <a
-                                href={`tel:${student.guardianPhone}`}
-                                className="inline-flex items-center gap-1.5 text-[11px] font-mono text-[#c4b5fd] hover:text-white hover:underline transition-colors"
-                                title="Wac Telefoonka Waalidka"
-                              >
-                                <Phone className="w-3 h-3 text-[#7c3aed]" />
-                                <span>{student.guardianPhone}</span>
-                              </a>
-                            ) : (
-                              <span className="text-rose-400/80 font-mono text-[10px]">
-                                Lama gelin
-                              </span>
-                            )}
-                            {student.guardianName && (
-                              <p className="text-[10px] text-[#737373] mt-0.5">
-                                {student.guardianName}
-                              </p>
-                            )}
-                          </td>
-                        )}
-
-                        {visibleColumns.fees !== false && (
-                          <td className="px-4 py-3">
-                            <span
-                              className={`text-[10px] font-mono font-bold uppercase tracking-wider ${
+                        <td className="px-4 py-3">
+                          <div className="space-y-0.5">
+                            <Badge
+                              variant={
                                 feeInfo.status === 'paid'
-                                  ? 'text-emerald-400'
+                                  ? 'success'
                                   : feeInfo.status === 'partial'
-                                  ? 'text-amber-400'
-                                  : 'text-rose-400'
-                              }`}
+                                  ? 'warning'
+                                  : 'danger'
+                              }
                             >
-                              {feeInfo.status}
-                            </span>
-                            {feeInfo.status !== 'paid' && feeInfo.balance > 0 && (
-                              <p className="text-[9px] text-[#888888] font-mono mt-0.5">
-                                Bal: {currency} {feeInfo.balance}
+                              {feeInfo.status === 'paid'
+                                ? 'La Bixiyey'
+                                : feeInfo.status === 'partial'
+                                ? 'Qayb'
+                                : 'Aan Bixinin'}
+                            </Badge>
+                            {feeInfo.balance > 0 && (
+                              <p className="text-[10px] font-mono tabular-nums text-[var(--color-danger)]">
+                                Baaqi: {currency} {feeInfo.balance}
                               </p>
                             )}
-                          </td>
-                        )}
+                          </div>
+                        </td>
 
-                        {visibleColumns.status !== false && (
-                          <td className="px-4 py-3">
-                            <span
-                              className={`text-[10px] font-mono font-bold uppercase tracking-wider ${
-                                student.status === 'active'
-                                  ? 'text-emerald-400'
-                                  : student.status === 'archived'
-                                  ? 'text-slate-400'
-                                  : 'text-amber-400'
-                              }`}
-                            >
-                              {student.status || 'active'}
-                            </span>
-                          </td>
-                        )}
-
-                        {visibleColumns.regDate !== false && (
-                          <td className="px-4 py-3 font-mono text-[10px] text-[#a3a3a3]">
-                            {student.createdAt || '-'}
-                          </td>
-                        )}
-
-                        {visibleColumns.updated !== false && (
-                          <td className="px-4 py-3 font-mono text-[10px] text-[#888888]">
-                            {student.updatedAt
-                              ? student.updatedAt.split('T')[0]
-                              : student.createdAt || '-'}
-                          </td>
-                        )}
+                        <td className="px-4 py-3">
+                          <Badge
+                            dot
+                            variant={
+                              student.status === 'active'
+                                ? 'success'
+                                : student.status === 'archived'
+                                ? 'neutral'
+                                : 'danger'
+                            }
+                          >
+                            {student.status === 'active'
+                              ? 'Active'
+                              : student.status === 'archived'
+                              ? 'Archived'
+                              : 'Inactive'}
+                          </Badge>
+                        </td>
 
                         <td className="px-4 py-3 text-right">
-                          <div className="flex items-center justify-end gap-1.5">
+                          <div className="flex items-center justify-end gap-1">
                             <button
                               type="button"
                               onClick={() => onOpenProfile(student)}
                               aria-label="360° Profile-ka Ardayga"
-                              className="p-1.5 rounded-sm border border-[#ffffff10] text-[#737373] hover:text-[#c4b5fd] hover:bg-[#7c3aed]/15 hover:border-[#7c3aed]/30 transition-colors"
+                              className="p-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-muted)] text-[var(--color-text-secondary)] hover:text-[var(--color-brand)] hover:border-[var(--color-brand-border)] transition-colors cursor-pointer"
                               title="360° Profile-ka Ardayga"
                             >
                               <Eye className="w-3.5 h-3.5" />
@@ -308,7 +362,7 @@ export const StudentsRosterTable: React.FC<StudentsRosterTableProps> = ({
                               type="button"
                               onClick={() => onOpenEditModal(student)}
                               aria-label="Tafatir Ardayga"
-                              className="p-1.5 rounded-sm border border-[#ffffff10] text-[#737373] hover:text-white hover:bg-[#ffffff10] transition-colors"
+                              className="p-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-muted)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors cursor-pointer"
                               title="Tafatir (Edit Student)"
                             >
                               <Edit2 className="w-3.5 h-3.5" />
@@ -319,7 +373,7 @@ export const StudentsRosterTable: React.FC<StudentsRosterTableProps> = ({
                                 type="button"
                                 onClick={() => onQuickStatusChange(student, 'active')}
                                 aria-label="Ka dhig Active"
-                                className="p-1.5 rounded-sm border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/10 transition-colors"
+                                className="p-1.5 rounded-md border border-[var(--color-success-border)] bg-[var(--color-success-soft)] text-[var(--color-success)] transition-colors cursor-pointer"
                                 title="Ka dhig Active (Restore to Active)"
                               >
                                 <RotateCcw className="w-3.5 h-3.5" />
@@ -329,7 +383,7 @@ export const StudentsRosterTable: React.FC<StudentsRosterTableProps> = ({
                                 type="button"
                                 onClick={() => onQuickStatusChange(student, 'archived')}
                                 aria-label="Kaydi Ardayga"
-                                className="p-1.5 rounded-sm border border-[#ffffff10] text-[#737373] hover:text-amber-400 hover:bg-amber-500/10 transition-colors"
+                                className="p-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-muted)] text-[var(--color-text-secondary)] hover:text-[var(--color-warning)] transition-colors cursor-pointer"
                                 title="Kaydi Ardayga (Archive Student)"
                               >
                                 <Archive className="w-3.5 h-3.5" />
@@ -340,7 +394,7 @@ export const StudentsRosterTable: React.FC<StudentsRosterTableProps> = ({
                               type="button"
                               onClick={() => onDeleteStudentClick(student)}
                               aria-label="Tirtir Ardayga"
-                              className="p-1.5 rounded-sm border border-[#ffffff10] text-[#737373] hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                              className="p-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-muted)] text-[var(--color-text-secondary)] hover:text-[var(--color-danger)] transition-colors cursor-pointer"
                               title="Tirtir (Delete Student)"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -354,20 +408,23 @@ export const StudentsRosterTable: React.FC<StudentsRosterTableProps> = ({
               </tbody>
             </table>
           </div>
-        </div>
+        </Card>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {paginatedStudents.map((student) => {
             const isSelected = selectedStudentIds.includes(student.id);
-            const feeInfo = getStudentFeeStatus(student.id);
+            const feeInfo = getStudentFeeStatus
+              ? getStudentFeeStatus(student.id)
+              : { status: 'unpaid', balance: 0 };
+            const fullName = student.fullName || 'Unnamed';
 
             return (
-              <div
+              <Card
                 key={student.id}
-                className={`bg-[#0f0f0f] border rounded-sm p-4.5 space-y-3 transition-all relative ${
+                className={`space-y-3 transition-all ${
                   isSelected
-                    ? 'border-[#7c3aed] bg-[#7c3aed]/5'
-                    : 'border-[#ffffff10] hover:border-[#ffffff25]'
+                    ? 'border-[var(--color-brand)] bg-[var(--color-brand-soft)]'
+                    : ''
                 }`}
               >
                 <div className="flex items-start justify-between gap-3">
@@ -375,11 +432,11 @@ export const StudentsRosterTable: React.FC<StudentsRosterTableProps> = ({
                     <button
                       type="button"
                       onClick={() => onToggleSelectOne(student.id)}
-                      aria-label={`Select ${student.fullName}`}
-                      className="p-1 text-[#888888] hover:text-white"
+                      aria-label={`Select ${fullName}`}
+                      className="p-1 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] cursor-pointer"
                     >
                       {isSelected ? (
-                        <CheckSquare className="w-4 h-4 text-[#7c3aed]" />
+                        <CheckSquare className="w-4 h-4 text-[var(--color-brand)]" />
                       ) : (
                         <Square className="w-4 h-4" />
                       )}
@@ -387,101 +444,96 @@ export const StudentsRosterTable: React.FC<StudentsRosterTableProps> = ({
                     {student.photo ? (
                       <img
                         src={student.photo}
-                        alt={student.fullName}
-                        className="w-12 h-12 rounded-full object-cover border border-[#ffffff15]"
+                        alt={fullName}
+                        className="w-11 h-11 rounded-lg object-cover border border-[var(--color-border)]"
                       />
                     ) : (
-                      <div
-                        className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-sm uppercase border ${
-                          student.gender === 'Female'
-                            ? 'bg-[#ec4899]/15 border-[#ec4899]/30 text-[#f472b6]'
-                            : 'bg-[#3b82f6]/15 border-[#3b82f6]/30 text-[#60a5fa]'
-                        }`}
-                      >
-                        {student.fullName.trim() ? student.fullName.trim().charAt(0) : '?'}
+                      <div className="w-11 h-11 rounded-lg bg-[var(--color-brand-soft)] border border-[var(--color-brand-border)] text-[var(--color-brand)] flex items-center justify-center font-bold text-sm uppercase">
+                        {fullName.trim() ? fullName.trim().charAt(0) : '?'}
                       </div>
                     )}
                     <div>
                       <h4
                         onClick={() => onOpenProfile(student)}
-                        className="font-bold text-white hover:text-[#c4b5fd] cursor-pointer transition-colors"
+                        className="font-bold text-sm text-[var(--color-text-primary)] hover:text-[var(--color-brand)] cursor-pointer transition-colors"
                       >
-                        {student.fullName}
+                        {fullName}
                       </h4>
-                      <p className="text-[10px] text-[#888888] font-mono">ID: {student.id}</p>
+                      <p className="text-[11px] text-[var(--color-text-muted)] font-mono">
+                        ID: {student.id}
+                      </p>
                     </div>
                   </div>
 
-                  <span
-                    className={`px-2 py-0.5 rounded-sm text-[9px] font-bold uppercase tracking-wider border ${
+                  <Badge
+                    dot
+                    variant={
                       student.status === 'active'
-                        ? 'bg-[#7c3aed]/15 text-[#c4b5fd] border-[#7c3aed]/30'
+                        ? 'success'
                         : student.status === 'archived'
-                        ? 'bg-slate-700/30 text-slate-300 border-slate-600/40'
-                        : 'bg-rose-500/15 text-rose-400 border-rose-500/30'
-                    }`}
+                        ? 'neutral'
+                        : 'danger'
+                    }
                   >
                     {student.status || 'active'}
-                  </span>
+                  </Badge>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-[#ffffff08]">
+                <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-[var(--color-border)]">
                   <div>
-                    <span className="text-[9px] uppercase tracking-widest text-[#737373] block">
-                      Fasalka:
+                    <span className="text-[10px] text-[var(--color-text-muted)] block">
+                      Fasalka
                     </span>
-                    <span className="font-semibold text-[#e5e5e5]">
+                    <span className="font-semibold text-[var(--color-text-primary)]">
                       {student.class} {student.section ? `(${student.section})` : ''}
                     </span>
                   </div>
                   <div>
-                    <span className="text-[9px] uppercase tracking-widest text-[#737373] block">
-                      Lab/Dhedig:
+                    <span className="text-[10px] text-[var(--color-text-muted)] block">
+                      Lab/Dhedig
                     </span>
-                    <span
-                      className={student.gender === 'Female' ? 'text-[#f472b6]' : 'text-[#60a5fa]'}
-                    >
+                    <span className="font-medium text-[var(--color-text-primary)]">
                       {student.gender}
                     </span>
                   </div>
                   <div>
-                    <span className="text-[9px] uppercase tracking-widest text-[#737373] block">
-                      Telefoonka:
+                    <span className="text-[10px] text-[var(--color-text-muted)] block">
+                      Telefoonka
                     </span>
                     {student.guardianPhone ? (
                       <a
                         href={`tel:${student.guardianPhone}`}
-                        className="text-[#c4b5fd] hover:underline font-mono text-[11px]"
+                        className="text-[var(--color-brand)] hover:underline font-mono text-[11px]"
                       >
                         {student.guardianPhone}
                       </a>
                     ) : (
-                      <span className="text-[#555555]">-</span>
+                      <span className="text-[var(--color-text-muted)]">—</span>
                     )}
                   </div>
                   <div>
-                    <span className="text-[9px] uppercase tracking-widest text-[#737373] block">
-                      Biilka Bisha:
+                    <span className="text-[10px] text-[var(--color-text-muted)] block">
+                      Biilka Bisha
                     </span>
-                    <span
-                      className={`text-[10px] font-bold uppercase ${
+                    <Badge
+                      variant={
                         feeInfo.status === 'paid'
-                          ? 'text-emerald-400'
+                          ? 'success'
                           : feeInfo.status === 'partial'
-                          ? 'text-amber-400'
-                          : 'text-rose-400'
-                      }`}
+                          ? 'warning'
+                          : 'danger'
+                      }
                     >
                       {feeInfo.status}
-                    </span>
+                    </Badge>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between pt-2 border-t border-[#ffffff08]">
+                <div className="flex items-center justify-between pt-2 border-t border-[var(--color-border)]">
                   <button
                     type="button"
                     onClick={() => onOpenProfile(student)}
-                    className="text-xs text-[#c4b5fd] hover:underline flex items-center gap-1 font-semibold"
+                    className="text-xs text-[var(--color-brand)] hover:underline flex items-center gap-1 font-semibold cursor-pointer"
                   >
                     <Eye className="w-3.5 h-3.5" /> 360° Profile
                   </button>
@@ -491,7 +543,7 @@ export const StudentsRosterTable: React.FC<StudentsRosterTableProps> = ({
                       type="button"
                       onClick={() => onOpenEditModal(student)}
                       aria-label="Edit"
-                      className="p-1.5 rounded-sm border border-[#ffffff10] text-[#737373] hover:text-white"
+                      className="p-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-muted)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] cursor-pointer"
                       title="Edit"
                     >
                       <Edit2 className="w-3.5 h-3.5" />
@@ -500,38 +552,42 @@ export const StudentsRosterTable: React.FC<StudentsRosterTableProps> = ({
                       type="button"
                       onClick={() => onDeleteStudentClick(student)}
                       aria-label="Delete"
-                      className="p-1.5 rounded-sm border border-[#ffffff10] text-[#737373] hover:text-rose-400"
+                      className="p-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-muted)] text-[var(--color-text-secondary)] hover:text-[var(--color-danger)] cursor-pointer"
                       title="Delete"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
-              </div>
+              </Card>
             );
           })}
         </div>
       )}
 
       {filteredStudentsCount > 0 && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-[#0f0f0f] border border-[#ffffff10] rounded-sm p-3.5">
+        <Card padding="sm" className="flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <p className="text-xs text-[#737373]">
+            <p className="text-xs text-[var(--color-text-secondary)]">
               Showing{' '}
-              <strong className="text-white font-mono">
+              <strong className="text-[var(--color-text-primary)] font-mono tabular-nums">
                 {(currentPage - 1) * pageSize + 1}
               </strong>{' '}
               to{' '}
-              <strong className="text-white font-mono">
+              <strong className="text-[var(--color-text-primary)] font-mono tabular-nums">
                 {Math.min(currentPage * pageSize, filteredStudentsCount)}
               </strong>{' '}
-              of <strong className="text-white font-mono">{filteredStudentsCount}</strong> students
+              of{' '}
+              <strong className="text-[var(--color-text-primary)] font-mono tabular-nums">
+                {filteredStudentsCount}
+              </strong>{' '}
+              students
             </p>
             <select
               value={pageSize}
               onChange={(e) => onSetPageSize(Number(e.target.value))}
               aria-label="Page size"
-              className="bg-[#0a0a0a] text-[11px] font-mono text-[#cccccc] border border-[#ffffff15] px-2 py-1 rounded-sm"
+              className="ds-input py-1 px-2 text-xs font-mono"
             >
               <option value={10}>10 / page</option>
               <option value={25}>25 / page</option>
@@ -546,13 +602,13 @@ export const StudentsRosterTable: React.FC<StudentsRosterTableProps> = ({
               onClick={() => onSetCurrentPage((p) => Math.max(1, p - 1))}
               disabled={currentPage === 1}
               aria-label="Previous Page"
-              className="p-2 rounded-sm border border-[#ffffff10] bg-[#0a0a0a] text-[#cccccc] disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[#ffffff05] transition-colors"
+              className="p-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-muted)] text-[var(--color-text-primary)] disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[var(--color-surface-hover)] transition-colors cursor-pointer"
               title="Previous Page"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
 
-            <span className="text-xs font-mono text-[#e5e5e5] px-3 py-1 bg-[#ffffff05] border border-[#ffffff10] rounded-sm">
+            <span className="text-xs font-mono tabular-nums text-[var(--color-text-primary)] px-3 py-1 bg-[var(--color-surface-muted)] border border-[var(--color-border)] rounded-md">
               Page {currentPage} of {totalPages}
             </span>
 
@@ -561,14 +617,14 @@ export const StudentsRosterTable: React.FC<StudentsRosterTableProps> = ({
               onClick={() => onSetCurrentPage((p) => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
               aria-label="Next Page"
-              className="p-2 rounded-sm border border-[#ffffff10] bg-[#0a0a0a] text-[#cccccc] disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[#ffffff05] transition-colors"
+              className="p-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-muted)] text-[var(--color-text-primary)] disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[var(--color-surface-hover)] transition-colors cursor-pointer"
               title="Next Page"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
-        </div>
+        </Card>
       )}
-    </>
+    </div>
   );
 };

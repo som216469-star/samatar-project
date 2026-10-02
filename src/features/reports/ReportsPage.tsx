@@ -7,6 +7,7 @@ import {
   AttendanceRecord,
   FeeRecord
 } from '../../types';
+import { PageContainer, PageHeader } from '../../components/layout/PageLayout';
 import { ClassReportsSection } from './ClassReportsSection';
 import { StudentReportCardSection } from './StudentReportCardSection';
 import { exportClassReportPDF, exportStudentReportCardPDF } from './reportsPdfExport';
@@ -102,7 +103,7 @@ export default function ReportsView({
     .slice(0, 5);
 
   return (
-    <div id="reports-view-root" className="space-y-6">
+    <PageContainer id="reports-view-root">
       <style>{`
         @media print {
           body * {
@@ -130,51 +131,49 @@ export default function ReportsView({
         }
       `}</style>
 
-      {/* View Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 no-print">
-        <div>
-          <h1 className="text-4xl md:text-5xl font-bold font-serif italic tracking-tight text-[#f5f5f5] flex items-center gap-3">
-            Warbixinnada{' '}
-            <span className="text-[#c4b5fd] font-sans font-normal text-sm bg-[#7c3aed20] px-3 py-1 rounded-full border border-[#7c3aed30]">
-              Reports Portal
-            </span>
-          </h1>
-          <p className="text-[11px] uppercase tracking-widest text-[#737373] mt-1">
-            Soo saar warbixinnada gaarka ah ee fasallada iyo warqadaha imtixaanka ardayda
-          </p>
-        </div>
-
-        {/* Sub Navigation */}
-        <div
-          role="tablist"
-          aria-label="Report Categories"
-          className="flex bg-[#121212]/80 backdrop-blur-md border border-[#ffffff10] p-1 rounded-xl w-fit"
-        >
-          <button
-            type="button"
-            role="tab"
-            aria-selected={subTab === 'class'}
-            onClick={() => setSubTab('class')}
-            className={`px-4 py-2 rounded-lg text-xs uppercase tracking-wider font-bold transition-all ${
-              subTab === 'class' ? 'bg-[#7c3aed] text-white' : 'text-[#737373] hover:text-[#e5e5e5]'
-            }`}
-          >
-            Fasallada (Class Report)
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={subTab === 'student'}
-            onClick={() => setSubTab('student')}
-            className={`px-4 py-2 rounded-lg text-xs uppercase tracking-wider font-bold transition-all ${
-              subTab === 'student'
-                ? 'bg-[#7c3aed] text-white'
-                : 'text-[#737373] hover:text-[#e5e5e5]'
-            }`}
-          >
-            Ardayda (Student Report Card)
-          </button>
-        </div>
+      <div className="no-print">
+        <PageHeader
+          breadcrumbs={[
+            { label: 'Academics & Reports' },
+            { label: subTab === 'class' ? 'Class Reports' : 'Student Report Cards' }
+          ]}
+          title="Warbixinnada & Shahaadooyinka (Reports)"
+          description="Soo saar warbixinnada gaarka ah ee fasallada iyo warqadaha imtixaanka ardayda"
+          actions={
+            <div
+              role="tablist"
+              aria-label="Report Categories"
+              className="flex bg-[var(--color-surface-muted)] border border-[var(--color-border)] p-1 rounded-xl w-fit"
+            >
+              <button
+                type="button"
+                role="tab"
+                aria-selected={subTab === 'class'}
+                onClick={() => setSubTab('class')}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  subTab === 'class'
+                    ? 'bg-[var(--color-brand)] text-white shadow-xs'
+                    : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+                }`}
+              >
+                Fasallada (Class Report)
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={subTab === 'student'}
+                onClick={() => setSubTab('student')}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  subTab === 'student'
+                    ? 'bg-[var(--color-brand)] text-white shadow-xs'
+                    : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+                }`}
+              >
+                Ardayda (Student Report Card)
+              </button>
+            </div>
+          }
+        />
       </div>
 
       {subTab === 'class' && (
@@ -239,6 +238,6 @@ export default function ReportsView({
           onPrint={() => window.print()}
         />
       )}
-    </div>
+    </PageContainer>
   );
 }

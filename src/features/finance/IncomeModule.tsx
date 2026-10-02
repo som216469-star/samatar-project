@@ -1,18 +1,16 @@
-import React, { useState } from "react";
-import { 
-  Plus, 
-  Search, 
-  Download, 
-  Trash2, 
-  DollarSign, 
-  X,
-  TrendingUp,
-  Tag
-} from "lucide-react";
-import type { IncomeRecord } from "../../types";
-import { ConfirmDialog } from "../../components/ui/primitives";
-import { formatMoney, exportToExcel } from "./financeUtils";
-import { apiFetch } from "../../lib/apiClient";
+import React, { useState } from 'react';
+import { Plus, Search, Download, Trash2, TrendingUp } from 'lucide-react';
+import type { IncomeRecord } from '../../types';
+import {
+  Badge,
+  Button,
+  Card,
+  ConfirmDialog,
+  EmptyState,
+  Modal
+} from '../../components/ui/primitives';
+import { formatMoney, exportToExcel } from './financeUtils';
+import { apiFetch } from '../../lib/apiClient';
 
 interface IncomeModuleProps {
   incomeList: IncomeRecord[];
@@ -23,15 +21,20 @@ interface IncomeModuleProps {
 }
 
 const INCOME_CATEGORIES = [
-  "Student Fees",
-  "Admission Fees",
-  "Exam Fees",
-  "Transport Fees",
-  "Library Fees",
-  "Donations",
-  "Grants",
-  "Other Income"
+  'Student Fees',
+  'Admission Fees',
+  'Exam Fees',
+  'Transport Fees',
+  'Library Fees',
+  'Donations',
+  'Grants',
+  'Other Income'
 ];
+
+const inputClass =
+  'w-full px-3.5 py-2.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-emerald-500/60 transition-all';
+const labelClass =
+  'block text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-1.5';
 
 export const IncomeModule: React.FC<IncomeModuleProps> = ({
   incomeList,
@@ -40,8 +43,8 @@ export const IncomeModule: React.FC<IncomeModuleProps> = ({
   onRefresh,
   showCreateModalDefault = false
 }) => {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("All");
+  const [searchQuery, setSearchQuery] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('All');
   const [showModal, setShowModal] = useState(showCreateModalDefault);
   const [submitting, setSubmitting] = useState(false);
   const [confirmState, setConfirmState] = useState<{
@@ -51,24 +54,24 @@ export const IncomeModule: React.FC<IncomeModuleProps> = ({
     onConfirm: () => void | Promise<void>;
   }>({
     isOpen: false,
-    title: "",
-    message: "",
+    title: '',
+    message: '',
     onConfirm: () => {}
   });
 
   const [form, setForm] = useState({
-    category: "Donations",
-    description: "",
+    category: 'Donations',
+    description: '',
     amount: 100,
-    date: new Date().toISOString().split("T")[0],
-    paymentMethod: "Bank",
-    reference: "",
-    payer: "",
-    notes: ""
+    date: new Date().toISOString().split('T')[0],
+    paymentMethod: 'Bank',
+    reference: '',
+    payer: '',
+    notes: ''
   });
 
   const filteredIncome = incomeList.filter((inc) => {
-    if (categoryFilter !== "All" && inc.category !== categoryFilter) return false;
+    if (categoryFilter !== 'All' && inc.category !== categoryFilter) return false;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       const matchDesc = inc.description?.toLowerCase().includes(q);
@@ -85,9 +88,9 @@ export const IncomeModule: React.FC<IncomeModuleProps> = ({
     e.preventDefault();
     setSubmitting(true);
     try {
-      const res = await apiFetch("/api/income", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const res = await apiFetch('/api/income', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form)
       });
       if (res.ok) {
@@ -104,11 +107,11 @@ export const IncomeModule: React.FC<IncomeModuleProps> = ({
   const handleDelete = (id: string) => {
     setConfirmState({
       isOpen: true,
-      title: "Tirtir Dakhliga?",
-      message: "Ma hubtaa inaad tirtirto dakhligan? (Delete income)",
+      title: 'Tirtir Dakhliga?',
+      message: 'Ma hubtaa inaad tirtirto dakhligan? (Delete income)',
       onConfirm: async () => {
         try {
-          const res = await apiFetch(`/api/income/${id}`, { method: "DELETE" });
+          const res = await apiFetch(`/api/income/${id}`, { method: 'DELETE' });
           if (res.ok) onRefresh();
         } catch (err) {
           console.error(err);
@@ -121,80 +124,91 @@ export const IncomeModule: React.FC<IncomeModuleProps> = ({
 
   const handleExportExcel = () => {
     const exportData = filteredIncome.map((inc) => ({
-      "Income ID": inc.incomeId,
+      'Income ID': inc.incomeId,
       Category: inc.category,
       Description: inc.description,
       Amount: inc.amount,
       Date: inc.date,
-      "Payment Method": inc.paymentMethod,
+      'Payment Method': inc.paymentMethod,
       Payer: inc.payer,
       Reference: inc.reference,
       Notes: inc.notes
     }));
-    exportToExcel(`Income_${schoolName.replace(/\s+/g, "_")}`, "Income", exportData);
+    exportToExcel(`Income_${schoolName.replace(/\s+/g, '_')}`, 'Income', exportData);
   };
 
   return (
     <div className="space-y-4">
       {/* Top Controls */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-2 flex-1 max-w-md">
-          <div className="relative w-full">
-            <Search className="w-4 h-4 text-[#737373] absolute left-3 top-1/2 -translate-y-1/2" />
+      <Card className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2.5 flex-1">
+          <div className="relative w-full sm:max-w-xs">
+            <Search className="w-4 h-4 text-[var(--text-muted)] absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               placeholder="Raadi dakhli, qofka bixiyey, ama tixraac..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 bg-[#0a0a0a] border border-[#ffffff10] rounded-sm text-xs text-[#e5e5e5] placeholder-[#737373] focus:outline-none focus:border-blue-500"
+              className={`${inputClass} pl-10`}
             />
           </div>
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            className="bg-[#0a0a0a] border border-[#ffffff10] rounded-sm text-xs text-[#a3a3a3] px-3 py-2 focus:outline-none focus:border-blue-500"
+            className={`${inputClass} w-auto`}
           >
             <option value="All">Dhammaan Qeybaha</option>
             {INCOME_CATEGORIES.map((cat) => (
-              <option key={cat} value={cat}>{cat}</option>
+              <option key={cat} value={cat}>
+                {cat}
+              </option>
             ))}
           </select>
         </div>
 
         <div className="flex items-center gap-2">
-          <button
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={handleExportExcel}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-sm border border-[#ffffff10] bg-[#0f0f0f] hover:bg-[#ffffff05] text-[#a3a3a3] hover:text-[#e5e5e5] text-[10px] uppercase font-bold tracking-wider cursor-pointer"
+            icon={<Download className="w-3.5 h-3.5" />}
           >
-            <Download className="w-3.5 h-3.5" />
-            <span>Excel</span>
-          </button>
-          <button
+            Excel
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
             onClick={() => setShowModal(true)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-sm bg-blue-600 hover:bg-blue-500 text-white text-[10px] uppercase font-bold tracking-wider cursor-pointer shadow-sm"
+            icon={<Plus className="w-3.5 h-3.5" />}
           >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Qor Dakhli (Add Income)</span>
-          </button>
+            Qor Dakhli (Add Income)
+          </Button>
         </div>
-      </div>
+      </Card>
 
       {/* Summary Banner */}
-      <div className="flex items-center justify-between px-4 py-2.5 bg-[#0a0a0a] border border-[#ffffff08] rounded-sm text-xs">
-        <span className="text-[#737373]">
-          Diiwaanka Dakhliga: <strong className="text-[#e5e5e5] font-mono">{filteredIncome.length}</strong> xabbo
+      <Card className="px-5 py-3 flex items-center justify-between text-xs">
+        <span className="text-[var(--text-secondary)]">
+          Diiwaanka Dakhliga:{' '}
+          <strong className="text-[var(--text-primary)] font-mono">
+            {filteredIncome.length}
+          </strong>{' '}
+          xabbo
         </span>
-        <span className="text-[#737373]">
-          Wadarta Dakhliga: <strong className="text-emerald-400 font-mono text-sm ml-1">{formatMoney(totalIncome, currency)}</strong>
+        <span className="text-[var(--text-secondary)]">
+          Wadarta Dakhliga:{' '}
+          <strong className="text-emerald-500 font-mono text-sm ml-1">
+            {formatMoney(totalIncome, currency)}
+          </strong>
         </span>
-      </div>
+      </Card>
 
       {/* Income Table */}
-      <div className="bg-[#0f0f0f] border border-[#ffffff10] rounded-sm overflow-hidden">
+      <Card className="overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-[#0a0a0a] border-b border-[#ffffff10] text-[10px] uppercase font-bold tracking-widest text-[#737373]">
+              <tr className="bg-[var(--bg-elevated)] border-b border-[var(--border-subtle)] text-[11px] uppercase font-bold tracking-wider text-[var(--text-muted)]">
                 <th className="px-5 py-3.5">ID #</th>
                 <th className="px-5 py-3.5">Qaybta (Category)</th>
                 <th className="px-5 py-3.5">Qeexidda (Description)</th>
@@ -205,33 +219,48 @@ export const IncomeModule: React.FC<IncomeModuleProps> = ({
                 <th className="px-5 py-3.5 text-right">Ficillo</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#ffffff08] text-xs">
+            <tbody className="divide-y divide-[var(--border-subtle)] text-xs">
               {filteredIncome.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-5 py-12 text-center text-[#737373] uppercase tracking-wider text-[10px]">
-                    Wax dakhli ah oo diiwaangashan ma jiraan.
+                  <td colSpan={8} className="p-8">
+                    <EmptyState
+                      icon={TrendingUp}
+                      title="Dakhli Ma Jiro"
+                      description="Wax dakhli ah oo diiwaangashan ma jiraan."
+                    />
                   </td>
                 </tr>
               ) : (
                 filteredIncome.map((inc) => (
-                  <tr key={inc.id} className="hover:bg-[#ffffff02] transition-colors">
-                    <td className="px-5 py-3.5 font-mono text-[#a3a3a3]">{inc.incomeId}</td>
-                    <td className="px-5 py-3.5">
-                      <span className="inline-flex px-2 py-0.5 rounded-xs text-[9px] font-bold uppercase tracking-wider bg-blue-500/10 text-blue-300 border border-blue-500/20">
-                        {inc.category}
-                      </span>
+                  <tr
+                    key={inc.id}
+                    className="hover:bg-[var(--bg-elevated)]/60 transition-colors"
+                  >
+                    <td className="px-5 py-3.5 font-mono text-[var(--text-secondary)]">
+                      {inc.incomeId}
                     </td>
-                    <td className="px-5 py-3.5 font-semibold text-[#e5e5e5]">{inc.description}</td>
-                    <td className="px-5 py-3.5 text-[#a3a3a3]">{inc.payer || "N/A"}</td>
-                    <td className="px-5 py-3.5 font-mono font-bold text-emerald-400 text-right">
+                    <td className="px-5 py-3.5">
+                      <Badge variant="info">{inc.category}</Badge>
+                    </td>
+                    <td className="px-5 py-3.5 font-semibold text-[var(--text-primary)]">
+                      {inc.description}
+                    </td>
+                    <td className="px-5 py-3.5 text-[var(--text-secondary)]">
+                      {inc.payer || 'N/A'}
+                    </td>
+                    <td className="px-5 py-3.5 font-mono font-bold text-emerald-500 text-right">
                       {formatMoney(inc.amount, currency)}
                     </td>
-                    <td className="px-5 py-3.5 font-mono text-[#737373]">{inc.date}</td>
-                    <td className="px-5 py-3.5 text-[#a3a3a3]">{inc.paymentMethod}</td>
+                    <td className="px-5 py-3.5 font-mono text-[var(--text-muted)]">
+                      {inc.date}
+                    </td>
+                    <td className="px-5 py-3.5 text-[var(--text-secondary)]">
+                      {inc.paymentMethod}
+                    </td>
                     <td className="px-5 py-3.5 text-right">
                       <button
                         onClick={() => handleDelete(inc.id)}
-                        className="p-1.5 rounded-sm bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 inline-block cursor-pointer"
+                        className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 border border-rose-500/20 inline-block cursor-pointer transition-colors"
                         title="Tirtir Dakhliga"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -243,150 +272,117 @@ export const IncomeModule: React.FC<IncomeModuleProps> = ({
             </tbody>
           </table>
         </div>
-      </div>
+      </Card>
 
       {/* ADD INCOME MODAL */}
-      {showModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Diiwaangeli Dakhli Cusub (Record Income)"
-        >
-          <div className="bg-[#0f0f0f] border border-[#ffffff10] rounded-sm w-full max-w-lg shadow-2xl p-6 relative">
-            <button
-              className="absolute right-4 top-4 p-1.5 rounded-sm text-[#737373] hover:bg-[#ffffff05]"
-              onClick={() => setShowModal(false)}
-            >
-              <X className="w-5 h-5" />
-            </button>
-            <h2 className="text-xl font-bold font-serif text-[#f5f5f5] mb-5">
-              Diiwaangeli Dakhli Cusub (Record Income)
-            </h2>
-            <form onSubmit={handleSubmit} className="space-y-4 text-xs">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="font-semibold text-[#737373] uppercase tracking-wider text-[9px]">
-                    Qaybta Dakhliga *
-                  </label>
-                  <select
-                    value={form.category}
-                    onChange={(e) => setForm({ ...form, category: e.target.value })}
-                    className="w-full px-3 py-2 rounded-sm border border-[#ffffff10] bg-[#0a0a0a] text-xs text-[#e5e5e5] focus:outline-none focus:border-blue-500"
-                  >
-                    {INCOME_CATEGORIES.map((cat) => (
-                      <option key={cat} value={cat}>{cat}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <label className="font-semibold text-[#737373] uppercase tracking-wider text-[9px]">
-                    Cadadka ({currency}) *
-                  </label>
-                  <input
-                    type="number"
-                    min={1}
-                    value={form.amount}
-                    onChange={(e) => setForm({ ...form, amount: Number(e.target.value) })}
-                    className="w-full px-3 py-2 rounded-sm border border-[#ffffff10] bg-[#0a0a0a] text-xs text-[#e5e5e5] focus:outline-none focus:border-blue-500 font-mono font-bold"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="font-semibold text-[#737373] uppercase tracking-wider text-[9px]">
-                  Qeexidda Dakhliga *
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Deeq laga helay Hay'adda Al-Khayr"
-                  value={form.description}
-                  onChange={(e) => setForm({ ...form, description: e.target.value })}
-                  className="w-full px-3 py-2 rounded-sm border border-[#ffffff10] bg-[#0a0a0a] text-xs text-[#e5e5e5] focus:outline-none focus:border-blue-500"
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="font-semibold text-[#737373] uppercase tracking-wider text-[9px]">
-                    Qofka / Hay'adda Bixisay (Payer)
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Shariif Axmed"
-                    value={form.payer}
-                    onChange={(e) => setForm({ ...form, payer: e.target.value })}
-                    className="w-full px-3 py-2 rounded-sm border border-[#ffffff10] bg-[#0a0a0a] text-xs text-[#e5e5e5] focus:outline-none focus:border-blue-500"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="font-semibold text-[#737373] uppercase tracking-wider text-[9px]">
-                    Qaabka Bixinta
-                  </label>
-                  <select
-                    value={form.paymentMethod}
-                    onChange={(e) => setForm({ ...form, paymentMethod: e.target.value })}
-                    className="w-full px-3 py-2 rounded-sm border border-[#ffffff10] bg-[#0a0a0a] text-xs text-[#e5e5e5] focus:outline-none focus:border-blue-500"
-                  >
-                    <option value="Bank">Bank Transfer</option>
-                    <option value="Cash">Cash</option>
-                    <option value="EVC Plus">EVC Plus</option>
-                    <option value="Zaad">Zaad</option>
-                    <option value="Sahal">Sahal</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="font-semibold text-[#737373] uppercase tracking-wider text-[9px]">
-                    Taariikhda *
-                  </label>
-                  <input
-                    type="date"
-                    value={form.date}
-                    onChange={(e) => setForm({ ...form, date: e.target.value })}
-                    className="w-full px-3 py-2 rounded-sm border border-[#ffffff10] bg-[#0a0a0a] text-xs text-[#e5e5e5] focus:outline-none focus:border-blue-500"
-                    required
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="font-semibold text-[#737373] uppercase tracking-wider text-[9px]">
-                    Tixraac / Tx ID
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. BNK-2026-081"
-                    value={form.reference}
-                    onChange={(e) => setForm({ ...form, reference: e.target.value })}
-                    className="w-full px-3 py-2 rounded-sm border border-[#ffffff10] bg-[#0a0a0a] text-xs text-[#e5e5e5] focus:outline-none focus:border-blue-500"
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-3 pt-3">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="px-4 py-2 rounded-sm border border-[#ffffff10] text-[#737373] hover:text-[#e5e5e5] text-[10px] uppercase font-bold"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="px-5 py-2 rounded-sm bg-blue-600 hover:bg-blue-500 text-white text-[10px] uppercase font-bold tracking-wider disabled:opacity-50"
-                >
-                  {submitting ? "Kaydinaya..." : "Save Income"}
-                </button>
-              </div>
-            </form>
+      <Modal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        title="Diiwaangeli Dakhli Cusub (Record Income)"
+        size="md"
+      >
+        <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelClass}>Qaybta Dakhliga *</label>
+              <select
+                value={form.category}
+                onChange={(e) => setForm({ ...form, category: e.target.value })}
+                className={inputClass}
+              >
+                {INCOME_CATEGORIES.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={labelClass}>Cadadka ({currency}) *</label>
+              <input
+                type="number"
+                min={1}
+                value={form.amount}
+                onChange={(e) => setForm({ ...form, amount: Number(e.target.value) })}
+                className={`${inputClass} font-mono font-bold`}
+                required
+              />
+            </div>
           </div>
-        </div>
-      )}
+
+          <div>
+            <label className={labelClass}>Qeexidda Dakhliga *</label>
+            <input
+              type="text"
+              placeholder="e.g. Deeq laga helay Hay'adda Al-Khayr"
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+              className={inputClass}
+              required
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelClass}>Qofka / Hay'adda Bixisay (Payer)</label>
+              <input
+                type="text"
+                placeholder="e.g. Shariif Axmed"
+                value={form.payer}
+                onChange={(e) => setForm({ ...form, payer: e.target.value })}
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Qaabka Bixinta</label>
+              <select
+                value={form.paymentMethod}
+                onChange={(e) => setForm({ ...form, paymentMethod: e.target.value })}
+                className={inputClass}
+              >
+                <option value="Bank">Bank Transfer</option>
+                <option value="Cash">Cash</option>
+                <option value="EVC Plus">EVC Plus</option>
+                <option value="Zaad">Zaad</option>
+                <option value="Sahal">Sahal</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelClass}>Taariikhda *</label>
+              <input
+                type="date"
+                value={form.date}
+                onChange={(e) => setForm({ ...form, date: e.target.value })}
+                className={inputClass}
+                required
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Tixraac / Tx ID</label>
+              <input
+                type="text"
+                placeholder="e.g. BNK-2026-081"
+                value={form.reference}
+                onChange={(e) => setForm({ ...form, reference: e.target.value })}
+                className={inputClass}
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2.5 pt-3 border-t border-[var(--border-subtle)]">
+            <Button variant="secondary" type="button" onClick={() => setShowModal(false)}>
+              Cancel
+            </Button>
+            <Button variant="primary" type="submit" loading={submitting}>
+              {submitting ? 'Kaydinaya...' : 'Save Income'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
 
       <ConfirmDialog
         isOpen={confirmState.isOpen}

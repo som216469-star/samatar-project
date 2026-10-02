@@ -42,6 +42,8 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Student, SchoolClass, FeeRecord, AttendanceRecord, ExamScore } from '../../types';
 import { StudentSubSection } from '../../app/navigationConfig';
+import { PageContainer, PageHeader } from '../../components/layout/PageLayout';
+import { Button } from '../../components/ui/primitives';
 import StudentProfileModal from './components/StudentProfileModal';
 import StudentAddView from './components/StudentAddView';
 import StudentImportView from './components/StudentImportView';
@@ -274,12 +276,18 @@ export default function StudentsView({
       archived,
       male,
       female,
+      maleCount: male,
+      femaleCount: female,
       malePercent: total > 0 ? Math.round((male / total) * 100) : 0,
       femalePercent: total > 0 ? Math.round((female / total) * 100) : 0,
       unpaidFeesCount,
+      unpaidStudentsCount: unpaidFeesCount,
       newlyRegistered,
+      newThisMonth: newlyRegistered,
       needsAttention,
+      missingGuardian: needsAttention,
       byClass,
+      classBreakdown: classCounts,
       recentlyAdded,
       recentlyUpdated
     };
@@ -911,150 +919,150 @@ export default function StudentsView({
   }[subSection === 'active' || subSection === 'inactive' || subSection === 'archived' ? subSection : 'all'];
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <PageContainer>
       {/* 1. TOP HEADER & ACTION BAR */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-widest text-[#737373] mb-1">
-            <span
-              onClick={() => onNavigateSubSection && onNavigateSubSection('all')}
-              className="hover:text-[#c4b5fd] cursor-pointer transition-colors"
+      <PageHeader
+        breadcrumbs={[
+          {
+            label: 'Students',
+            onClick: () => onNavigateSubSection && onNavigateSubSection('all')
+          },
+          { label: subSectionMeta.breadcrumb }
+        ]}
+        title={subSectionMeta.title}
+        description={subSectionMeta.subtitle}
+        actions={
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* View Toggle */}
+            <div className="bg-[var(--color-surface-muted)] border border-[var(--color-border)] p-0.5 rounded-lg flex items-center">
+              <button
+                type="button"
+                onClick={() => setViewMode('table')}
+                className={`px-2.5 py-1.5 rounded-md text-xs flex items-center gap-1.5 transition-colors font-semibold ${
+                  viewMode === 'table'
+                    ? 'bg-[var(--color-brand)] text-white shadow-xs'
+                    : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+                }`}
+                title="Table View"
+              >
+                <List className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline text-[11px]">Table</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('cards')}
+                className={`px-2.5 py-1.5 rounded-md text-xs flex items-center gap-1.5 transition-colors font-semibold ${
+                  viewMode === 'cards'
+                    ? 'bg-[var(--color-brand)] text-white shadow-xs'
+                    : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+                }`}
+                title="Cards Grid View"
+              >
+                <LayoutGrid className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline text-[11px]">Cards</span>
+              </button>
+            </div>
+
+            {/* Import Students */}
+            <Button
+              variant="secondary"
+              size="sm"
+              leftIcon={<Upload className="w-3.5 h-3.5" />}
+              onClick={() => {
+                if (onNavigateSubSection) {
+                  onNavigateSubSection('import');
+                } else {
+                  setImportStep('upload');
+                  setImportRows([]);
+                  setShowImportModal(true);
+                }
+              }}
             >
-              Students
-            </span>
-            <span>·</span>
-            <span className="text-[#c4b5fd] font-semibold">{subSectionMeta.breadcrumb}</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-3xl sm:text-4xl font-bold font-serif italic tracking-tight text-[#f5f5f5]">
-              {subSectionMeta.title}
-            </h1>
-          </div>
-          <p className="text-xs text-[#888888] mt-1">
-            {subSectionMeta.subtitle}
-          </p>
-        </div>
+              Soo Geli (Import)
+            </Button>
 
-        {/* Global CTAs */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* View Toggle */}
-          <div className="bg-[#0f0f0f] border border-[#ffffff15] p-0.5 rounded-sm flex items-center">
-            <button
-              onClick={() => setViewMode('table')}
-              className={`p-2 rounded-xs text-xs flex items-center gap-1.5 transition-colors ${
-                viewMode === 'table' ? 'bg-[#7c3aed] text-white font-bold' : 'text-[#888888] hover:text-white'
-              }`}
-              title="Table View"
+            {/* Export Students */}
+            <Button
+              variant="secondary"
+              size="sm"
+              leftIcon={<Download className="w-3.5 h-3.5" />}
+              onClick={() => {
+                if (onNavigateSubSection) {
+                  onNavigateSubSection('export');
+                } else {
+                  exportToExcel();
+                }
+              }}
             >
-              <List className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline text-[10px] uppercase tracking-wider">Table</span>
-            </button>
-            <button
-              onClick={() => setViewMode('cards')}
-              className={`p-2 rounded-xs text-xs flex items-center gap-1.5 transition-colors ${
-                viewMode === 'cards' ? 'bg-[#7c3aed] text-white font-bold' : 'text-[#888888] hover:text-white'
-              }`}
-              title="Cards Grid View"
+              Dhoofi (Export)
+            </Button>
+
+            {/* Add Student Primary CTA */}
+            <Button
+              variant="primary"
+              size="md"
+              leftIcon={<UserPlus className="w-4 h-4" />}
+              onClick={() => {
+                if (onNavigateSubSection) {
+                  onNavigateSubSection('add');
+                } else {
+                  handleOpenAddModal();
+                }
+              }}
             >
-              <LayoutGrid className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline text-[10px] uppercase tracking-wider">Cards</span>
-            </button>
+              Ku dar Arday (Add Student)
+            </Button>
           </div>
-
-          {/* Import Students */}
-          <button
-            onClick={() => {
-              if (onNavigateSubSection) {
-                onNavigateSubSection('import');
-              } else {
-                setImportStep('upload');
-                setImportRows([]);
-                setShowImportModal(true);
-              }
-            }}
-            className="px-3 py-2 rounded-sm bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 text-amber-300 text-[10px] uppercase font-bold tracking-widest flex items-center gap-1.5 transition-colors"
-          >
-            <Upload className="w-3.5 h-3.5" />
-            <span>Soo Geli (Import)</span>
-          </button>
-
-          {/* Export Students */}
-          <button
-            onClick={() => {
-              if (onNavigateSubSection) {
-                onNavigateSubSection('export');
-              } else {
-                exportToExcel();
-              }
-            }}
-            className="px-3 py-2 rounded-sm bg-[#7c3aed]/15 border border-[#7c3aed]/30 hover:bg-[#7c3aed]/25 text-[#c4b5fd] text-[10px] uppercase font-bold tracking-widest flex items-center gap-1.5 transition-colors"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>Dhoofi (Export)</span>
-          </button>
-
-          {/* Add Student Primary CTA */}
-          <button
-            onClick={() => {
-              if (onNavigateSubSection) {
-                onNavigateSubSection('add');
-              } else {
-                handleOpenAddModal();
-              }
-            }}
-            className="px-4 py-2 rounded-sm bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] hover:from-[#6d28d9] hover:to-[#5b21b6] text-white text-[10px] uppercase font-bold tracking-widest flex items-center gap-2 transition-all shadow-lg shadow-[#7c3aed]/20"
-          >
-            <UserPlus className="w-4 h-4" />
-            <span>Ku dar Arday (Add Student)</span>
-          </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* CONTEXTUAL SUBSECTION INFO BANNERS */}
       {subSection === 'inactive' && (
-        <div className="bg-amber-500/10 border border-amber-500/25 rounded-sm p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="bg-[var(--color-warning-soft)] border border-[var(--color-warning-border)] rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+            <AlertCircle className="w-5 h-5 text-[var(--color-warning)] shrink-0 mt-0.5" />
             <div>
-              <h3 className="text-xs font-bold uppercase tracking-wider text-amber-300">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-warning)]">
                 Qaybta Ardayda Aan Firfircoonayn (Inactive Roster)
               </h3>
-              <p className="text-xs text-[#cccccc] mt-0.5">
+              <p className="text-xs text-[var(--color-text-secondary)] mt-0.5">
                 Ardaydani hadda kama muuqdaan xaadirinta maalinlaha ah. Waxaad dib ugu soo celin kartaa Active wakhti kasta.
               </p>
             </div>
           </div>
-          { onNavigateSubSection && (
-            <button
+          {onNavigateSubSection && (
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={() => onNavigateSubSection('all')}
-              className="px-3 py-1.5 rounded-sm bg-[#ffffff08] hover:bg-[#ffffff15] text-xs font-mono text-white shrink-0"
             >
               Fiiri Dhammaan Ardayda →
-            </button>
+            </Button>
           )}
         </div>
       )}
 
       {subSection === 'archived' && (
-        <div className="bg-slate-800/40 border border-slate-700/50 rounded-sm p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="bg-[var(--color-surface-muted)] border border-[var(--color-border)] rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-start gap-3">
-            <Archive className="w-5 h-5 text-slate-300 shrink-0 mt-0.5" />
+            <Archive className="w-5 h-5 text-[var(--color-text-secondary)] shrink-0 mt-0.5" />
             <div>
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-200">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-primary)]">
                 Kaydka Taariikhda Ardayda (Archived Records)
               </h3>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <p className="text-xs text-[var(--color-text-secondary)] mt-0.5">
                 Diiwaannada kaydsan lama tirtiro si loo dhowro taariikhda lacagaha, natiijooyinka imtixaanka, iyo xaadiriska hore.
               </p>
             </div>
           </div>
-          { onNavigateSubSection && (
-            <button
+          {onNavigateSubSection && (
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={() => onNavigateSubSection('all')}
-              className="px-3 py-1.5 rounded-sm bg-[#ffffff08] hover:bg-[#ffffff15] text-xs font-mono text-white shrink-0"
             >
               Ku Noqo Dhammaan →
-            </button>
+            </Button>
           )}
         </div>
       )}
@@ -1062,6 +1070,7 @@ export default function StudentsView({
       {/* 2. STATS & ANALYTICS OVERVIEW CARDS */}
       <StudentsStatsOverview
         stats={stats}
+        subSection={subSection}
         onNavigateSubSection={onNavigateSubSection}
         setSelectedStatusFilter={setSelectedStatusFilter}
         selectedRegDateFilter={selectedRegDateFilter}
@@ -1264,6 +1273,6 @@ export default function StudentsView({
           }
         }}
       />
-    </div>
+    </PageContainer>
   );
 }

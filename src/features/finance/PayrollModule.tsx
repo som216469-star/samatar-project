@@ -1,20 +1,24 @@
-import React, { useState, useEffect } from "react";
-import { 
-  Plus, 
-  Search, 
-  Download, 
-  Printer, 
-  Trash2, 
-  CheckCircle2, 
-  X, 
-  Users, 
-  DollarSign,
-  AlertCircle
-} from "lucide-react";
-import type { PayrollRecord } from "../../types";
-import { ConfirmDialog } from "../../components/ui/primitives";
-import { formatMoney, exportToExcel, generatePayslipPDF } from "./financeUtils";
-import { apiFetch } from "../../lib/apiClient";
+import React, { useState } from 'react';
+import {
+  Plus,
+  Search,
+  Download,
+  Printer,
+  Trash2,
+  CheckCircle2,
+  Users
+} from 'lucide-react';
+import type { PayrollRecord } from '../../types';
+import {
+  Badge,
+  Button,
+  Card,
+  ConfirmDialog,
+  EmptyState,
+  Modal
+} from '../../components/ui/primitives';
+import { formatMoney, exportToExcel, generatePayslipPDF } from './financeUtils';
+import { apiFetch } from '../../lib/apiClient';
 
 interface PayrollModuleProps {
   payroll: PayrollRecord[];
@@ -25,6 +29,11 @@ interface PayrollModuleProps {
   onRefresh: () => void;
 }
 
+const inputClass =
+  'w-full px-3.5 py-2.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-emerald-500/60 transition-all';
+const labelClass =
+  'block text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-1.5';
+
 export const PayrollModule: React.FC<PayrollModuleProps> = ({
   payroll,
   teachers,
@@ -33,8 +42,8 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
   schoolName,
   onRefresh
 }) => {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("All");
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('All');
   const [showModal, setShowModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [confirmState, setConfirmState] = useState<{
@@ -44,30 +53,39 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
     onConfirm: () => void | Promise<void>;
   }>({
     isOpen: false,
-    title: "",
-    message: "",
+    title: '',
+    message: '',
     onConfirm: () => {}
   });
 
-  // Form State
   const [form, setForm] = useState({
-    employeeType: "Teacher",
-    employeeId: "",
-    employeeName: "",
-    roleOrDepartment: "Teaching Staff",
+    employeeType: 'Teacher',
+    employeeId: '',
+    employeeName: '',
+    roleOrDepartment: 'Teaching Staff',
     basicSalary: 200,
     allowances: 0,
     deductions: 0,
-    paymentMethod: "Bank",
-    paymentDate: new Date().toISOString().split("T")[0],
-    payrollPeriod: "September 2026",
-    status: "Draft",
-    notes: ""
+    paymentMethod: 'Bank',
+    paymentDate: new Date().toISOString().split('T')[0],
+    payrollPeriod: 'September 2026',
+    status: 'Draft',
+    notes: ''
   });
 
   const allEmployees = [
-    ...teachers.map((t) => ({ id: t.id, name: t.fullName || t.name, type: "Teacher", role: t.specialization || "Macallin" })),
-    ...staff.map((s) => ({ id: s.id, name: s.fullName || s.name, type: "Staff", role: s.role || "Shaqaale" }))
+    ...teachers.map((t) => ({
+      id: t.id,
+      name: t.fullName || t.name,
+      type: 'Teacher',
+      role: t.specialization || 'Macallin'
+    })),
+    ...staff.map((s) => ({
+      id: s.id,
+      name: s.fullName || s.name,
+      type: 'Staff',
+      role: s.role || 'Shaqaale'
+    }))
   ];
 
   const handleSelectEmployee = (id: string) => {
@@ -87,7 +105,7 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
   const netSalary = Math.max(0, grossSalary - Number(form.deductions || 0));
 
   const filteredPayroll = payroll.filter((p) => {
-    if (statusFilter !== "All" && p.status !== statusFilter) return false;
+    if (statusFilter !== 'All' && p.status !== statusFilter) return false;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       const matchName = p.employeeName?.toLowerCase().includes(q);
@@ -104,17 +122,17 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
     if (!form.employeeName) {
       setConfirmState({
         isOpen: true,
-        title: "Dooro Shaqaalaha",
-        message: "Fadlan dooro shaqaalaha ama macallinka",
+        title: 'Dooro Shaqaalaha',
+        message: 'Fadlan dooro shaqaalaha ama macallinka',
         onConfirm: () => setConfirmState((prev) => ({ ...prev, isOpen: false }))
       });
       return;
     }
     setSubmitting(true);
     try {
-      const res = await apiFetch("/api/payroll", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const res = await apiFetch('/api/payroll', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...form,
           grossSalary,
@@ -135,14 +153,15 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
   const handleMarkAsPaid = (id: string) => {
     setConfirmState({
       isOpen: true,
-      title: "Bixi Mushahaarka?",
-      message: "Ma hubtaa inaad bixiso mushahaarkan? Tani waxay si toos ah u qori doontaa kharashka mushahaarka (Record as paid salary).",
+      title: 'Bixi Mushahaarka?',
+      message:
+        'Ma hubtaa inaad bixiso mushahaarkan? Tani waxay si toos ah u qori doontaa kharashka mushahaarka (Record as paid salary).',
       onConfirm: async () => {
         try {
           const res = await apiFetch(`/api/payroll/${id}/pay`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ paymentDate: new Date().toISOString().split("T")[0] })
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ paymentDate: new Date().toISOString().split('T')[0] })
           });
           if (res.ok) onRefresh();
         } catch (err) {
@@ -157,11 +176,11 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
   const handleDelete = (id: string) => {
     setConfirmState({
       isOpen: true,
-      title: "Tirtir Diiwaanka Mushahaarka?",
-      message: "Ma hubtaa inaad tirtirto diiwaankan?",
+      title: 'Tirtir Diiwaanka Mushahaarka?',
+      message: 'Ma hubtaa inaad tirtirto diiwaankan?',
       onConfirm: async () => {
         try {
-          const res = await apiFetch(`/api/payroll/${id}`, { method: "DELETE" });
+          const res = await apiFetch(`/api/payroll/${id}`, { method: 'DELETE' });
           if (res.ok) onRefresh();
         } catch (err) {
           console.error(err);
@@ -178,36 +197,36 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
       Type: p.employeeType,
       Role: p.roleOrDepartment,
       Period: p.payrollPeriod,
-      "Basic Salary": p.basicSalary,
+      'Basic Salary': p.basicSalary,
       Allowances: p.allowances,
       Deductions: p.deductions,
-      "Gross Salary": p.grossSalary,
-      "Net Salary": p.netSalary,
+      'Gross Salary': p.grossSalary,
+      'Net Salary': p.netSalary,
       Status: p.status,
-      "Payment Date": p.paymentDate
+      'Payment Date': p.paymentDate
     }));
-    exportToExcel(`Payroll_${schoolName.replace(/\s+/g, "_")}`, "Payroll", data);
+    exportToExcel(`Payroll_${schoolName.replace(/\s+/g, '_')}`, 'Payroll', data);
   };
 
   return (
     <div className="space-y-4">
       {/* Top Controls */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-2 flex-1 max-w-md">
-          <div className="relative w-full">
-            <Search className="w-4 h-4 text-[#737373] absolute left-3 top-1/2 -translate-y-1/2" />
+      <Card className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2.5 flex-1">
+          <div className="relative w-full sm:max-w-xs">
+            <Search className="w-4 h-4 text-[var(--text-muted)] absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               placeholder="Raadi macallin, shaqaale, ama xilli..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 bg-[#0a0a0a] border border-[#ffffff10] rounded-sm text-xs text-[#e5e5e5] placeholder-[#737373] focus:outline-none focus:border-purple-500"
+              className={`${inputClass} pl-10`}
             />
           </div>
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="bg-[#0a0a0a] border border-[#ffffff10] rounded-sm text-xs text-[#a3a3a3] px-3 py-2 focus:outline-none focus:border-purple-500"
+            className={`${inputClass} w-auto`}
           >
             <option value="All">All Statuses</option>
             <option value="Paid">Paid</option>
@@ -217,39 +236,48 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
-          <button
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={handleExportExcel}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-sm border border-[#ffffff10] bg-[#0f0f0f] hover:bg-[#ffffff05] text-[#a3a3a3] hover:text-[#e5e5e5] text-[10px] uppercase font-bold tracking-wider cursor-pointer"
+            icon={<Download className="w-3.5 h-3.5" />}
           >
-            <Download className="w-3.5 h-3.5" />
-            <span>Excel</span>
-          </button>
-          <button
+            Excel
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
             onClick={() => setShowModal(true)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-sm bg-purple-600 hover:bg-purple-500 text-white text-[10px] uppercase font-bold tracking-wider cursor-pointer shadow-sm"
+            icon={<Plus className="w-3.5 h-3.5" />}
           >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Diyaari Mushahaar (Add Payroll)</span>
-          </button>
+            Diyaari Mushahaar (Add Payroll)
+          </Button>
         </div>
-      </div>
+      </Card>
 
       {/* Summary Band */}
-      <div className="flex items-center justify-between px-4 py-2.5 bg-[#0a0a0a] border border-[#ffffff08] rounded-sm text-xs">
-        <span className="text-[#737373]">
-          Shaqaalaha Liiska ku jira: <strong className="text-[#e5e5e5] font-mono">{filteredPayroll.length}</strong> qof
+      <Card className="px-5 py-3 flex items-center justify-between text-xs">
+        <span className="text-[var(--text-secondary)]">
+          Shaqaalaha Liiska ku jira:{' '}
+          <strong className="text-[var(--text-primary)] font-mono">
+            {filteredPayroll.length}
+          </strong>{' '}
+          qof
         </span>
-        <span className="text-[#737373]">
-          Wadarta Mushahaarka Saufiga ah: <strong className="text-purple-400 font-mono text-sm ml-1">{formatMoney(totalNet, currency)}</strong>
+        <span className="text-[var(--text-secondary)]">
+          Wadarta Mushahaarka Saufiga ah:{' '}
+          <strong className="text-emerald-500 font-mono text-sm ml-1">
+            {formatMoney(totalNet, currency)}
+          </strong>
         </span>
-      </div>
+      </Card>
 
       {/* Payroll Table */}
-      <div className="bg-[#0f0f0f] border border-[#ffffff10] rounded-sm overflow-hidden">
+      <Card className="overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-[#0a0a0a] border-b border-[#ffffff10] text-[10px] uppercase font-bold tracking-widest text-[#737373]">
+              <tr className="bg-[var(--bg-elevated)] border-b border-[var(--border-subtle)] text-[11px] uppercase font-bold tracking-wider text-[var(--text-muted)]">
                 <th className="px-5 py-3.5">Shaqaalaha</th>
                 <th className="px-5 py-3.5">Doorka / Nooca</th>
                 <th className="px-5 py-3.5">Xilliga (Period)</th>
@@ -261,52 +289,65 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
                 <th className="px-5 py-3.5 text-right">Ficillo</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#ffffff08] text-xs">
+            <tbody className="divide-y divide-[var(--border-subtle)] text-xs">
               {filteredPayroll.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-5 py-12 text-center text-[#737373] uppercase tracking-wider text-[10px]">
-                    Wax diiwaan mushahaar ah ma jiraan.
+                  <td colSpan={9} className="p-8">
+                    <EmptyState
+                      icon={Users}
+                      title="Diiwaan Mushahaar Ma Jiro"
+                      description="Wax diiwaan mushahaar ah ma jiraan."
+                    />
                   </td>
                 </tr>
               ) : (
                 filteredPayroll.map((p) => (
-                  <tr key={p.id} className="hover:bg-[#ffffff02] transition-colors">
-                    <td className="px-5 py-3.5 font-bold text-[#e5e5e5]">{p.employeeName}</td>
-                    <td className="px-5 py-3.5 text-[#a3a3a3]">
-                      <span className="text-xs">{p.roleOrDepartment}</span>
-                      <span className="text-[10px] text-[#737373] block">{p.employeeType}</span>
+                  <tr
+                    key={p.id}
+                    className="hover:bg-[var(--bg-elevated)]/60 transition-colors"
+                  >
+                    <td className="px-5 py-3.5 font-bold text-[var(--text-primary)]">
+                      {p.employeeName}
                     </td>
-                    <td className="px-5 py-3.5 font-mono text-[#a3a3a3]">{p.payrollPeriod}</td>
-                    <td className="px-5 py-3.5 font-mono text-[#e5e5e5] text-right">
+                    <td className="px-5 py-3.5 text-[var(--text-secondary)]">
+                      <span className="text-xs font-medium">{p.roleOrDepartment}</span>
+                      <span className="text-[11px] text-[var(--text-muted)] block">
+                        {p.employeeType}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3.5 font-mono text-[var(--text-secondary)]">
+                      {p.payrollPeriod}
+                    </td>
+                    <td className="px-5 py-3.5 font-mono text-[var(--text-primary)] text-right">
                       {formatMoney(p.basicSalary, currency)}
                     </td>
-                    <td className="px-5 py-3.5 font-mono text-emerald-400 text-right">
+                    <td className="px-5 py-3.5 font-mono text-emerald-500 text-right">
                       +{formatMoney(p.allowances, currency)}
                     </td>
-                    <td className="px-5 py-3.5 font-mono text-rose-400 text-right">
+                    <td className="px-5 py-3.5 font-mono text-rose-500 text-right">
                       -{formatMoney(p.deductions, currency)}
                     </td>
-                    <td className="px-5 py-3.5 font-mono font-bold text-purple-400 text-right text-sm">
+                    <td className="px-5 py-3.5 font-mono font-bold text-emerald-500 text-right text-sm">
                       {formatMoney(p.netSalary, currency)}
                     </td>
                     <td className="px-5 py-3.5">
-                      <span
-                        className={`inline-flex px-2 py-0.5 rounded-xs text-[9px] font-bold uppercase tracking-wider ${
-                          p.status === "Paid"
-                            ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
-                            : p.status === "Approved"
-                            ? "bg-blue-500/15 text-blue-400 border border-blue-500/30"
-                            : "bg-amber-500/15 text-amber-400 border border-amber-500/30"
-                        }`}
+                      <Badge
+                        variant={
+                          p.status === 'Paid'
+                            ? 'success'
+                            : p.status === 'Approved'
+                              ? 'info'
+                              : 'warning'
+                        }
                       >
                         {p.status}
-                      </span>
+                      </Badge>
                     </td>
                     <td className="px-5 py-3.5 text-right space-x-1">
-                      {p.status !== "Paid" && (
+                      {p.status !== 'Paid' && (
                         <button
                           onClick={() => handleMarkAsPaid(p.id)}
-                          className="p-1.5 rounded-sm bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 inline-block cursor-pointer"
+                          className="p-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 border border-emerald-500/20 inline-block cursor-pointer transition-colors"
                           title="Bixi Mushahaarka (Mark as Paid)"
                         >
                           <CheckCircle2 className="w-3.5 h-3.5" />
@@ -314,14 +355,14 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
                       )}
                       <button
                         onClick={() => generatePayslipPDF(schoolName, currency, p)}
-                        className="p-1.5 rounded-sm bg-[#ffffff05] hover:bg-[#ffffff10] text-[#a3a3a3] hover:text-[#e5e5e5] border border-[#ffffff10] inline-block cursor-pointer"
+                        className="p-1.5 rounded-lg bg-[var(--bg-elevated)] hover:bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-subtle)] inline-block cursor-pointer transition-colors"
                         title="Daabac Payslip PDF"
                       >
                         <Printer className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => handleDelete(p.id)}
-                        className="p-1.5 rounded-sm bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 inline-block cursor-pointer"
+                        className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 border border-rose-500/20 inline-block cursor-pointer transition-colors"
                         title="Tirtir"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -333,171 +374,144 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
             </tbody>
           </table>
         </div>
-      </div>
+      </Card>
 
       {/* CREATE PAYROLL MODAL */}
-      {showModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Diyaari Mushahaar (Prepare Payroll)"
-        >
-          <div className="bg-[#0f0f0f] border border-[#ffffff10] rounded-sm w-full max-w-lg shadow-2xl p-6 relative">
-            <button
-              className="absolute right-4 top-4 p-1.5 rounded-sm text-[#737373] hover:bg-[#ffffff05]"
-              onClick={() => setShowModal(false)}
+      <Modal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        title="Diyaari Mushahaar (Prepare Payroll)"
+        size="md"
+      >
+        <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+          <div>
+            <label className={labelClass}>Dooro Macallinka ama Shaqaalaha *</label>
+            <select
+              value={form.employeeId}
+              onChange={(e) => handleSelectEmployee(e.target.value)}
+              className={inputClass}
+              required
             >
-              <X className="w-5 h-5" />
-            </button>
-            <h2 className="text-xl font-bold font-serif text-[#f5f5f5] mb-5">
-              Diyaari Mushahaar (Prepare Payroll)
-            </h2>
-            <form onSubmit={handleSubmit} className="space-y-4 text-xs">
-              <div className="space-y-1">
-                <label className="font-semibold text-[#737373] uppercase tracking-wider text-[9px]">
-                  Dooro Macallinka ama Shaqaalaha *
-                </label>
-                <select
-                  value={form.employeeId}
-                  onChange={(e) => handleSelectEmployee(e.target.value)}
-                  className="w-full px-3 py-2 rounded-sm border border-[#ffffff10] bg-[#0a0a0a] text-xs text-[#e5e5e5] focus:outline-none focus:border-purple-500"
-                  required
-                >
-                  <option value="">-- Dooro Qofka --</option>
-                  {allEmployees.map((emp) => (
-                    <option key={emp.id} value={emp.id}>{emp.name} ({emp.type}: {emp.role})</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="font-semibold text-[#737373] uppercase tracking-wider text-[9px]">
-                    Xilliga Mushahaarka (Period) *
-                  </label>
-                  <input
-                    type="text"
-                    value={form.payrollPeriod}
-                    onChange={(e) => setForm({ ...form, payrollPeriod: e.target.value })}
-                    className="w-full px-3 py-2 rounded-sm border border-[#ffffff10] bg-[#0a0a0a] text-xs text-[#e5e5e5] focus:outline-none focus:border-purple-500"
-                    required
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="font-semibold text-[#737373] uppercase tracking-wider text-[9px]">
-                    Qaabka Bixinta *
-                  </label>
-                  <select
-                    value={form.paymentMethod}
-                    onChange={(e) => setForm({ ...form, paymentMethod: e.target.value })}
-                    className="w-full px-3 py-2 rounded-sm border border-[#ffffff10] bg-[#0a0a0a] text-xs text-[#e5e5e5] focus:outline-none focus:border-purple-500"
-                  >
-                    <option value="Bank">Bank</option>
-                    <option value="Cash">Cash</option>
-                    <option value="EVC Plus">EVC Plus</option>
-                    <option value="Zaad">Zaad</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Salary Breakdown Inputs */}
-              <div className="grid grid-cols-3 gap-3">
-                <div className="space-y-1">
-                  <label className="font-semibold text-[#737373] uppercase tracking-wider text-[9px]">
-                    Aasaasiga (Basic) *
-                  </label>
-                  <input
-                    type="number"
-                    min={0}
-                    value={form.basicSalary}
-                    onChange={(e) => setForm({ ...form, basicSalary: Number(e.target.value) })}
-                    className="w-full px-3 py-2 rounded-sm border border-[#ffffff10] bg-[#0a0a0a] text-xs text-[#e5e5e5] focus:outline-none focus:border-purple-500 font-mono"
-                    required
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="font-semibold text-[#737373] uppercase tracking-wider text-[9px]">
-                    Gunno (Allowances)
-                  </label>
-                  <input
-                    type="number"
-                    min={0}
-                    value={form.allowances}
-                    onChange={(e) => setForm({ ...form, allowances: Number(e.target.value) })}
-                    className="w-full px-3 py-2 rounded-sm border border-[#ffffff10] bg-[#0a0a0a] text-xs text-[#e5e5e5] focus:outline-none focus:border-purple-500 font-mono text-emerald-400"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="font-semibold text-[#737373] uppercase tracking-wider text-[9px]">
-                    Jarid (Deductions)
-                  </label>
-                  <input
-                    type="number"
-                    min={0}
-                    value={form.deductions}
-                    onChange={(e) => setForm({ ...form, deductions: Number(e.target.value) })}
-                    className="w-full px-3 py-2 rounded-sm border border-[#ffffff10] bg-[#0a0a0a] text-xs text-[#e5e5e5] focus:outline-none focus:border-purple-500 font-mono text-rose-400"
-                  />
-                </div>
-              </div>
-
-              {/* Net Salary Preview */}
-              <div className="p-3 bg-[#0a0a0a] border border-[#ffffff0a] rounded-sm flex items-center justify-between">
-                <span className="text-xs text-[#a3a3a3]">Mushaharka Saufiga ah (Net Salary):</span>
-                <span className="font-mono font-bold text-lg text-purple-400">
-                  {formatMoney(netSalary, currency)}
-                </span>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="font-semibold text-[#737373] uppercase tracking-wider text-[9px]">
-                    Taariikhda Bixinta
-                  </label>
-                  <input
-                    type="date"
-                    value={form.paymentDate}
-                    onChange={(e) => setForm({ ...form, paymentDate: e.target.value })}
-                    className="w-full px-3 py-2 rounded-sm border border-[#ffffff10] bg-[#0a0a0a] text-xs text-[#e5e5e5] focus:outline-none focus:border-purple-500"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="font-semibold text-[#737373] uppercase tracking-wider text-[9px]">
-                    Xaaladda (Status)
-                  </label>
-                  <select
-                    value={form.status}
-                    onChange={(e) => setForm({ ...form, status: e.target.value })}
-                    className="w-full px-3 py-2 rounded-sm border border-[#ffffff10] bg-[#0a0a0a] text-xs text-[#e5e5e5] focus:outline-none focus:border-purple-500"
-                  >
-                    <option value="Draft">Draft (Qabyo)</option>
-                    <option value="Approved">Approved (La Ansixiyay)</option>
-                    <option value="Paid">Paid (La Bixiyay)</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-3 pt-3">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="px-4 py-2 rounded-sm border border-[#ffffff10] text-[#737373] hover:text-[#e5e5e5] text-[10px] uppercase font-bold"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="px-5 py-2 rounded-sm bg-purple-600 hover:bg-purple-500 text-white text-[10px] uppercase font-bold tracking-wider disabled:opacity-50"
-                >
-                  {submitting ? "Kaydinaya..." : "Save Payroll"}
-                </button>
-              </div>
-            </form>
+              <option value="">-- Dooro Qofka --</option>
+              {allEmployees.map((emp) => (
+                <option key={emp.id} value={emp.id}>
+                  {emp.name} ({emp.type}: {emp.role})
+                </option>
+              ))}
+            </select>
           </div>
-        </div>
-      )}
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelClass}>Xilliga Mushahaarka (Period) *</label>
+              <input
+                type="text"
+                value={form.payrollPeriod}
+                onChange={(e) => setForm({ ...form, payrollPeriod: e.target.value })}
+                className={inputClass}
+                required
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Qaabka Bixinta *</label>
+              <select
+                value={form.paymentMethod}
+                onChange={(e) => setForm({ ...form, paymentMethod: e.target.value })}
+                className={inputClass}
+              >
+                <option value="Bank">Bank</option>
+                <option value="Cash">Cash</option>
+                <option value="EVC Plus">EVC Plus</option>
+                <option value="Zaad">Zaad</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Salary Breakdown Inputs */}
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className={labelClass}>Aasaasiga (Basic) *</label>
+              <input
+                type="number"
+                min={0}
+                value={form.basicSalary}
+                onChange={(e) =>
+                  setForm({ ...form, basicSalary: Number(e.target.value) })
+                }
+                className={`${inputClass} font-mono`}
+                required
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Gunno (Allowances)</label>
+              <input
+                type="number"
+                min={0}
+                value={form.allowances}
+                onChange={(e) =>
+                  setForm({ ...form, allowances: Number(e.target.value) })
+                }
+                className={`${inputClass} font-mono text-emerald-500`}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Jarid (Deductions)</label>
+              <input
+                type="number"
+                min={0}
+                value={form.deductions}
+                onChange={(e) =>
+                  setForm({ ...form, deductions: Number(e.target.value) })
+                }
+                className={`${inputClass} font-mono text-rose-500`}
+              />
+            </div>
+          </div>
+
+          {/* Net Salary Preview */}
+          <div className="p-3.5 bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded-xl flex items-center justify-between">
+            <span className="text-xs font-medium text-[var(--text-secondary)]">
+              Mushaharka Saufiga ah (Net Salary):
+            </span>
+            <span className="font-mono font-bold text-lg text-emerald-500">
+              {formatMoney(netSalary, currency)}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelClass}>Taariikhda Bixinta</label>
+              <input
+                type="date"
+                value={form.paymentDate}
+                onChange={(e) => setForm({ ...form, paymentDate: e.target.value })}
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Xaaladda (Status)</label>
+              <select
+                value={form.status}
+                onChange={(e) => setForm({ ...form, status: e.target.value })}
+                className={inputClass}
+              >
+                <option value="Draft">Draft (Qabyo)</option>
+                <option value="Approved">Approved (La Ansixiyay)</option>
+                <option value="Paid">Paid (La Bixiyay)</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2.5 pt-3 border-t border-[var(--border-subtle)]">
+            <Button variant="secondary" type="button" onClick={() => setShowModal(false)}>
+              Cancel
+            </Button>
+            <Button variant="primary" type="submit" loading={submitting}>
+              {submitting ? 'Kaydinaya...' : 'Save Payroll'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
 
       <ConfirmDialog
         isOpen={confirmState.isOpen}

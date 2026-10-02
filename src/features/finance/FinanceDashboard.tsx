@@ -1,17 +1,18 @@
-import React from "react";
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  DollarSign, 
-  FileText, 
-  CreditCard, 
-  Receipt, 
-  ArrowUpRight, 
+import React from 'react';
+import {
+  TrendingUp,
+  TrendingDown,
+  DollarSign,
+  FileText,
+  CreditCard,
+  Receipt,
+  ArrowUpRight,
   ArrowDownRight,
   PieChart as PieChartIcon,
   PlusCircle
-} from "lucide-react";
-import { formatMoney } from "./financeUtils";
+} from 'lucide-react';
+import { formatMoney } from './financeUtils';
+import { Button, Card, EmptyState, StatCard } from '../../components/ui/primitives';
 
 interface FinanceDashboardProps {
   stats: any;
@@ -40,233 +41,216 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
   return (
     <div className="space-y-6">
       {/* Action Quick Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 p-4 bg-[#0f0f0f] border border-[#ffffff10] rounded-sm">
+      <Card className="p-4 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <span className="text-xs uppercase font-bold tracking-widest text-[#e5e5e5] block">
+          <span className="text-xs font-bold tracking-wider uppercase text-[var(--text-primary)] block">
             Degdeg u Diiwaangeli (Quick Actions)
           </span>
-          <span className="text-[10px] text-[#737373]">
+          <span className="text-xs text-[var(--text-muted)]">
             Abuur biil, qabo lacag bixin, ama qor kharash cusub
           </span>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <Button
+            variant="primary"
+            size="sm"
             onClick={onOpenNewInvoice}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-sm bg-[#e5e5e5] hover:bg-white text-[#0a0a0a] text-[10px] uppercase font-bold tracking-wider transition-colors shadow-sm cursor-pointer"
+            icon={<PlusCircle className="w-4 h-4" />}
           >
-            <PlusCircle className="w-3.5 h-3.5" />
-            <span>Abuur Biil (New Invoice)</span>
-          </button>
-          <button
+            Abuur Biil (New Invoice)
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={onOpenNewPayment}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-sm bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/25 text-[10px] uppercase font-bold tracking-wider transition-colors cursor-pointer"
+            icon={<Receipt className="w-4 h-4 text-emerald-500" />}
           >
-            <Receipt className="w-3.5 h-3.5" />
-            <span>Qabo Lacag (Record Payment)</span>
-          </button>
-          <button
+            Qabo Lacag (Record Payment)
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={onOpenNewExpense}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-sm bg-rose-500/15 border border-rose-500/30 text-rose-400 hover:bg-rose-500/25 text-[10px] uppercase font-bold tracking-wider transition-colors cursor-pointer"
+            icon={<CreditCard className="w-4 h-4 text-rose-500" />}
           >
-            <CreditCard className="w-3.5 h-3.5" />
-            <span>Qor Kharash (New Expense)</span>
-          </button>
-          <button
+            Qor Kharash (New Expense)
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={onOpenNewIncome}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-sm bg-blue-500/15 border border-blue-500/30 text-blue-400 hover:bg-blue-500/25 text-[10px] uppercase font-bold tracking-wider transition-colors cursor-pointer"
+            icon={<DollarSign className="w-4 h-4 text-blue-500" />}
           >
-            <DollarSign className="w-3.5 h-3.5" />
-            <span>Dakhli Kale (Add Income)</span>
-          </button>
+            Dakhli Kale (Add Income)
+          </Button>
         </div>
-      </div>
+      </Card>
 
       {/* Primary KPI Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total Revenue */}
-        <div 
-          onClick={() => onNavigateTab("income")}
-          className="bg-[#0f0f0f] border border-[#ffffff10] p-4 rounded-sm hover:border-emerald-500/40 transition-colors cursor-pointer"
-        >
-          <div className="flex items-center justify-between text-[#737373] text-[10px] uppercase font-bold tracking-wider mb-2">
-            <span>Dakhliga Guud (Total Revenue)</span>
-            <div className="p-1.5 rounded-sm bg-emerald-500/10 text-emerald-400">
-              <ArrowUpRight className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="text-2xl font-bold font-mono text-emerald-400 tracking-tight">
-            {formatMoney(stats?.totalRevenue ?? 0, currency)}
-          </div>
-          <div className="text-[10px] text-[#737373] mt-2 flex items-center gap-1">
-            <span className="text-emerald-400 font-bold">{stats?.paidInvoicesCount || 0}</span> biilal la bixiyey
-          </div>
+        <div onClick={() => onNavigateTab('income')} className="cursor-pointer">
+          <StatCard
+            label="Dakhliga Guud (Total Revenue)"
+            value={formatMoney(stats?.totalRevenue ?? 0, currency)}
+            subtext={`${stats?.paidInvoicesCount || 0} biilal la bixiyey`}
+            icon={ArrowUpRight}
+            color="emerald"
+          />
         </div>
 
-        {/* Total Expenses */}
-        <div 
-          onClick={() => onNavigateTab("expenses")}
-          className="bg-[#0f0f0f] border border-[#ffffff10] p-4 rounded-sm hover:border-rose-500/40 transition-colors cursor-pointer"
-        >
-          <div className="flex items-center justify-between text-[#737373] text-[10px] uppercase font-bold tracking-wider mb-2">
-            <span>Kharashka Guud (Total Expenses)</span>
-            <div className="p-1.5 rounded-sm bg-rose-500/10 text-rose-400">
-              <ArrowDownRight className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="text-2xl font-bold font-mono text-rose-400 tracking-tight">
-            {formatMoney(stats?.totalExpenses ?? 0, currency)}
-          </div>
-          <div className="text-[10px] text-[#737373] mt-2 flex items-center gap-1">
-            <span>Mushahaar & Qalab: </span>
-            <span className="text-[#a3a3a3] font-mono">{formatMoney(stats?.payrollPaid ?? 0, currency)}</span>
-          </div>
+        <div onClick={() => onNavigateTab('expenses')} className="cursor-pointer">
+          <StatCard
+            label="Kharashka Guud (Total Expenses)"
+            value={formatMoney(stats?.totalExpenses ?? 0, currency)}
+            subtext={`Mushahaar & Qalab: ${formatMoney(stats?.payrollPaid ?? 0, currency)}`}
+            icon={ArrowDownRight}
+            color="rose"
+          />
         </div>
 
-        {/* Net Profit / Loss */}
-        <div 
-          onClick={() => onNavigateTab("profit_loss")}
-          className="bg-[#0f0f0f] border border-[#ffffff10] p-4 rounded-sm hover:border-[#7c3aed]/40 transition-colors cursor-pointer"
-        >
-          <div className="flex items-center justify-between text-[#737373] text-[10px] uppercase font-bold tracking-wider mb-2">
-            <span>Faa'iidada Saufiga (Net Profit)</span>
-            <div className={`p-1.5 rounded-sm ${isProfitable ? "bg-emerald-500/10 text-emerald-400" : "bg-rose-500/10 text-rose-400"}`}>
-              {isProfitable ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
-            </div>
-          </div>
-          <div className={`text-2xl font-bold font-mono tracking-tight ${isProfitable ? "text-emerald-400" : "text-rose-400"}`}>
-            {formatMoney(stats?.netProfit ?? 0, currency)}
-          </div>
-          <div className="text-[10px] text-[#737373] mt-2">
-            Formula: Dakhli - Kharash
-          </div>
+        <div onClick={() => onNavigateTab('profit_loss')} className="cursor-pointer">
+          <StatCard
+            label="Faa'iidada Saufiga (Net Profit)"
+            value={formatMoney(stats?.netProfit ?? 0, currency)}
+            subtext="Formula: Dakhli - Kharash"
+            icon={isProfitable ? TrendingUp : TrendingDown}
+            color={isProfitable ? 'emerald' : 'rose'}
+          />
         </div>
 
-        {/* Outstanding Fees / Balance */}
-        <div 
-          onClick={() => onNavigateTab("invoices")}
-          className="bg-[#0f0f0f] border border-[#ffffff10] p-4 rounded-sm hover:border-amber-500/40 transition-colors cursor-pointer"
-        >
-          <div className="flex items-center justify-between text-[#737373] text-[10px] uppercase font-bold tracking-wider mb-2">
-            <span>Lacagta Dhiman (Outstanding Fees)</span>
-            <div className="p-1.5 rounded-sm bg-amber-500/10 text-amber-400">
-              <FileText className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="text-2xl font-bold font-mono text-amber-400 tracking-tight">
-            {formatMoney(stats?.totalOutstandingFees ?? 0, currency)}
-          </div>
-          <div className="text-[10px] text-[#737373] mt-2 flex items-center gap-1">
-            <span className="text-amber-400 font-bold">{stats?.pendingInvoicesCount || 0}</span> biilal ayaa baaqi ah
-          </div>
+        <div onClick={() => onNavigateTab('invoices')} className="cursor-pointer">
+          <StatCard
+            label="Lacagta Dhiman (Outstanding Fees)"
+            value={formatMoney(stats?.totalOutstandingFees ?? 0, currency)}
+            subtext={`${stats?.pendingInvoicesCount || 0} biilal ayaa baaqi ah`}
+            icon={FileText}
+            color="amber"
+          />
         </div>
       </div>
 
       {/* Secondary Metrics Row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="p-3 bg-[#0a0a0a] border border-[#ffffff08] rounded-sm">
-          <span className="text-[9px] uppercase tracking-wider text-[#737373] block">Lacagta Soo Gashay (Inflows)</span>
-          <span className="text-base font-bold font-mono text-[#e5e5e5]">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <Card className="p-4">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)] block mb-1">
+            Lacagta Soo Gashay (Inflows)
+          </span>
+          <span className="text-lg font-bold font-mono text-[var(--text-primary)]">
             {formatMoney(stats?.cashInflow ?? 0, currency)}
           </span>
-        </div>
-        <div className="p-3 bg-[#0a0a0a] border border-[#ffffff08] rounded-sm">
-          <span className="text-[9px] uppercase tracking-wider text-[#737373] block">Lacagta Baxday (Outflows)</span>
-          <span className="text-base font-bold font-mono text-[#e5e5e5]">
+        </Card>
+        <Card className="p-4">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)] block mb-1">
+            Lacagta Baxday (Outflows)
+          </span>
+          <span className="text-lg font-bold font-mono text-[var(--text-primary)]">
             {formatMoney(stats?.cashOutflow ?? 0, currency)}
           </span>
-        </div>
-        <div className="p-3 bg-[#0a0a0a] border border-[#ffffff08] rounded-sm">
-          <span className="text-[9px] uppercase tracking-wider text-[#737373] block">Baaqiga Sanduuqa (Cash Balance)</span>
-          <span className="text-base font-bold font-mono text-emerald-400">
+        </Card>
+        <Card className="p-4">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)] block mb-1">
+            Baaqiga Sanduuqa (Cash Balance)
+          </span>
+          <span className="text-lg font-bold font-mono text-emerald-500">
             {formatMoney(stats?.closingCashBalance ?? 0, currency)}
           </span>
-        </div>
-        <div className="p-3 bg-[#0a0a0a] border border-[#ffffff08] rounded-sm">
-          <span className="text-[9px] uppercase tracking-wider text-[#737373] block">Mushahaar Sugaya (Pending Payroll)</span>
-          <span className="text-base font-bold font-mono text-[#a3a3a3]">
+        </Card>
+        <Card className="p-4">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)] block mb-1">
+            Mushahaar Sugaya (Pending Payroll)
+          </span>
+          <span className="text-lg font-bold font-mono text-[var(--text-secondary)]">
             {formatMoney(stats?.payrollPending ?? 0, currency)}
           </span>
-        </div>
+        </Card>
       </div>
 
       {/* Visual Chart / Trend Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Monthly Trend Bars */}
-        <div className="lg:col-span-2 bg-[#0f0f0f] border border-[#ffffff10] p-5 rounded-sm">
+        <Card className="lg:col-span-2 p-5">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-sm font-bold uppercase tracking-wider text-[#e5e5e5]">
+              <h3 className="text-sm font-bold tracking-tight text-[var(--text-primary)]">
                 Dhaqdhaqaaqa Sanadlaha ah (Annual Financial Trend)
               </h3>
-              <p className="text-[10px] text-[#737373]">
+              <p className="text-xs text-[var(--text-muted)]">
                 Isbarbardhigga Dakhliga iyo Kharashaadka bishiiba
               </p>
             </div>
-            <div className="flex items-center gap-3 text-[10px] font-mono">
-              <span className="flex items-center gap-1.5 text-emerald-400">
-                <span className="w-2.5 h-2.5 bg-emerald-500 rounded-xs inline-block"></span>
+            <div className="flex items-center gap-4 text-xs font-medium">
+              <span className="flex items-center gap-1.5 text-emerald-500">
+                <span className="w-2.5 h-2.5 bg-emerald-500 rounded-sm inline-block" />
                 Dakhli
               </span>
-              <span className="flex items-center gap-1.5 text-rose-400">
-                <span className="w-2.5 h-2.5 bg-rose-500 rounded-xs inline-block"></span>
+              <span className="flex items-center gap-1.5 text-rose-500">
+                <span className="w-2.5 h-2.5 bg-rose-500 rounded-sm inline-block" />
                 Kharash
               </span>
             </div>
           </div>
 
-          <div className="h-48 flex items-end gap-2 pt-6 border-b border-[#ffffff10] pb-2">
+          <div className="h-52 flex items-end gap-2 pt-6 border-b border-[var(--border-subtle)] pb-2">
             {(pnlData?.monthlyTrend || []).map((m: any, idx: number) => {
               const maxVal = Math.max(
                 100,
-                ...(pnlData?.monthlyTrend || []).map((item: any) => Math.max(item.revenue || 0, item.expenses || 0))
+                ...(pnlData?.monthlyTrend || []).map((item: any) =>
+                  Math.max(item.revenue || 0, item.expenses || 0)
+                )
               );
               const revHeight = Math.round(((m.revenue || 0) / maxVal) * 100);
               const expHeight = Math.round(((m.expenses || 0) / maxVal) * 100);
 
               return (
-                <div key={idx} className="flex-1 flex flex-col items-center gap-1 h-full justify-end group relative">
-                  {/* Tooltip on hover */}
-                  <div className="absolute -top-10 opacity-0 group-hover:opacity-100 bg-[#171717] border border-[#ffffff20] text-[9px] font-mono p-1 rounded-sm shadow-lg pointer-events-none transition-opacity z-10 whitespace-nowrap">
-                    <div>Rev: ${m.revenue}</div>
-                    <div>Exp: ${m.expenses}</div>
+                <div
+                  key={idx}
+                  className="flex-1 flex flex-col items-center gap-1 h-full justify-end group relative"
+                >
+                  <div className="absolute -top-12 opacity-0 group-hover:opacity-100 bg-[var(--bg-card)] border border-[var(--border-subtle)] text-[10px] font-mono p-1.5 rounded-lg shadow-lg pointer-events-none transition-opacity z-10 whitespace-nowrap text-[var(--text-primary)]">
+                    <div className="text-emerald-500">Rev: ${m.revenue}</div>
+                    <div className="text-rose-500">Exp: ${m.expenses}</div>
                   </div>
                   <div className="w-full flex items-end justify-center gap-1 h-36">
-                    <div 
-                      style={{ height: `${Math.max(4, revHeight)}%` }} 
-                      className="w-1/2 bg-emerald-500/80 rounded-t-xs hover:bg-emerald-400 transition-all"
+                    <div
+                      style={{ height: `${Math.max(4, revHeight)}%` }}
+                      className="w-1/2 bg-emerald-500/85 rounded-t-sm hover:bg-emerald-500 transition-all"
                       title={`Revenue: $${m.revenue}`}
                     />
-                    <div 
-                      style={{ height: `${Math.max(4, expHeight)}%` }} 
-                      className="w-1/2 bg-rose-500/80 rounded-t-xs hover:bg-rose-400 transition-all"
+                    <div
+                      style={{ height: `${Math.max(4, expHeight)}%` }}
+                      className="w-1/2 bg-rose-500/85 rounded-t-sm hover:bg-rose-500 transition-all"
                       title={`Expenses: $${m.expenses}`}
                     />
                   </div>
-                  <span className="text-[9px] font-mono text-[#737373] mt-1">{m.month}</span>
+                  <span className="text-[10px] font-mono text-[var(--text-muted)] mt-1">
+                    {m.month}
+                  </span>
                 </div>
               );
             })}
           </div>
-        </div>
+        </Card>
 
         {/* Expenses by Category Breakdown */}
-        <div className="bg-[#0f0f0f] border border-[#ffffff10] p-5 rounded-sm flex flex-col justify-between">
+        <Card className="p-5 flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-[#e5e5e5]">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-bold tracking-tight text-[var(--text-primary)]">
                 Qeybaha Kharashka (Categories)
               </h3>
-              <PieChartIcon className="w-4 h-4 text-[#737373]" />
+              <PieChartIcon className="w-4 h-4 text-[var(--text-muted)]" />
             </div>
-            <p className="text-[10px] text-[#737373] mb-4">
+            <p className="text-xs text-[var(--text-muted)] mb-4">
               Kharashyada ugu waaweyn ee bishan/sanadkan
             </p>
 
             <div className="space-y-3">
               {Object.entries(pnlData?.expensesByCategory || {}).length === 0 ? (
-                <p className="text-[11px] text-[#737373] text-center py-6">
-                  Wali kharashyo ma diiwaangashana.
-                </p>
+                <EmptyState
+                  title="Kharashyo Ma Jiraan"
+                  description="Wali kharashyo ma diiwaangashana."
+                  className="py-6"
+                />
               ) : (
                 Object.entries(pnlData?.expensesByCategory || {})
                   .slice(0, 5)
@@ -274,17 +258,17 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                     const total = pnlData?.totalExpenses || 1;
                     const pct = Math.round((Number(amt) / total) * 100);
                     return (
-                      <div key={idx} className="space-y-1">
-                        <div className="flex justify-between text-[11px]">
-                          <span className="text-[#a3a3a3] font-medium">{cat}</span>
-                          <span className="font-mono text-[#e5e5e5] font-bold">
+                      <div key={idx} className="space-y-1.5">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-[var(--text-secondary)] font-medium">{cat}</span>
+                          <span className="font-mono text-[var(--text-primary)] font-bold">
                             {formatMoney(amt, currency)} ({pct}%)
                           </span>
                         </div>
-                        <div className="w-full h-1.5 bg-[#ffffff0a] rounded-full overflow-hidden">
-                          <div 
-                            style={{ width: `${pct}%` }} 
-                            className="h-full bg-rose-500/70 rounded-full"
+                        <div className="w-full h-1.5 bg-[var(--bg-elevated)] rounded-full overflow-hidden">
+                          <div
+                            style={{ width: `${pct}%` }}
+                            className="h-full bg-rose-500 rounded-full"
                           />
                         </div>
                       </div>
@@ -294,13 +278,15 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
             </div>
           </div>
 
-          <button
-            onClick={() => onNavigateTab("expenses")}
-            className="w-full mt-4 py-2 border border-[#ffffff10] hover:bg-[#ffffff05] rounded-sm text-[10px] uppercase tracking-wider font-bold text-[#a3a3a3] hover:text-[#e5e5e5] transition-colors cursor-pointer"
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => onNavigateTab('expenses')}
+            className="w-full mt-4 justify-center"
           >
             Eeg Dhammaan Kharashyada &rarr;
-          </button>
-        </div>
+          </Button>
+        </Card>
       </div>
     </div>
   );

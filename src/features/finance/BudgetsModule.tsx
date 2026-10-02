@@ -1,18 +1,24 @@
-import React, { useState } from "react";
-import { 
-  Plus, 
-  Download, 
-  Trash2, 
-  Edit2, 
-  PieChart, 
-  X, 
+import React, { useState } from 'react';
+import {
+  Plus,
+  Download,
+  Trash2,
+  Edit2,
+  PieChart,
   AlertTriangle,
   CheckCircle2
-} from "lucide-react";
-import type { BudgetRecord } from "../../types";
-import { ConfirmDialog } from "../../components/ui/primitives";
-import { formatMoney, exportToExcel } from "./financeUtils";
-import { apiFetch } from "../../lib/apiClient";
+} from 'lucide-react';
+import type { BudgetRecord } from '../../types';
+import {
+  Badge,
+  Button,
+  Card,
+  ConfirmDialog,
+  EmptyState,
+  Modal
+} from '../../components/ui/primitives';
+import { formatMoney, exportToExcel } from './financeUtils';
+import { apiFetch } from '../../lib/apiClient';
 
 interface BudgetsModuleProps {
   budgets: BudgetRecord[];
@@ -22,22 +28,27 @@ interface BudgetsModuleProps {
 }
 
 const BUDGET_CATEGORIES = [
-  "Salaries",
-  "Rent",
-  "Electricity",
-  "Water",
-  "Internet",
-  "Office Supplies",
-  "Books",
-  "Transportation",
-  "Maintenance",
-  "Equipment",
-  "Cleaning",
-  "Security",
-  "Student Fees",
-  "Donations",
-  "Other"
+  'Salaries',
+  'Rent',
+  'Electricity',
+  'Water',
+  'Internet',
+  'Office Supplies',
+  'Books',
+  'Transportation',
+  'Maintenance',
+  'Equipment',
+  'Cleaning',
+  'Security',
+  'Student Fees',
+  'Donations',
+  'Other'
 ];
+
+const inputClass =
+  'w-full px-3.5 py-2.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-emerald-500/60 transition-all';
+const labelClass =
+  'block text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-1.5';
 
 export const BudgetsModule: React.FC<BudgetsModuleProps> = ({
   budgets,
@@ -55,29 +66,29 @@ export const BudgetsModule: React.FC<BudgetsModuleProps> = ({
     onConfirm: () => void | Promise<void>;
   }>({
     isOpen: false,
-    title: "",
-    message: "",
+    title: '',
+    message: '',
     onConfirm: () => {}
   });
 
   const [form, setForm] = useState({
-    academicYear: "2026-2027",
-    period: "Annual",
-    category: "Salaries",
-    type: "Expense",
+    academicYear: '2026-2027',
+    period: 'Annual',
+    category: 'Salaries',
+    type: 'Expense',
     plannedAmount: 1000,
-    notes: ""
+    notes: ''
   });
 
   const openAddModal = () => {
     setEditingBudget(null);
     setForm({
-      academicYear: "2026-2027",
-      period: "Annual",
-      category: "Salaries",
-      type: "Expense",
+      academicYear: '2026-2027',
+      period: 'Annual',
+      category: 'Salaries',
+      type: 'Expense',
       plannedAmount: 1000,
-      notes: ""
+      notes: ''
     });
     setShowModal(true);
   };
@@ -90,7 +101,7 @@ export const BudgetsModule: React.FC<BudgetsModuleProps> = ({
       category: b.category,
       type: b.type,
       plannedAmount: b.plannedAmount,
-      notes: b.notes || ""
+      notes: b.notes || ''
     });
     setShowModal(true);
   };
@@ -101,14 +112,14 @@ export const BudgetsModule: React.FC<BudgetsModuleProps> = ({
     try {
       if (editingBudget) {
         await apiFetch(`/api/budgets/${editingBudget.id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(form)
         });
       } else {
-        await apiFetch("/api/budgets", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+        await apiFetch('/api/budgets', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(form)
         });
       }
@@ -124,11 +135,11 @@ export const BudgetsModule: React.FC<BudgetsModuleProps> = ({
   const handleDelete = (id: string) => {
     setConfirmState({
       isOpen: true,
-      title: "Tirtir Miisaaniyadda?",
-      message: "Ma hubtaa inaad tirtirto miisaaniyaddan?",
+      title: 'Tirtir Miisaaniyadda?',
+      message: 'Ma hubtaa inaad tirtirto miisaaniyaddan?',
       onConfirm: async () => {
         try {
-          const res = await apiFetch(`/api/budgets/${id}`, { method: "DELETE" });
+          const res = await apiFetch(`/api/budgets/${id}`, { method: 'DELETE' });
           if (res.ok) onRefresh();
         } catch (err) {
           console.error(err);
@@ -143,239 +154,240 @@ export const BudgetsModule: React.FC<BudgetsModuleProps> = ({
     const data = budgets.map((b) => ({
       Category: b.category,
       Type: b.type,
-      "Academic Year": b.academicYear,
+      'Academic Year': b.academicYear,
       Period: b.period,
-      "Planned Amount": b.plannedAmount,
-      "Actual Amount": b.actualAmount,
-      "Remaining Amount": b.remainingAmount,
-      "Variance %": b.variance ? `${b.variance}%` : "0%"
+      'Planned Amount': b.plannedAmount,
+      'Actual Amount': b.actualAmount,
+      'Remaining Amount': b.remainingAmount,
+      'Variance %': b.variance ? `${b.variance}%` : '0%'
     }));
-    exportToExcel(`Budgets_${schoolName.replace(/\s+/g, "_")}`, "Budgets", data);
+    exportToExcel(`Budgets_${schoolName.replace(/\s+/g, '_')}`, 'Budgets', data);
   };
 
   return (
     <div className="space-y-4">
       {/* Top Controls */}
-      <div className="flex items-center justify-between">
+      <Card className="p-4 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-sm font-bold uppercase tracking-wider text-[#e5e5e5]">
+          <h2 className="text-sm font-bold tracking-tight text-[var(--text-primary)]">
             Maareynta Miisaaniyadda (Budget Management)
           </h2>
-          <p className="text-[10px] text-[#737373]">
+          <p className="text-xs text-[var(--text-muted)]">
             Deji miisaaniyad sanadle ah ama bille ah, la soco inta ka baxday
           </p>
         </div>
 
         <div className="flex items-center gap-2">
-          <button
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={handleExportExcel}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-sm border border-[#ffffff10] bg-[#0f0f0f] hover:bg-[#ffffff05] text-[#a3a3a3] hover:text-[#e5e5e5] text-[10px] uppercase font-bold tracking-wider cursor-pointer"
+            icon={<Download className="w-3.5 h-3.5" />}
           >
-            <Download className="w-3.5 h-3.5" />
-            <span>Excel</span>
-          </button>
-          <button
+            Excel
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
             onClick={openAddModal}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-sm bg-[#e5e5e5] hover:bg-white text-[#0a0a0a] text-[10px] uppercase font-bold tracking-wider cursor-pointer shadow-sm"
+            icon={<Plus className="w-3.5 h-3.5" />}
           >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Deji Miisaaniyad (Add Budget)</span>
-          </button>
+            Deji Miisaaniyad (Add Budget)
+          </Button>
         </div>
-      </div>
+      </Card>
 
       {/* Budgets Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {budgets.length === 0 ? (
-          <div className="col-span-full py-12 text-center text-xs text-[#737373] bg-[#0f0f0f] border border-[#ffffff10] rounded-sm">
-            Wali wax miisaaniyado ah lama dejin. Guji "Deji Miisaaniyad" si aad u bilowdo.
-          </div>
+          <Card className="col-span-full p-8">
+            <EmptyState
+              icon={PieChart}
+              title="Miisaaniyad Lama Dejin"
+              description='Wali wax miisaaniyado ah lama dejin. Guji "Deji Miisaaniyad" si aad u bilowdo.'
+            />
+          </Card>
         ) : (
           budgets.map((b) => {
-            const spentPct = b.plannedAmount > 0 ? Math.min(100, Math.round(((b.actualAmount || 0) / b.plannedAmount) * 100)) : 0;
+            const spentPct =
+              b.plannedAmount > 0
+                ? Math.min(100, Math.round(((b.actualAmount || 0) / b.plannedAmount) * 100))
+                : 0;
             const isOver = (b.actualAmount || 0) > b.plannedAmount;
 
             return (
-              <div key={b.id} className="bg-[#0f0f0f] border border-[#ffffff10] p-4 rounded-sm space-y-3">
+              <Card key={b.id} className="p-5 space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <span className="text-xs font-bold text-[#e5e5e5] block">{b.category}</span>
-                    <span className="text-[9px] text-[#737373]">{b.academicYear} • {b.period}</span>
+                    <span className="text-sm font-bold text-[var(--text-primary)] block">
+                      {b.category}
+                    </span>
+                    <span className="text-xs text-[var(--text-muted)]">
+                      {b.academicYear} • {b.period}
+                    </span>
                   </div>
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => openEditModal(b)}
-                      className="p-1 rounded-sm text-[#737373] hover:text-[#e5e5e5] hover:bg-[#ffffff05]"
+                      className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-elevated)] transition-colors"
                     >
-                      <Edit2 className="w-3 h-3" />
+                      <Edit2 className="w-3.5 h-3.5" />
                     </button>
                     <button
                       onClick={() => handleDelete(b.id)}
-                      className="p-1 rounded-sm text-rose-400/70 hover:text-rose-400 hover:bg-rose-500/10"
+                      className="p-1.5 rounded-lg text-rose-500/70 hover:text-rose-500 hover:bg-rose-500/10 transition-colors"
                     >
-                      <Trash2 className="w-3 h-3" />
+                      <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
 
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   <div className="flex justify-between text-xs">
-                    <span className="text-[#737373]">La Isticmaalay:</span>
-                    <span className={`font-mono font-bold ${isOver ? "text-rose-400" : "text-[#e5e5e5]"}`}>
+                    <span className="text-[var(--text-secondary)]">La Isticmaalay:</span>
+                    <span
+                      className={`font-mono font-bold ${
+                        isOver ? 'text-rose-500' : 'text-[var(--text-primary)]'
+                      }`}
+                    >
                       {formatMoney(b.actualAmount || 0, currency)}
                     </span>
                   </div>
                   <div className="flex justify-between text-xs">
-                    <span className="text-[#737373]">Qorshaha (Planned):</span>
-                    <span className="font-mono text-[#a3a3a3]">{formatMoney(b.plannedAmount, currency)}</span>
+                    <span className="text-[var(--text-secondary)]">Qorshaha (Planned):</span>
+                    <span className="font-mono text-[var(--text-secondary)]">
+                      {formatMoney(b.plannedAmount, currency)}
+                    </span>
                   </div>
                   <div className="flex justify-between text-xs">
-                    <span className="text-[#737373]">Harsan (Remaining):</span>
-                    <span className="font-mono font-bold text-emerald-400">
-                      {formatMoney(b.remainingAmount ?? (b.plannedAmount - (b.actualAmount || 0)), currency)}
+                    <span className="text-[var(--text-secondary)]">Harsan (Remaining):</span>
+                    <span className="font-mono font-bold text-emerald-500">
+                      {formatMoney(
+                        b.remainingAmount ?? b.plannedAmount - (b.actualAmount || 0),
+                        currency
+                      )}
                     </span>
                   </div>
                 </div>
 
                 {/* Progress Bar */}
-                <div className="space-y-1">
-                  <div className="w-full h-2 bg-[#0a0a0a] rounded-full overflow-hidden border border-[#ffffff08]">
+                <div className="space-y-1.5">
+                  <div className="w-full h-2 bg-[var(--bg-elevated)] rounded-full overflow-hidden border border-[var(--border-subtle)]">
                     <div
                       style={{ width: `${spentPct}%` }}
-                      className={`h-full rounded-full ${isOver ? "bg-rose-500" : spentPct > 80 ? "bg-amber-500" : "bg-emerald-500"}`}
+                      className={`h-full rounded-full ${
+                        isOver
+                          ? 'bg-rose-500'
+                          : spentPct > 80
+                            ? 'bg-amber-500'
+                            : 'bg-emerald-500'
+                      }`}
                     />
                   </div>
-                  <div className="flex justify-between text-[9px] text-[#737373]">
+                  <div className="flex justify-between items-center text-[11px] text-[var(--text-muted)]">
                     <span>Isticmaal: {spentPct}%</span>
                     {isOver ? (
-                      <span className="text-rose-400 flex items-center gap-1 font-bold">
-                        <AlertTriangle className="w-2.5 h-2.5" /> Dhaafsiisan
-                      </span>
+                      <Badge variant="danger">
+                        <AlertTriangle className="w-3 h-3 mr-1" /> Dhaafsiisan
+                      </Badge>
                     ) : (
-                      <span className="text-emerald-400 flex items-center gap-1">
-                        <CheckCircle2 className="w-2.5 h-2.5" /> Xakamaysan
-                      </span>
+                      <Badge variant="success">
+                        <CheckCircle2 className="w-3 h-3 mr-1" /> Xakamaysan
+                      </Badge>
                     )}
                   </div>
                 </div>
-              </div>
+              </Card>
             );
           })
         )}
       </div>
 
       {/* ADD / EDIT MODAL */}
-      {showModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in"
-          role="dialog"
-          aria-modal="true"
-          aria-label={editingBudget ? "Wax ka beddel Miisaaniyadda" : "Deji Miisaaniyad Cusub"}
-        >
-          <div className="bg-[#0f0f0f] border border-[#ffffff10] rounded-sm w-full max-w-md shadow-2xl p-6 relative">
-            <button
-              className="absolute right-4 top-4 p-1.5 rounded-sm text-[#737373] hover:bg-[#ffffff05]"
-              onClick={() => setShowModal(false)}
-            >
-              <X className="w-5 h-5" />
-            </button>
-            <h2 className="text-xl font-bold font-serif text-[#f5f5f5] mb-5">
-              {editingBudget ? "Wax ka beddel Miisaaniyadda" : "Deji Miisaaniyad Cusub"}
-            </h2>
-            <form onSubmit={handleSubmit} className="space-y-4 text-xs">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="font-semibold text-[#737373] uppercase tracking-wider text-[9px]">
-                    Qaybta (Category) *
-                  </label>
-                  <select
-                    value={form.category}
-                    onChange={(e) => setForm({ ...form, category: e.target.value })}
-                    className="w-full px-3 py-2 rounded-sm border border-[#ffffff10] bg-[#0a0a0a] text-xs text-[#e5e5e5] focus:outline-none focus:border-emerald-500"
-                  >
-                    {BUDGET_CATEGORIES.map((c) => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <label className="font-semibold text-[#737373] uppercase tracking-wider text-[9px]">
-                    Nooca (Type) *
-                  </label>
-                  <select
-                    value={form.type}
-                    onChange={(e) => setForm({ ...form, type: e.target.value as any })}
-                    className="w-full px-3 py-2 rounded-sm border border-[#ffffff10] bg-[#0a0a0a] text-xs text-[#e5e5e5] focus:outline-none focus:border-emerald-500"
-                  >
-                    <option value="Expense">Expense (Kharash)</option>
-                    <option value="Income">Income (Dakhli)</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="font-semibold text-[#737373] uppercase tracking-wider text-[9px]">
-                    Cadadka Qorshaysan ({currency}) *
-                  </label>
-                  <input
-                    type="number"
-                    min={1}
-                    value={form.plannedAmount}
-                    onChange={(e) => setForm({ ...form, plannedAmount: Number(e.target.value) })}
-                    className="w-full px-3 py-2 rounded-sm border border-[#ffffff10] bg-[#0a0a0a] text-xs text-[#e5e5e5] focus:outline-none focus:border-emerald-500 font-mono font-bold"
-                    required
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="font-semibold text-[#737373] uppercase tracking-wider text-[9px]">
-                    Muddada (Period) *
-                  </label>
-                  <select
-                    value={form.period}
-                    onChange={(e) => setForm({ ...form, period: e.target.value as any })}
-                    className="w-full px-3 py-2 rounded-sm border border-[#ffffff10] bg-[#0a0a0a] text-xs text-[#e5e5e5] focus:outline-none focus:border-emerald-500"
-                  >
-                    <option value="Annual">Annual (Sanadle)</option>
-                    <option value="Monthly">Monthly (Bille)</option>
-                    <option value="Term">Term (Xilliyeed)</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="font-semibold text-[#737373] uppercase tracking-wider text-[9px]">
-                  Sanad-Dugsiyeedka (Academic Year) *
-                </label>
-                <input
-                  type="text"
-                  value={form.academicYear}
-                  onChange={(e) => setForm({ ...form, academicYear: e.target.value })}
-                  className="w-full px-3 py-2 rounded-sm border border-[#ffffff10] bg-[#0a0a0a] text-xs text-[#e5e5e5] focus:outline-none focus:border-emerald-500"
-                  required
-                />
-              </div>
-
-              <div className="flex justify-end gap-3 pt-3">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="px-4 py-2 rounded-sm border border-[#ffffff10] text-[#737373] hover:text-[#e5e5e5] text-[10px] uppercase font-bold"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="px-5 py-2 rounded-sm bg-[#e5e5e5] hover:bg-white text-[#0a0a0a] text-[10px] uppercase font-bold tracking-wider disabled:opacity-50"
-                >
-                  {submitting ? "Kaydinaya..." : "Save Budget"}
-                </button>
-              </div>
-            </form>
+      <Modal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        title={editingBudget ? 'Wax ka beddel Miisaaniyadda' : 'Deji Miisaaniyad Cusub'}
+        size="md"
+      >
+        <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelClass}>Qaybta (Category) *</label>
+              <select
+                value={form.category}
+                onChange={(e) => setForm({ ...form, category: e.target.value })}
+                className={inputClass}
+              >
+                {BUDGET_CATEGORIES.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={labelClass}>Nooca (Type) *</label>
+              <select
+                value={form.type}
+                onChange={(e) => setForm({ ...form, type: e.target.value as any })}
+                className={inputClass}
+              >
+                <option value="Expense">Expense (Kharash)</option>
+                <option value="Income">Income (Dakhli)</option>
+              </select>
+            </div>
           </div>
-        </div>
-      )}
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelClass}>Cadadka Qorshaysan ({currency}) *</label>
+              <input
+                type="number"
+                min={1}
+                value={form.plannedAmount}
+                onChange={(e) =>
+                  setForm({ ...form, plannedAmount: Number(e.target.value) })
+                }
+                className={`${inputClass} font-mono font-bold`}
+                required
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Muddada (Period) *</label>
+              <select
+                value={form.period}
+                onChange={(e) => setForm({ ...form, period: e.target.value as any })}
+                className={inputClass}
+              >
+                <option value="Annual">Annual (Sanadle)</option>
+                <option value="Monthly">Monthly (Bille)</option>
+                <option value="Term">Term (Xilliyeed)</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className={labelClass}>Sanad-Dugsiyeedka (Academic Year) *</label>
+            <input
+              type="text"
+              value={form.academicYear}
+              onChange={(e) => setForm({ ...form, academicYear: e.target.value })}
+              className={inputClass}
+              required
+            />
+          </div>
+
+          <div className="flex justify-end gap-2.5 pt-3 border-t border-[var(--border-subtle)]">
+            <Button variant="secondary" type="button" onClick={() => setShowModal(false)}>
+              Cancel
+            </Button>
+            <Button variant="primary" type="submit" loading={submitting}>
+              {submitting ? 'Kaydinaya...' : 'Save Budget'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
 
       <ConfirmDialog
         isOpen={confirmState.isOpen}
