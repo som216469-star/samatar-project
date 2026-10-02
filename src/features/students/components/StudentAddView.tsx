@@ -187,6 +187,7 @@ export default function StudentAddView({
             studentId: formData.id.trim(),
             fullName: formData.fullName.trim(),
             className: formData.class,
+            section: formData.section.trim(),
             guardianPhone: formData.guardianPhone.trim(),
             rollNumber: formData.rollNumber.trim(),
             nationalId: formData.nationalId.trim(),
