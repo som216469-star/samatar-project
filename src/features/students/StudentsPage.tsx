@@ -381,12 +381,23 @@ export default function StudentsView({
           cleanNationalId &&
           s.nationalId &&
           s.nationalId.trim().toLowerCase() === cleanNationalId;
+        const sameAltPhone =
+          cleanAltPhone &&
+          cleanAltPhone.length > 6 &&
+          s.guardianPhoneAlt &&
+          s.guardianPhoneAlt === cleanAltPhone;
+        const sameEmergencyContact =
+          cleanEmergencyContact &&
+          s.emergencyContact &&
+          s.emergencyContact === cleanEmergencyContact;
         return Boolean(
           sameId ||
           sameNameClass ||
           samePhone ||
           sameRoll ||
-          sameNationalId
+          sameNationalId ||
+          sameAltPhone ||
+          sameEmergencyContact
         );
       });
 
