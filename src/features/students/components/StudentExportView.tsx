@@ -6,11 +6,11 @@ import {
   ArrowLeft,
   Table
 } from 'lucide-react';
-import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Student, SchoolClass, FeeRecord } from '../../../types';
 import { PageContainer, PageHeader } from '../../../components/layout/PageLayout';
+import { downloadStudentSpreadsheet, rowsToCsv } from '../../../lib/studentSpreadsheet';
 import { Badge, Button, Card } from '../../../components/ui/primitives';
 
 interface StudentExportViewProps {
@@ -125,7 +125,7 @@ export default function StudentExportView({
     });
   };
 
-  const handleExport = () => {
+  const handleExport = async () => {
     if (targetStudents.length === 0) {
       showToast('Ma jiraan arday buuxisa shuruudaha la doortay', 'warning');
       return;
@@ -155,16 +155,39 @@ export default function StudentExportView({
         return row;
       });
 
-      const ws = XLSX.utils.json_to_sheet(rows);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Ardayda');
-
-      if (format === 'excel') {
-        XLSX.writeFile(wb, `DugsiPro_Students_${scope}_${dateStr}.xlsx`);
-        showToast(`Faylka Excel waa la dhoofiyey (${targetStudents.length} arday)`, 'success');
-      } else {
-        XLSX.writeFile(wb, `DugsiPro_Students_${scope}_${dateStr}.csv`, { bookType: 'csv' });
-        showToast(`Faylka CSV waa la dhoofiyey (${targetStudents.length} arday)`, 'success');
+      try {
+        if (format === 'excel') {
+          await downloadStudentSpreadsheet(
+            rows as Record<string, unknown>[],
+            `DugsiPro_Students_${scope}_${dateStr}.xlsx`,
+            'Ardayda'
+          );
+          showToast(
+            `Faylka Excel waa la dhoofiyey (${targetStudents.length} arday)`,
+            'success'
+          );
+        } else {
+          const csv = rowsToCsv(rows as Record<string, unknown>[]);
+          const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+          const url = URL.createObjectURL(blob);
+          try {
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `DugsiPro_Students_${scope}_${dateStr}.csv`;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+          } finally {
+            URL.revokeObjectURL(url);
+          }
+          showToast(
+            `Faylka CSV waa la dhoofiyey (${targetStudents.length} arday)`,
+            'success'
+          );
+        }
+      } catch (error) {
+        console.error('Student export failed:', error);
+        showToast('Dhoofinta xogta ardayda way fashilantay.', 'error');
       }
       return;
     }
