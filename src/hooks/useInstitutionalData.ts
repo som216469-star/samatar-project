@@ -316,7 +316,8 @@ export function useInstitutionalData({
   const handleApiBulkUpdate = async (
     action: string,
     studentIds: string[],
-    targetValue?: string
+    targetValue?: string,
+    targetSection?: string
   ): Promise<boolean> => {
     try {
       const res = await apiFetch('/api/students/bulk', {
@@ -326,6 +327,7 @@ export function useInstitutionalData({
           action,
           studentIds,
           targetClass: action === 'change_class' ? targetValue : undefined,
+          targetSection: action === 'change_class' ? targetSection : undefined,
           targetStatus: action === 'change_status' ? targetValue : undefined
         })
       });
