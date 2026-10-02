@@ -178,11 +178,13 @@ export default function StudentProfileModal({
     });
 
     const finalY = (doc as any).lastAutoTable ? (doc as any).lastAutoTable.finalY + 10 : 80;
-    doc.text(
-      `Xaaladda Lacagta: Wadarta: ${currency} ${totalBilled} | La Bixiyey: ${currency} ${totalPaid} | Baaqiga: ${currency} ${balanceDue}`,
-      14,
-      finalY
-    );
+    if (canViewFinance) {
+      doc.text(
+        `Xaaladda Lacagta: Wadarta: ${currency} ${totalBilled} | La Bixiyey: ${currency} ${totalPaid} | Baaqiga: ${currency} ${balanceDue}`,
+        14,
+        finalY
+      );
+    }
 
     doc.save(`Warbixinta_${student.fullName.replace(/\s+/g, '_')}.pdf`);
   };
