@@ -429,7 +429,7 @@ export const AppShell: React.FC<AppShellProps> = ({
             }}
             className="flex items-center gap-3 min-w-0 text-left cursor-pointer group"
           >
-            <div className="w-9 h-9 rounded-[var(--radius-md)] bg-[#4f46e5] flex items-center justify-center text-white font-bold text-sm shadow-sm shrink-0">
+            <div className="w-9 h-9 rounded-[var(--radius-md)] bg-[var(--color-brand)] flex items-center justify-center text-white font-bold text-sm shadow-sm shrink-0">
               {settings.schoolName ? settings.schoolName.charAt(0).toUpperCase() : 'D'}
             </div>
             {!collapsed && (
@@ -522,7 +522,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                             <div className="flex items-center gap-2.5 min-w-0">
                               <Icon
                                 className={`w-4 h-4 shrink-0 ${
-                                  active ? 'text-[#818cf8]' : 'text-[#94a3b8]'
+                                  active ? 'text-[var(--color-accent)]' : 'text-[#94a3b8]'
                                 }`}
                               />
                               {!collapsed && <span className="truncate">{item.label}</span>}
@@ -574,14 +574,14 @@ export const AppShell: React.FC<AppShellProps> = ({
                                       }}
                                       className={`w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-[var(--radius-xs)] text-xs transition-colors cursor-pointer ${
                                         childActive
-                                          ? 'bg-[#6366f1]/20 text-white font-semibold border-l-2 border-[#818cf8]'
+                                          ? 'bg-[var(--sidebar-active-bg)] text-white font-semibold border-l-2 border-[var(--color-accent)]'
                                           : 'text-[#94a3b8] hover:text-white hover:bg-white/5'
                                       }`}
                                     >
                                       <div className="flex items-center gap-2 min-w-0">
                                         <ChildIcon
                                           className={`w-3.5 h-3.5 shrink-0 ${
-                                            childActive ? 'text-[#818cf8]' : 'text-[#64748b]'
+                                            childActive ? 'text-[var(--color-accent)]' : 'text-[#64748b]'
                                           }`}
                                         />
                                         <span className="truncate">{child.label}</span>
@@ -625,14 +625,14 @@ export const AppShell: React.FC<AppShellProps> = ({
                       title={collapsed ? item.label : undefined}
                       className={`w-full flex items-center justify-between gap-2.5 px-2.5 py-2 rounded-[var(--radius-sm)] text-xs transition-colors cursor-pointer ${
                         active
-                          ? 'bg-[var(--sidebar-active-bg)] text-white font-semibold border-l-2 border-[#818cf8]'
+                          ? 'bg-[var(--sidebar-active-bg)] text-white font-semibold border-l-2 border-[var(--color-accent)]'
                           : 'text-[#cbd5e1] hover:bg-[var(--sidebar-hover-bg)] hover:text-white'
                       }`}
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
                         <Icon
                           className={`w-4 h-4 shrink-0 ${
-                            active ? 'text-[#818cf8]' : 'text-[#94a3b8]'
+                            active ? 'text-[var(--color-accent)]' : 'text-[#94a3b8]'
                           }`}
                         />
                         {!collapsed && <span className="truncate">{item.label}</span>}
@@ -656,7 +656,7 @@ export const AppShell: React.FC<AppShellProps> = ({
 
           <div className="flex items-center justify-between gap-2 px-2 py-1.5 rounded-[var(--radius-sm)] bg-white/[0.03] border border-white/[0.06]">
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-7 h-7 rounded-full bg-[#4f46e5]/30 border border-[#818cf8]/40 flex items-center justify-center text-xs font-bold text-white shrink-0">
+              <div className="w-7 h-7 rounded-full bg-[var(--color-brand)]/30 border border-[var(--color-accent)]/40 flex items-center justify-center text-xs font-bold text-white shrink-0">
                 {user.email ? user.email.charAt(0).toUpperCase() : 'A'}
               </div>
               {!collapsed && (
@@ -690,7 +690,7 @@ export const AppShell: React.FC<AppShellProps> = ({
     <div className="min-h-screen flex bg-[var(--color-bg)] text-[var(--color-text-primary)]">
       {/* Desktop Sidebar */}
       <aside
-        className={`hidden lg:flex flex-col shrink-0 border-r border-[var(--sidebar-border)] transition-all duration-200 ${
+        className={`app-sidebar hidden lg:flex flex-col shrink-0 border-r border-[var(--sidebar-border)] transition-all duration-200 ${
           sidebarCollapsed ? 'w-16' : 'w-64'
         }`}
       >
@@ -726,7 +726,7 @@ export const AppShell: React.FC<AppShellProps> = ({
       {/* Main Content Column */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top Navigation Bar */}
-        <header className="sticky top-0 z-30 h-16 px-4 sm:px-6 lg:px-8 bg-[var(--color-surface)]/90 backdrop-blur-md border-b border-[var(--color-border)] flex items-center justify-between gap-3">
+        <header className="app-topbar sticky top-0 z-30 h-16 px-4 sm:px-6 lg:px-8 bg-[var(--color-surface)]/90 backdrop-blur-md border-b border-[var(--color-border)] flex items-center justify-between gap-3">
           {/* Left: Mobile Menu Trigger + Breadcrumbs */}
           <div className="flex items-center gap-3 min-w-0">
             <button
