@@ -13,6 +13,7 @@ export interface Student {
   guardianName?: string;
   guardianRelationship?: string;
   guardianPhoneAlt?: string;
+  emergencyContact?: string;
   section?: string;
   rollNumber?: string;
   nationalId?: string;
