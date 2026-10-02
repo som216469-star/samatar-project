@@ -538,7 +538,16 @@ export default function StudentsView({
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedClassFilter, selectedGenderFilter, effectiveStatusFilter, selectedFeeFilter, selectedRegDateFilter, pageSize]);
+  }, [
+    searchQuery,
+    selectedClassFilter,
+    selectedGenderFilter,
+    effectiveStatusFilter,
+    missingGuardianOnly,
+    selectedFeeFilter,
+    selectedRegDateFilter,
+    pageSize
+  ]);
 
   // --- Selection Handlers ---
   const isAllSelected = paginatedStudents.length > 0 && paginatedStudents.every(s => selectedStudentIds.includes(s.id));
