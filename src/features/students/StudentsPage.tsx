@@ -379,18 +379,12 @@ export default function StudentsView({
           cleanNationalId &&
           s.nationalId &&
           s.nationalId.trim().toLowerCase() === cleanNationalId;
-        const sameAltPhone =
-          cleanAltPhone &&
-          cleanAltPhone.length > 6 &&
-          s.guardianPhoneAlt &&
-          s.guardianPhoneAlt === cleanAltPhone;
         return Boolean(
           sameId ||
           sameNameClass ||
           samePhone ||
           sameRoll ||
-          sameNationalId ||
-          sameAltPhone
+          sameNationalId
         );
       });
 
