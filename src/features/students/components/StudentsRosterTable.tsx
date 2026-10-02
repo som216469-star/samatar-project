@@ -275,21 +275,26 @@ export const StudentsRosterTable: React.FC<StudentsRosterTableProps> = ({
                           </div>
                         </td>
 
-                        <td className="px-4 py-3">
-                          <Badge variant="neutral">
-                            {student.class}
-                            {student.section ? ` (${student.section})` : ''}
-                          </Badge>
-                        </td>
+                        {columns.class && (
+                          <td className="px-4 py-3">
+                            <Badge variant="neutral">
+                              {student.class}
+                              {student.section ? ` (${student.section})` : ''}
+                            </Badge>
+                          </td>
+                        )}
 
-                        <td className="px-4 py-3">
-                          <Badge variant={student.gender === 'Female' ? 'brand' : 'info'}>
-                            {student.gender === 'Female' ? 'Dhedig' : 'Lab'}
-                          </Badge>
-                        </td>
+                        {columns.gender && (
+                          <td className="px-4 py-3">
+                            <Badge variant={student.gender === 'Female' ? 'brand' : 'info'}>
+                              {student.gender === 'Female' ? 'Dhedig' : 'Lab'}
+                            </Badge>
+                          </td>
+                        )}
 
-                        <td className="px-4 py-3">
-                          {student.guardianPhone || student.guardianName ? (
+                        {columns.guardian && (
+                          <td className="px-4 py-3">
+                            {student.guardianPhone || student.guardianName ? (
                             <div className="space-y-0.5">
                               {student.guardianName && (
                                 <p className="text-[var(--color-text-primary)] font-medium text-xs truncate max-w-[160px]">
@@ -329,13 +334,15 @@ export const StudentsRosterTable: React.FC<StudentsRosterTableProps> = ({
                               <AlertTriangle className="w-3 h-3" /> Lama diiwaangelin
                             </span>
                           )}
-                        </td>
+                          </td>
+                        )}
 
-                        <td className="px-4 py-3">
-                          <div className="space-y-0.5">
-                            <Badge
-                              variant={
-                                feeInfo.status === 'paid'
+                        {columns.fees && (
+                          <td className="px-4 py-3">
+                            <div className="space-y-0.5">
+                              <Badge
+                                variant={
+                                  feeInfo.status === 'paid'
                                   ? 'success'
                                   : feeInfo.status === 'partial'
                                   ? 'warning'
@@ -352,14 +359,16 @@ export const StudentsRosterTable: React.FC<StudentsRosterTableProps> = ({
                               <p className="text-[10px] font-mono tabular-nums text-[var(--color-danger)]">
                                 Baaqi: {currency} {feeInfo.balance}
                               </p>
-                            )}
-                          </div>
-                        </td>
+                              )}
+                            </div>
+                          </td>
+                        )}
 
-                        <td className="px-4 py-3">
-                          <Badge
-                            dot
-                            variant={
+                        {columns.status && (
+                          <td className="px-4 py-3">
+                            <Badge
+                              dot
+                              variant={
                               student.status === 'active'
                                 ? 'success'
                                 : student.status === 'archived'
@@ -373,9 +382,25 @@ export const StudentsRosterTable: React.FC<StudentsRosterTableProps> = ({
                               ? 'Archived'
                               : 'Inactive'}
                           </Badge>
-                        </td>
+                            </td>
+                        )}
 
-                        <td className="px-4 py-3 text-right">
+                        {columns.regDate && (
+                          <td className="px-4 py-3 font-mono text-[11px] text-[var(--color-text-secondary)]">
+                            {student.createdAt ? String(student.createdAt).split('T')[0] : '—'}
+                          </td>
+                        )}
+
+                        {columns.updated && (
+                          <td className="px-4 py-3 font-mono text-[11px] text-[var(--color-text-secondary)]">
+                            {(student.updatedAt || student.createdAt)
+                              ? String(student.updatedAt || student.createdAt).split('T')[0]
+                              : '—'}
+                          </td>
+                        )}
+
+                        {columns.actions && (
+                          <td className="px-4 py-3 text-right">
                           <div className="flex items-center justify-end gap-1">
                             <button
                               type="button"
