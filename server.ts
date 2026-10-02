@@ -150,6 +150,45 @@ function clearAuthRateLimit(keyPrefix: string) {
   }
 }
 
+const SESSION_COOKIE_NAME = "dugsi_session";
+const SESSION_MAX_AGE_SECONDS = 12 * 60 * 60;
+
+function requestIsHttps(req: express.Request): boolean {
+  const forwardedProto = String(req.headers["x-forwarded-proto"] || "")
+    .split(",")[0]
+    .trim()
+    .toLowerCase();
+  return req.secure || forwardedProto === "https";
+}
+
+function setSessionCookie(req: express.Request, res: express.Response, token: string) {
+  const secure = requestIsHttps(req);
+  const attributes = [
+    `${SESSION_COOKIE_NAME}=${encodeURIComponent(token)}`,
+    "Path=/",
+    "HttpOnly",
+    "SameSite=Strict",
+    `Max-Age=${SESSION_MAX_AGE_SECONDS}`
+  ];
+
+  if (secure) attributes.push("Secure");
+  res.setHeader("Set-Cookie", attributes.join("; "));
+}
+
+function clearSessionCookie(req: express.Request, res: express.Response) {
+  const secure = requestIsHttps(req);
+  const attributes = [
+    `${SESSION_COOKIE_NAME}=;`,
+    "Path=/",
+    "HttpOnly",
+    "SameSite=Strict",
+    "Max-Age=0"
+  ];
+
+  if (secure) attributes.push("Secure");
+  res.setHeader("Set-Cookie", attributes.join("; "));
+}
+
 // Reject cross-site state-changing API requests. Bearer auth is the primary control,
 // while this adds defense-in-depth against browser-based request forgery.
 function apiOriginAllowed(req: express.Request): boolean {
@@ -1371,6 +1410,7 @@ app.post("/api/auth/verify", async (req, res) => {
 app.post("/api/auth/logout", (req, res) => {
   const token = getSessionTokenFromRequest(req);
   if (token) revokeSession(token);
+  clearSessionCookie(req, res);
   return res.json({ success: true });
 });
 
@@ -1450,7 +1490,10 @@ app.post("/api/auth/login", async (req, res) => {
             .maybeSingle();
 
           if (teacherLookupError) {
-            console.warn("Teacher status lookup notice:", teacherLookupError.message);
+            console.warn("Teacher status lookup error:", teacherLookupError.message);
+            return res.status(503).json({
+              error: "Akoonka macallinka lama xaqiijin karin hadda. Fadlan mar kale isku day."
+            });
           } else if (!cloudTeacher) {
             return res.status(403).json({ error: "Akoonka macallinka lama helin ama waa la saaray." });
           } else if (cloudTeacher.status === "DEACTIVATED" || cloudTeacher.status === "INACTIVE") {
@@ -1469,13 +1512,21 @@ app.post("/api/auth/login", async (req, res) => {
             assignedSubjects: Array.isArray(cloudTeacher.assigned_subjects) ? cloudTeacher.assigned_subjects : []
           };
           const token = createSessionToken(teacherPayload);
+          setSessionCookie(req, res, token);
           clearAuthRateLimit(`login:ip:${req.ip || "unknown"}:`);
           clearAuthRateLimit(`login:account:${req.ip || "unknown"}:${cleanEmail}`);
-          return res.json({ success: true, token, user: teacherPayload });
+          return res.json({ success: true, user: teacherPayload });
         }
 
         const authRes = buildAuthResponse(cleanEmail, db);
         if (authRes.error) return res.status(403).json({ error: authRes.error });
+        if (!authRes.error && authRes.token) {
+          setSessionCookie(req, res, authRes.token);
+          const { token: _token, ...safeAuthResponse } = authRes;
+          clearAuthRateLimit(`login:ip:${req.ip || "unknown"}:`);
+          clearAuthRateLimit(`login:account:${req.ip || "unknown"}:${cleanEmail}`);
+          return res.json(safeAuthResponse);
+        }
         clearAuthRateLimit(`login:ip:${req.ip || "unknown"}:`);
         clearAuthRateLimit(`login:account:${req.ip || "unknown"}:${cleanEmail}`);
         return res.json(authRes);
@@ -1499,6 +1550,13 @@ app.post("/api/auth/login", async (req, res) => {
 
     const authRes = buildAuthResponse(cleanEmail, db);
     if (authRes.error) return res.status(403).json({ error: authRes.error });
+    if (!authRes.error && authRes.token) {
+      setSessionCookie(req, res, authRes.token);
+      const { token: _token, ...safeAuthResponse } = authRes;
+      clearAuthRateLimit(`login:ip:${req.ip || "unknown"}:`);
+      clearAuthRateLimit(`login:account:${req.ip || "unknown"}:${cleanEmail}`);
+      return res.json(safeAuthResponse);
+    }
     clearAuthRateLimit(`login:ip:${req.ip || "unknown"}:`);
     clearAuthRateLimit(`login:account:${req.ip || "unknown"}:${cleanEmail}`);
     return res.json(authRes);
