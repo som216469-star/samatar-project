@@ -302,7 +302,15 @@ const TMP_DB_PATH = path.join("/tmp", "dugsi_database.json");
 let inMemoryDB: LocalDB | null = null;
 
 interface LocalDB {
-  users: Array<{ email: string; password_hash: string; verified: boolean; verification_code?: string; role?: string }>;
+  users: Array<{
+    email: string;
+    password_hash: string;
+    verified: boolean;
+    verification_code?: string;
+    role?: string;
+    school_id?: string;
+    teacher_id?: string;
+  }>;
   students: Array<any>;
   attendance: Array<{ schoolId?: string; date: string; studentId: string; status: string; timestamp: string; sessionType?: string }>;
   fees: Array<any>;
@@ -2242,9 +2250,11 @@ app.post("/api/students/bulk", async (req, res) => {
 
   const action = typeof req.body?.action === "string" ? req.body.action.trim() : "";
   const rawIds = Array.isArray(req.body?.studentIds) ? req.body.studentIds : [];
-  const studentIds = Array.from(new Set(
-    rawIds.filter((id: unknown): id is string => typeof id === "string")
-      .map((id) => id.trim()).filter(Boolean)
+  const studentIds: string[] = Array.from(new Set(
+    rawIds
+      .filter((id: unknown): id is string => typeof id === "string")
+      .map((id) => id.trim())
+      .filter(Boolean)
   ));
 
   if (!studentIds.length) return res.status(400).json({ error: "studentIds waa qasab." });
