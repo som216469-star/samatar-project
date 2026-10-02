@@ -1006,9 +1006,11 @@ export default function StudentsView({
           "status"
         ).toLowerCase();
         const status =
-          statusRaw === "inactive" || statusRaw === "archived" || statusRaw === "active"
+          !statusRaw
+            ? "active"
+            : statusRaw === "inactive" || statusRaw === "archived" || statusRaw === "active"
             ? statusRaw
-            : "active";
+            : "";
 
         const rowErrors: string[] = [];
         const nameClassKey =
@@ -1031,6 +1033,7 @@ export default function StudentsView({
         }
 
         if (!gender) rowErrors.push("Gender-ka waa inuu noqdaa Male ama Female");
+        if (!status) rowErrors.push("Status-ku waa inuu noqdaa active, inactive ama archived");
         if (!guardianPhone) rowErrors.push("Telefoonka waalidka waa qasab");
         else if (!/^[+0-9()\s.-]{7,30}$/.test(guardianPhone)) {
           rowErrors.push("Telefoonka waalidka ma saxna");
@@ -1141,6 +1144,15 @@ export default function StudentsView({
       }
     }
 
+    if (successCount === 0) {
+      setImportStep('preview');
+      showToast(
+        "Import-ka lama dhamaystirin. Sax khaladaadka kadib mar kale isku day.",
+        "error"
+      );
+      return;
+    }
+
     showToast(
       `Soo gelintu way dhammaatay: ${successCount} arday ayaa lagu daray. ${failCount} cilado.`,
       failCount > 0 ? "warning" : "success"
@@ -1148,7 +1160,7 @@ export default function StudentsView({
     setShowImportModal(false);
     setImportStep('upload');
     setImportRows([]);
-    if (onRefreshData) onRefreshData();
+    if (onRefreshData) await onRefreshData();
   };
 
   // --- Sync /students/:id URL for Student Profile ---
