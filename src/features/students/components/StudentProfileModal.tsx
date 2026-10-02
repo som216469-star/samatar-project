@@ -66,6 +66,7 @@ export default function StudentProfileModal({
   const [activity, setActivity] = useState<ActivityItem[]>([]);
   const [activityLoading, setActivityLoading] = useState(false);
   const [profileAttendance, setProfileAttendance] = useState<AttendanceRecord[]>([]);
+  const [profileAttendanceLoaded, setProfileAttendanceLoaded] = useState(false);
   const [attendanceLoading, setAttendanceLoading] = useState(false);
   const profileTabs = useMemo(
     () =>
@@ -99,6 +100,7 @@ export default function StudentProfileModal({
         const payload = await response.json();
         if (!cancelled && Array.isArray(payload)) {
           setProfileAttendance(payload);
+          setProfileAttendanceLoaded(true);
         }
       } catch {
         // The prop-provided attendance remains available as a fallback.
@@ -143,7 +145,9 @@ export default function StudentProfileModal({
     };
   }, [activeTab, student.id]);
 
-  const resolvedAttendance = profileAttendance.length > 0 ? profileAttendance : (attendance || attendanceRecords || []);
+  const resolvedAttendance = profileAttendanceLoaded
+    ? profileAttendance
+    : (attendance || attendanceRecords || []);
   const resolvedFees = canViewFinance ? (fees || feeRecords || []) : [];
 
   useEffect(() => {
