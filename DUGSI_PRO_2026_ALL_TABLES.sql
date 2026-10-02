@@ -364,6 +364,8 @@ CREATE TABLE IF NOT EXISTS dugsiga_student_audit (
   actor_email TEXT,
   actor_role TEXT,
   changed_fields JSONB NOT NULL DEFAULT '{}'::jsonb,
+  before_data JSONB,
+  after_data JSONB,
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now())
 );
 
