@@ -78,6 +78,14 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
   const resolvedOpen = Boolean(isOpen ?? showFormModal);
   const resolvedSave = onSaveStudent || onSubmitStudentForm || ((e: React.FormEvent) => e.preventDefault());
   const resolvedPhotoHandler = onPhotoUpload || onPhotoFileChange || (() => {});
+  const availableSections = Array.from(
+    new Set(
+      classes
+        .filter((item) => item.className === formData.class)
+        .map((item) => String(item.section || '').trim())
+        .filter(Boolean)
+    )
+  );
 
   const dupStudent: Student | null =
     duplicateWarning && 'found' in duplicateWarning
@@ -365,7 +373,22 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                   <select
                     value={formData.class}
                     onChange={(e) => {
-                      setFormData({ ...formData, class: e.target.value });
+                      const nextClass = e.target.value;
+                      const nextSections = Array.from(
+                        new Set(
+                          classes
+                            .filter((item) => item.className === nextClass)
+                            .map((item) => String(item.section || '').trim())
+                            .filter(Boolean)
+                        )
+                      );
+                      setFormData({
+                        ...formData,
+                        class: nextClass,
+                        section: nextSections.includes(formData.section)
+                          ? formData.section
+                          : nextSections[0] || ''
+                      });
                       if (formErrors.class) setFormErrors((prev) => ({ ...prev, class: '' }));
                     }}
                     className="w-full ds-input"
@@ -382,13 +405,28 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                   <label className="font-semibold text-[var(--color-text-secondary)] block">
                     Qaybta / Section (A, B, C)
                   </label>
-                  <input
-                    type="text"
-                    value={formData.section}
-                    onChange={(e) => setFormData({ ...formData, section: e.target.value })}
-                    placeholder="Tusaale: A"
-                    className="w-full ds-input"
-                  />
+                  {availableSections.length > 0 ? (
+                    <select
+                      value={formData.section}
+                      onChange={(e) => setFormData({ ...formData, section: e.target.value })}
+                      className="w-full ds-input"
+                    >
+                      <option value="">Dooro Section</option>
+                      {availableSections.map((section) => (
+                        <option key={section} value={section}>
+                          Section {section}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      value={formData.section}
+                      onChange={(e) => setFormData({ ...formData, section: e.target.value })}
+                      placeholder="Tusaale: A"
+                      className="w-full ds-input"
+                    />
+                  )}
                 </div>
               </div>
 
