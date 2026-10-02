@@ -1,7 +1,10 @@
-import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Student, SchoolClass } from '../../../types';
+import {
+  downloadStudentSpreadsheet,
+  rowsToCsv
+} from '../../../lib/studentSpreadsheet';
 
 export interface StudentFeeSummary {
   status: string;
@@ -48,7 +51,7 @@ export function compressImage(file: File, maxDim = 400, quality = 0.85): Promise
   });
 }
 
-export function exportStudentsToExcel(
+export async function exportStudentsToExcel(
   targetStudents: Student[],
   getStudentFeeStatus: (studentId: string) => StudentFeeSummary,
   currency: string,
@@ -87,11 +90,13 @@ export function exportStudentsToExcel(
     };
   });
 
-  const ws = XLSX.utils.json_to_sheet(exportData);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Ardayda');
-  XLSX.writeFile(wb, filename);
-  showToast(`Faylka Excel waa la diyaariyey (${targetStudents.length} arday)`, 'success');
+  try {
+    await downloadStudentSpreadsheet(exportData, filename, 'Ardayda');
+    showToast(`Faylka Excel waa la diyaariyey (${targetStudents.length} arday)`, 'success');
+  } catch (error) {
+    console.error('Student Excel export failed:', error);
+    showToast('Faylka Excel lama abuuri karin.', 'error');
+  }
 }
 
 export function exportStudentsToCSV(
@@ -102,11 +107,14 @@ export function exportStudentsToCSV(
     showToast('Wax xog ah oo la dhoofiyo ma jiraan', 'warning');
     return;
   }
+
   const exportData = targetStudents.map((s, idx) => ({
     No: idx + 1,
     'Student ID': s.id,
     'Full Name': s.fullName,
     Class: s.class,
+    Section: s.section || '-',
+    'Roll Number': s.rollNumber || '-',
     Gender: s.gender,
     Status: s.status || 'active',
     'Guardian Phone': s.guardianPhone || '-',
@@ -120,16 +128,25 @@ export function exportStudentsToCSV(
     'Medical Notes': s.medicalNotes || '-',
     'Registration Date': s.createdAt || '-'
   }));
-  const ws = XLSX.utils.json_to_sheet(exportData);
-  const csv = XLSX.utils.sheet_to_csv(ws);
+
+  const csv = rowsToCsv(exportData);
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.setAttribute('download', 'DugsiPro_Students.csv');
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+
+  try {
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute(
+      'download',
+      `DugsiPro_Students_${new Date().toISOString().split('T')[0]}.csv`
+    );
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+
   showToast('Faylka CSV waa la soo dejiyey', 'success');
 }
 
@@ -220,7 +237,7 @@ export function exportStudentsToPDF(
   }
 }
 
-export function downloadStudentsExcelTemplate(
+export async function downloadStudentsExcelTemplate(
   classes: SchoolClass[],
   showToast: (msg: string, type: 'success' | 'error' | 'warning' | 'info') => void
 ) {
@@ -263,9 +280,15 @@ export function downloadStudentsExcelTemplate(
     }
   ];
 
-  const ws = XLSX.utils.json_to_sheet(templateRows);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Ardayda_Template');
-  XLSX.writeFile(wb, 'DugsiPro_Students_Template.xlsx');
-  showToast('Template-ka Excel waa la soo dejiyey', 'success');
+  try {
+    await downloadStudentSpreadsheet(
+      templateRows,
+      'DugsiPro_Students_Template.xlsx',
+      'Ardayda_Template'
+    );
+    showToast('Template-ka Excel waa la soo dejiyey', 'success');
+  } catch (error) {
+    console.error('Student template export failed:', error);
+    showToast('Template-ka Excel lama abuuri karin', 'error');
+  }
 }
