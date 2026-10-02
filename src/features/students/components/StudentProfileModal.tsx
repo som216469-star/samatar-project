@@ -684,6 +684,14 @@ export default function StudentProfileModal({
                       {student.address || guardian?.address || 'Lama hayo'}
                     </span>
                   </div>
+                  <div>
+                    <span className="text-[var(--color-text-muted)] block text-[10px]">
+                      Telefoonka Labaad
+                    </span>
+                    <span className="text-[var(--color-text-primary)] font-mono">
+                      {student.guardianPhoneAlt || 'Lama hayo'}
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -731,6 +739,17 @@ export default function StudentProfileModal({
                     </div>
                   </div>
                 </div>
+
+                {student.medicalNotes && (
+                  <div className="pt-2 border-t border-[var(--color-border)]">
+                    <span className="text-[var(--color-text-muted)] text-[10px] block mb-1">
+                      Xusuusin Caafimaad
+                    </span>
+                    <p className="text-[11px] text-[var(--color-text-secondary)] whitespace-pre-wrap break-words">
+                      {student.medicalNotes}
+                    </p>
+                  </div>
+                )}
 
                 {onStatusChange && (
                   <div className="pt-2 border-t border-[var(--color-border)] flex items-center justify-between gap-2">
@@ -781,6 +800,14 @@ export default function StudentProfileModal({
                     </span>
                     <span className="text-[var(--color-text-primary)] font-mono tabular-nums">
                       {student.createdAt || 'N/A'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[var(--color-text-muted)] block text-[10px]">
+                      Last Updated
+                    </span>
+                    <span className="text-[var(--color-text-primary)] font-mono tabular-nums">
+                      {student.updatedAt || student.createdAt || 'N/A'}
                     </span>
                   </div>
                   <div>
