@@ -899,6 +899,108 @@ CREATE TABLE IF NOT EXISTS dugsiga_notifications (
   created_at TEXT
 );
 
+-- 20B. Student Audit Log Table
+CREATE TABLE IF NOT EXISTS dugsiga_student_audit (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  school_id TEXT NOT NULL,
+  student_id TEXT NOT NULL,
+  action TEXT NOT NULL CHECK (action IN ('created','updated','archived','restored','deleted')),
+  actor_email TEXT,
+  actor_role TEXT,
+  changed_fields JSONB NOT NULL DEFAULT '{}'::jsonb,
+  before_data JSONB,
+  after_data JSONB,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+CREATE INDEX IF NOT EXISTS idx_dugsiga_student_audit_school_student
+  ON dugsiga_student_audit (school_id, student_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_dugsiga_student_audit_school_action
+  ON dugsiga_student_audit (school_id, action, created_at DESC);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_dugsiga_students_school_national_id
+  ON dugsiga_students (school_id, lower(btrim(national_id)))
+  WHERE national_id IS NOT NULL AND btrim(national_id) <> '';
+
+-- Student class/section guardrail
+CREATE OR REPLACE FUNCTION public.dugsiga_validate_student_class_assignment()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+DECLARE
+  class_count INTEGER;
+  section_rows INTEGER;
+  clean_class TEXT;
+  clean_section TEXT;
+BEGIN
+  clean_class := lower(btrim(coalesce(NEW.class, '')));
+  clean_section := lower(btrim(coalesce(NEW.section, '')));
+
+  IF clean_class = '' THEN
+    RAISE EXCEPTION USING errcode = '23514', message = 'Student class is required.';
+  END IF;
+
+  SELECT count(*)::integer,
+         count(*) FILTER (WHERE btrim(coalesce(c.section, '')) <> '')::integer
+    INTO class_count, section_rows
+  FROM public.dugsiga_classes c
+  WHERE c.school_id = NEW.school_id
+    AND lower(btrim(coalesce(c.class_name, ''))) = clean_class;
+
+  IF class_count = 0 THEN
+    RAISE EXCEPTION USING errcode = '23514',
+      message = format('Student class does not exist: %s.', NEW.class);
+  END IF;
+
+  IF section_rows > 0 THEN
+    IF clean_section = '' THEN
+      RAISE EXCEPTION USING errcode = '23514',
+        message = format('Student section is required for class: %s.', NEW.class);
+    END IF;
+
+    IF NOT EXISTS (
+      SELECT 1 FROM public.dugsiga_classes c
+      WHERE c.school_id = NEW.school_id
+        AND lower(btrim(coalesce(c.class_name, ''))) = clean_class
+        AND lower(btrim(coalesce(c.section, ''))) = clean_section
+    ) THEN
+      RAISE EXCEPTION USING errcode = '23514',
+        message = format('Student section does not exist: %s / %s.', NEW.class, NEW.section);
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$function$;
+
+DROP TRIGGER IF EXISTS trg_dugsiga_students_class_assignment ON public.dugsiga_students;
+CREATE TRIGGER trg_dugsiga_students_class_assignment
+BEFORE INSERT OR UPDATE OF school_id, class, section ON public.dugsiga_students
+FOR EACH ROW EXECUTE FUNCTION public.dugsiga_validate_student_class_assignment();
+
+-- Append-only student audit
+CREATE OR REPLACE FUNCTION public.dugsiga_student_audit_immutable()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+BEGIN
+  RAISE EXCEPTION USING errcode = '42501', message = 'Student audit records are append-only.';
+END;
+$function$;
+
+DROP TRIGGER IF EXISTS trg_dugsiga_student_audit_immutable ON public.dugsiga_student_audit;
+CREATE TRIGGER trg_dugsiga_student_audit_immutable
+BEFORE UPDATE OR DELETE ON public.dugsiga_student_audit
+FOR EACH ROW EXECUTE FUNCTION public.dugsiga_student_audit_immutable();
+
+REVOKE EXECUTE ON FUNCTION public.dugsiga_validate_student_class_assignment() FROM public, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.dugsiga_student_audit_immutable() FROM public, anon, authenticated;
+
 -- 21. Fee Structures Table
 CREATE TABLE IF NOT EXISTS dugsiga_fee_structures (
   id TEXT PRIMARY KEY,
@@ -1048,7 +1150,7 @@ DECLARE
     'dugsiga_library_books','dugsiga_library_loans','dugsiga_inventory',
     'dugsiga_documents','dugsiga_notifications','dugsiga_fee_structures',
     'dugsiga_invoices','dugsiga_payments','dugsiga_expenses','dugsiga_income',
-    'dugsiga_budgets','dugsiga_payroll'
+    'dugsiga_budgets','dugsiga_payroll','dugsiga_student_audit'
   ];
 BEGIN
   FOREACH tbl_name IN ARRAY tables_list LOOP
