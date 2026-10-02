@@ -259,11 +259,11 @@ returns trigger
 language plpgsql
 security definer
 set search_path = public
-as $
+as $student_audit$
 begin
   raise exception using errcode = '42501', message = 'Student audit records are append-only.';
 end;
-$;
+$student_audit$;
 
 drop trigger if exists trg_dugsiga_student_audit_immutable on public.dugsiga_student_audit;
 create trigger trg_dugsiga_student_audit_immutable
