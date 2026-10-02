@@ -2203,7 +2203,16 @@ app.get("/api/students", async (req, res) => {
 
   if (!useLocalFallback) {
     try {
-      let query = supabase.from("dugsiga_students").select("*").eq("school_id", schoolId).order("full_name", { ascending: true });
+      const canViewSensitive = canViewSensitiveStudentData(authUser);
+      const studentSelect = canViewSensitive
+        ? "*"
+        : "id,full_name,class,gender,guardian_phone,status,created_at,updated_at,photo,date_of_birth,address,guardian_name,guardian_relationship,guardian_phone_alt,section,roll_number,previous_school";
+
+      let query = supabase
+        .from("dugsiga_students")
+        .select(studentSelect)
+        .eq("school_id", schoolId)
+        .order("full_name", { ascending: true });
       if (isTeacher) {
         if (teacherClasses.length === 0) return res.json([]);
         query = query.in("class", teacherClasses);
@@ -2275,7 +2284,7 @@ app.post("/api/students/check-duplicate", async (req, res) => {
     if (!useLocalFallback) {
       const checks = [
         raw.studentId
-          ? supabase.from("dugsiga_students").select("id,full_name,class,guardian_phone").eq("school_id", schoolId).eq("id", String(raw.studentId).trim()).limit(1)
+          ? supabase.from("dugsiga_students").select("id,full_name,class,section,roll_number").eq("school_id", schoolId).eq("id", String(raw.studentId).trim()).limit(1)
           : Promise.resolve({ data: [], error: null }),
         candidate.value.fullName && candidate.value.class
           ? supabase.from("dugsiga_students").select("id,full_name,class,guardian_phone").eq("school_id", schoolId).eq("class", candidate.value.class).ilike("full_name", candidate.value.fullName).limit(5)
@@ -2283,7 +2292,7 @@ app.post("/api/students/check-duplicate", async (req, res) => {
         candidate.value.rollNumber && candidate.value.class
           ? supabase
               .from("dugsiga_students")
-              .select("id,full_name,class,section,guardian_phone,roll_number")
+              .select("id,full_name,class,section,roll_number")
               .eq("school_id", schoolId)
               .eq("class", candidate.value.class)
               .eq("section", candidate.value.section || "")
@@ -2611,7 +2620,7 @@ app.post("/api/students/import", async (req, res) => {
         success: true,
         imported: inserted.length,
         failed: 0,
-        students: inserted.map(formatStudentRow)
+        students: inserted.map((row: any) => formatStudentRow(row, authUser))
       });
     }
 
