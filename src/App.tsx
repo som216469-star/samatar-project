@@ -10,6 +10,7 @@ import {
   StudentSubSection,
   FinanceSubSection,
   PeopleSubSection,
+  AttendanceSubSection,
   normalizeUserRole
 } from './app/navigationConfig';
 import {
@@ -59,6 +60,7 @@ export default function App() {
   const [studentSubSection, setStudentSubSection] = useState<StudentSubSection>('all');
   const [peopleSubSection, setPeopleSubSection] = useState<PeopleSubSection>('teachers');
   const [financeSubSection, setFinanceSubSection] = useState<FinanceSubSection>('overview');
+  const [attendanceSubSection, setAttendanceSubSection] = useState<AttendanceSubSection>('overview');
   const [selectedStudentForProfile, setSelectedStudentForProfile] = useState<Student | null>(
     null
   );
@@ -139,6 +141,8 @@ export default function App() {
           setStudentSubSection(parsed.studentSubSection);
           setPeopleSubSection(parsed.peopleSubSection);
           setFinanceSubSection(parsed.financeSubSection);
+      setAttendanceSubSection(parsed.attendanceSubSection);
+          setAttendanceSubSection(parsed.attendanceSubSection);
         } else {
           setPublicRoute(parsed.publicRoute);
         }
@@ -196,28 +200,32 @@ export default function App() {
         studentSubSection?: StudentSubSection;
         peopleSubSection?: PeopleSubSection;
         financeSubSection?: FinanceSubSection;
+        attendanceSubSection?: AttendanceSubSection;
       }
     ) => {
       const nextStudentSub = options?.studentSubSection ?? studentSubSection;
       const nextPeopleSub = options?.peopleSubSection ?? peopleSubSection;
       const nextFinanceSub = options?.financeSubSection ?? financeSubSection;
+      const nextAttendanceSub = options?.attendanceSubSection ?? attendanceSubSection;
 
       setPublicRoute('dashboard');
       setActiveTab(tab);
       if (options?.studentSubSection) setStudentSubSection(options.studentSubSection);
       if (options?.peopleSubSection) setPeopleSubSection(options.peopleSubSection);
       if (options?.financeSubSection) setFinanceSubSection(options.financeSubSection);
+      if (options?.attendanceSubSection) setAttendanceSubSection(options.attendanceSubSection);
 
       const targetPath = buildWorkspacePath(tab, {
         studentSubSection: nextStudentSub,
         peopleSubSection: nextPeopleSub,
-        financeSubSection: nextFinanceSub
+        financeSubSection: nextFinanceSub,
+        attendanceSubSection: nextAttendanceSub
       });
       if (window.location.pathname !== targetPath) {
         window.history.pushState({}, '', targetPath);
       }
     },
-    [studentSubSection, peopleSubSection, financeSubSection]
+    [studentSubSection, peopleSubSection, financeSubSection, attendanceSubSection]
   );
 
   const handleAuthSubmit = async (e: React.FormEvent) => {
@@ -345,6 +353,7 @@ export default function App() {
         studentSubSection={studentSubSection}
         peopleSubSection={peopleSubSection}
         financeSubSection={financeSubSection}
+        attendanceSubSection={attendanceSubSection}
         badges={data.shellBadges}
         students={data.students}
         teachers={data.teachers}
@@ -422,6 +431,9 @@ export default function App() {
             onChangeClass={data.setSelectedAttendanceClass}
             subTab={data.attendanceSubTab}
             onChangeSubTab={data.setAttendanceSubTab}
+            subSection={attendanceSubSection}
+            onNavigateSubSection={(sub) => navigateWorkspace('attendance', { attendanceSubSection: sub })}
+            userRole={user.systemRole || user.role}
             historyStudentId={data.historyStudentId}
             onChangeHistoryStudentId={data.setHistoryStudentId}
             onAttendanceChange={data.handleAttendanceChange}
