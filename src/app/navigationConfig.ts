@@ -143,6 +143,7 @@ export const NAVIGATION_CONFIG: NavItemConfig[] = [
       {
         id: 'students-all',
         label: 'All Students',
+        subLabel: 'Full roster',
         icon: Users,
         route: '/students',
         tab: 'students',
@@ -153,6 +154,7 @@ export const NAVIGATION_CONFIG: NavItemConfig[] = [
       {
         id: 'students-add',
         label: 'Add Student',
+        subLabel: 'New enrollment',
         icon: UserPlus,
         route: '/students/add',
         tab: 'students',
@@ -161,6 +163,7 @@ export const NAVIGATION_CONFIG: NavItemConfig[] = [
       {
         id: 'students-active',
         label: 'Active Students',
+        subLabel: 'Currently enrolled',
         icon: UserCheck,
         route: '/students/active',
         tab: 'students',
@@ -171,6 +174,7 @@ export const NAVIGATION_CONFIG: NavItemConfig[] = [
       {
         id: 'students-inactive',
         label: 'Inactive Students',
+        subLabel: 'On hold / paused',
         icon: Clock,
         route: '/students/inactive',
         tab: 'students',
@@ -181,6 +185,7 @@ export const NAVIGATION_CONFIG: NavItemConfig[] = [
       {
         id: 'students-archived',
         label: 'Archived Students',
+        subLabel: 'Historical records',
         icon: Archive,
         route: '/students/archived',
         tab: 'students',
@@ -191,6 +196,7 @@ export const NAVIGATION_CONFIG: NavItemConfig[] = [
       {
         id: 'students-import',
         label: 'Import Students',
+        subLabel: 'Excel / CSV intake',
         icon: Upload,
         route: '/students/import',
         tab: 'students',
@@ -199,6 +205,7 @@ export const NAVIGATION_CONFIG: NavItemConfig[] = [
       {
         id: 'students-export',
         label: 'Export Students',
+        subLabel: 'Reports & data files',
         icon: Download,
         route: '/students/export',
         tab: 'students',
