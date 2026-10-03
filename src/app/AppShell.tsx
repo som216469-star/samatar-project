@@ -761,32 +761,32 @@ export const AppShell: React.FC<AppShellProps> = ({
                                         if (isMobile) setMobileMenuOpen(false);
                                       }}
                                       aria-current={childActive ? 'page' : undefined}
-                                      className={\`group w-full flex items-center justify-between gap-2.5 px-2.5 py-2 rounded-xl text-xs transition-all duration-150 cursor-pointer border \${
+                                      className={`group w-full flex items-center justify-between gap-2.5 px-2.5 py-2 rounded-xl text-xs transition-all duration-150 cursor-pointer border ${
                                         childActive
                                           ? 'bg-[var(--sidebar-active-bg)] border-[var(--color-accent)]/25 text-white font-semibold shadow-sm shadow-black/10'
                                           : 'border-transparent text-[var(--sidebar-text-muted)] hover:text-white hover:bg-white/[0.06] hover:border-white/[0.06]'
-                                      }\`}
+                                      }`}
                                     >
                                       <div className="flex items-center gap-2.5 min-w-0">
                                         <span
-                                          className={\`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border \${
+                                          className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border ${
                                             childActive
                                               ? 'bg-[var(--color-accent)]/10 border-[var(--color-accent)]/20'
                                               : 'bg-white/[0.035] border-white/[0.06] group-hover:bg-white/[0.06]'
-                                          }\`}
+                                          }`}
                                         >
                                           <ChildIcon
-                                            className={\`w-3.5 h-3.5 shrink-0 \${
+                                            className={`w-3.5 h-3.5 shrink-0 ${
                                               childActive ? 'text-[var(--color-accent)]' : 'text-[var(--sidebar-text-muted)]'
-                                            }\`}
+                                            }`}
                                           />
                                         </span>
                                         <span className="min-w-0 text-left">
                                           <span className="block truncate font-semibold">{child.label}</span>
                                           {child.subLabel && (
-                                            <span className={\`block truncate text-[10px] mt-0.5 \${
+                                            <span className={`block truncate text-[10px] mt-0.5 ${
                                               childActive ? 'text-white/65' : 'text-[var(--sidebar-text-muted)]'
-                                            }\`}>
+                                            }`}>
                                               {child.subLabel}
                                             </span>
                                           )}
@@ -794,13 +794,13 @@ export const AppShell: React.FC<AppShellProps> = ({
                                       </div>
                                       {childBadge !== undefined && (
                                         <span
-                                          className={\`shrink-0 px-1.5 py-0.5 rounded-full text-[10px] font-mono border \${
+                                          className={`shrink-0 px-1.5 py-0.5 rounded-full text-[10px] font-mono border ${
                                             child.badgeTone === 'success'
                                               ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/15'
                                               : child.badgeTone === 'warning'
                                               ? 'bg-amber-500/10 text-amber-300 border-amber-500/15'
                                               : 'bg-white/10 text-[var(--sidebar-text)] border-white/[0.06]'
-                                          }\`}
+                                          }`}
                                         >
                                           {childBadge}
                                         </span>
