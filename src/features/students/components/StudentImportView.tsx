@@ -504,7 +504,7 @@ export default function StudentImportView({
   };
 
   return (
-    <PageContainer className="max-w-5xl mx-auto pb-16">
+    <PageContainer className="max-w-6xl mx-auto pb-16">
       <PageHeader
         breadcrumbs={[
           { label: 'Students', onClick: onCancel },
@@ -602,7 +602,7 @@ export default function StudentImportView({
               const file = e.dataTransfer.files?.[0];
               if (file) handleFile(file);
             }}
-            className="border-2 border-dashed border-[var(--color-border-strong)] hover:border-[var(--color-brand)] rounded-xl p-12 flex flex-col items-center justify-center gap-4 bg-[var(--color-surface)] hover:bg-[var(--color-surface-muted)] transition-colors cursor-pointer text-center"
+            className="border-2 border-dashed border-[var(--color-border-strong)] hover:border-[var(--color-brand)] rounded-2xl p-14 flex flex-col items-center justify-center gap-4 bg-[var(--color-surface)] hover:bg-[var(--color-surface-muted)] transition-colors cursor-pointer text-center"
           >
             <div className="w-14 h-14 rounded-2xl bg-[var(--color-brand-soft)] text-[var(--color-brand)] flex items-center justify-center">
               <Upload className="w-7 h-7 stroke-[1.75]" />
@@ -616,7 +616,7 @@ export default function StudentImportView({
                 <span className="font-mono text-[var(--color-text-secondary)]">.xlsx, .csv</span>
               </p>
             </div>
-            <label className="px-5 py-2.5 rounded-lg bg-[var(--color-brand)] hover:bg-[var(--color-brand-hover)] text-white text-xs font-semibold transition-colors cursor-pointer shadow-xs">
+            <label className="px-5 py-2.5 rounded-xl bg-[var(--color-brand)] hover:bg-[var(--color-brand-hover)] shadow-md shadow-[var(--color-brand)]/20 text-white text-xs font-semibold transition-colors cursor-pointer shadow-xs">
               <span>Dooro Fayl Kombiyuutarkaaga</span>
               <input
                 type="file"
@@ -661,7 +661,7 @@ export default function StudentImportView({
             />
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--color-border)] pb-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 p-2 rounded-xl bg-[var(--color-surface-muted)] border border-[var(--color-border)]">
             <div className="flex items-center gap-1.5 bg-[var(--color-surface-muted)] p-1 rounded-lg border border-[var(--color-border)]">
               <button
                 type="button"
