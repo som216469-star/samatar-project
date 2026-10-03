@@ -53,9 +53,10 @@ export function useInstitutionalData({
   const [selectedAttendanceClass, setSelectedAttendanceClass] = useState<string>('All');
   const [attendanceSubTab, setAttendanceSubTab] = useState<'sheet' | 'history'>('sheet');
   const [historyStudentId, setHistoryStudentId] = useState<string>('All');
-  const [attendanceDate, setAttendanceDate] = useState(
-    () => new Date().toISOString().split('T')[0]
-  );
+  const [attendanceDate, setAttendanceDate] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  });
   const [fees, setFees] = useState<FeeRecord[]>([]);
 
   const [teachers, setTeachers] = useState<Teacher[]>([]);
@@ -168,7 +169,7 @@ export function useInstitutionalData({
     async (date: string, session: 'before_break' | 'after_break') => {
       if (!user) return;
       try {
-        const res = await apiFetch(`/api/attendance?date=${date}&session_type=${session}`);
+        const res = await apiFetch(`/api/attendance?date=${encodeURIComponent(date)}&session_type=${encodeURIComponent(session)}`);
         if (res.ok) {
           setAttendance(await res.json());
         }
@@ -179,11 +180,35 @@ export function useInstitutionalData({
     [user]
   );
 
+  const fetchAttendanceHistory = useCallback(async () => {
+    if (!user) return;
+    try {
+      // No date/session filter = cumulative school history. The API still
+      // enforces school tenancy and teacher class scope server-side.
+      const res = await apiFetch('/api/attendance');
+      if (res.ok) {
+        setAttendance(await res.json());
+      }
+    } catch (e) {
+      console.error('Failed to load attendance history:', e);
+    }
+  }, [user]);
+
   useEffect(() => {
-    if (user) {
+    if (!user) return;
+    if (attendanceSubTab === 'history') {
+      fetchAttendanceHistory();
+    } else {
       fetchAttendanceForDateAndSession(attendanceDate, attendanceSession);
     }
-  }, [user, attendanceDate, attendanceSession, fetchAttendanceForDateAndSession]);
+  }, [
+    user,
+    attendanceSubTab,
+    attendanceDate,
+    attendanceSession,
+    fetchAttendanceForDateAndSession,
+    fetchAttendanceHistory
+  ]);
 
   useEffect(() => {
     fetchDbStatus();
@@ -423,13 +448,29 @@ export function useInstitutionalData({
 
   const handleSaveAttendanceSheet = async () => {
     if (submitting) return;
-    const recordsToSave = activeStudents.map((s) => {
-      const record = attendance.find(
-        (a) =>
-          a.date === attendanceDate &&
-          a.studentId === s.id &&
-          (a.sessionType || 'before_break') === attendanceSession
-      );
+
+    const targetStudents =
+      selectedAttendanceClass === 'All'
+        ? activeStudents
+        : activeStudents.filter((s) => s.class === selectedAttendanceClass);
+
+    if (targetStudents.length === 0) {
+      showToast('Ma jiraan arday Active ah oo fasalkan ku jira.', 'warning');
+      return;
+    }
+
+    const attendanceLookup = new Map(
+      attendance
+        .filter(
+          (a) =>
+            a.date === attendanceDate &&
+            (a.sessionType || 'before_break') === attendanceSession
+        )
+        .map((a) => [a.studentId, a])
+    );
+
+    const recordsToSave = targetStudents.map((s) => {
+      const record = attendanceLookup.get(s.id);
       return {
         studentId: s.id,
         status: record ? record.status : 'Present',
@@ -467,7 +508,7 @@ export function useInstitutionalData({
           `Xaadirinta taariikhda ${attendanceDate} si guul leh ayaa loo kaydiyey!`,
           'success'
         );
-        fetchAttendanceForDateAndSession(attendanceDate, attendanceSession);
+        await fetchAttendanceForDateAndSession(attendanceDate, attendanceSession);
       } else {
         showToast('Xaadirinta la kaydin kari waayey', 'error');
       }
