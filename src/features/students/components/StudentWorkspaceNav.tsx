@@ -33,7 +33,7 @@ export const StudentWorkspaceNav: React.FC<StudentWorkspaceNavProps> = ({
   counts,
   role
 }) => {
-  const permissions = getStudentPermissions(role);
+  const permissions = getStudentPermissions(role || 'admin');
   const allowed = ITEMS.filter((item) => {
     if (item.id === 'add') return permissions.canCreate;
     if (item.id === 'import') return permissions.canBulkManage;
