@@ -91,6 +91,7 @@ export interface NavChildItem {
   studentSubSection?: StudentSubSection;
   peopleSubSection?: PeopleSubSection;
   financeSubSection?: FinanceSubSection;
+  attendanceSubSection?: AttendanceSubSection;
   badgeKey?: 'totalStudents' | 'activeStudents' | 'inactiveStudents' | 'archivedStudents' | 'unpaidInvoices';
   badgeTone?: 'neutral' | 'success' | 'warning' | 'danger' | 'brand';
 }
