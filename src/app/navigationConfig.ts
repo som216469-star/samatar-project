@@ -26,6 +26,11 @@ import {
   Layers,
   FileSpreadsheet,
   Settings,
+  ListChecks,
+  CalendarDays,
+  UserRoundSearch,
+  BarChart3,
+  FileBarChart2,
   LucideIcon
 } from 'lucide-react';
 
@@ -37,6 +42,8 @@ export type StudentSubSection =
   | 'archived'
   | 'import'
   | 'export';
+
+export type AttendanceSubSection = 'overview' | 'take' | 'daily' | 'history' | 'students' | 'classes' | 'analytics' | 'reports';
 
 export type AppTabId =
   | 'overview'
@@ -89,6 +96,7 @@ export interface NavChildItem {
   studentSubSection?: StudentSubSection;
   peopleSubSection?: PeopleSubSection;
   financeSubSection?: FinanceSubSection;
+  attendanceSubSection?: AttendanceSubSection;
   badgeKey?: 'totalStudents' | 'activeStudents' | 'inactiveStudents' | 'archivedStudents' | 'unpaidInvoices';
   badgeTone?: 'neutral' | 'success' | 'warning' | 'danger' | 'brand';
 }
@@ -220,7 +228,17 @@ export const NAVIGATION_CONFIG: NavItemConfig[] = [
     icon: UserCheck,
     route: '/attendance',
     tab: 'attendance',
-    group: 'ACADEMIC'
+    group: 'ACADEMIC',
+    children: [
+      { id: 'attendance-overview', label: 'Attendance Overview', subLabel: 'Today at a glance', icon: LayoutDashboard, route: '/attendance', tab: 'attendance', attendanceSubSection: 'overview' },
+      { id: 'attendance-take', label: 'Take Attendance', subLabel: 'Mark today’s roll call', icon: ListChecks, route: '/attendance/take', tab: 'attendance', attendanceSubSection: 'take' },
+      { id: 'attendance-daily', label: 'Daily Register', subLabel: 'Class-by-class view', icon: CalendarDays, route: '/attendance/daily', tab: 'attendance', attendanceSubSection: 'daily' },
+      { id: 'attendance-history', label: 'Attendance History', subLabel: 'Search past sessions', icon: Clock, route: '/attendance/history', tab: 'attendance', attendanceSubSection: 'history' },
+      { id: 'attendance-students', label: 'Student Attendance', subLabel: 'Individual records', icon: UserRoundSearch, route: '/attendance/students', tab: 'attendance', attendanceSubSection: 'students' },
+      { id: 'attendance-classes', label: 'Class Attendance', subLabel: 'Performance by class', icon: ShieldCheck, route: '/attendance/classes', tab: 'attendance', attendanceSubSection: 'classes' },
+      { id: 'attendance-analytics', label: 'Attendance Analytics', subLabel: 'Trends & patterns', icon: BarChart3, route: '/attendance/analytics', tab: 'attendance', attendanceSubSection: 'analytics' },
+      { id: 'attendance-reports', label: 'Attendance Reports', subLabel: 'Export & reporting', icon: FileBarChart2, route: '/attendance/reports', tab: 'attendance', attendanceSubSection: 'reports' }
+    ]
   },
   {
     id: 'classes',

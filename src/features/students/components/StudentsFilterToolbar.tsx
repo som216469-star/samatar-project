@@ -9,7 +9,8 @@ import {
   Activity,
   Archive,
   Trash2,
-  Download
+  Download,
+  Filter
 } from 'lucide-react';
 import { SchoolClass } from '../../../types';
 import { StudentSubSection } from '../../../app/navigationConfig';

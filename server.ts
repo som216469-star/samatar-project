@@ -322,6 +322,7 @@ interface LocalDB {
   classes: Array<{ id: string; schoolId?: string; className: string; teacherName: string; roomNumber: string; description: string; createdAt: string; section?: string; capacity?: number; academicYear?: string; status?: string }>;
   subjects: Array<{ id: string; schoolId?: string; subjectName: string; subjectCode: string; className: string; teacherName: string; createdAt: string; category?: string; description?: string; passMarks?: number; maxMarks?: number; status?: string }>;
   examScores: Array<{ id: string; schoolId?: string; studentId: string; studentName: string; className: string; subjectName: string; examName: string; term: string; maxMarks: number; marksObtained: number; grade: string; examDate: string; createdAt: string }>;
+  studentAudit?: Array<any>;
   settings: any;
   teachers?: Array<any>;
   staff?: Array<any>;
@@ -360,6 +361,7 @@ function loadLocalDB(): LocalDB {
     if (!db.classes) db.classes = [];
     if (!db.subjects) db.subjects = [];
     if (!db.examScores) db.examScores = [];
+    if (!db.studentAudit) db.studentAudit = [];
     if (!db.settings) db.settings = defaultSettings;
     if (!db.teachers) db.teachers = [];
     if (!db.staff) db.staff = [];
@@ -405,6 +407,31 @@ function loadLocalDB(): LocalDB {
   inMemoryDB = initial;
   saveLocalDB(initial);
   return initial;
+}
+
+function recordLocalStudentAudit(
+  db: LocalDB,
+  authUser: any,
+  schoolId: string,
+  studentId: string,
+  action: "created" | "updated" | "archived" | "restored" | "deleted",
+  changedFields: string[],
+  beforeData: Record<string, any> | null = null,
+  afterData: Record<string, any> | null = null
+): void {
+  if (!db.studentAudit) db.studentAudit = [];
+  db.studentAudit.push({
+    id: crypto.randomUUID(),
+    schoolId,
+    studentId,
+    action,
+    actorEmail: authUser?.email || "",
+    actorRole: authUser?.role || "",
+    changedFields: Array.from(new Set(changedFields)).slice(0, 50),
+    beforeData,
+    afterData,
+    createdAt: new Date().toISOString()
+  });
 }
 
 function saveLocalDB(data: LocalDB) {
@@ -2770,7 +2797,7 @@ app.post("/api/students/import", async (req, res) => {
 
     const db = loadLocalDB();
     for (const row of insertRows) {
-      db.students.push({
+      const localStudent = {
         id: row.id,
         schoolId,
         fullName: row.full_name,
@@ -2793,7 +2820,18 @@ app.post("/api/students/import", async (req, res) => {
         medicalNotes: row.medical_notes,
         createdAt: row.created_at,
         updatedAt: row.updated_at
-      });
+      };
+      db.students.push(localStudent);
+      recordLocalStudentAudit(
+        db,
+        authUser,
+        schoolId,
+        row.id,
+        "created",
+        Object.keys(localStudent).filter((key) => !["schoolId", "createdAt", "updatedAt"].includes(key)),
+        null,
+        localStudent
+      );
     }
     saveLocalDB(db);
     return res.status(201).json({ success: true, imported: insertRows.length, failed: 0 });
@@ -3437,7 +3475,13 @@ app.get("/api/students/:id/audit", async (req, res) => {
     const db = loadLocalDB();
     const student = (db.students || []).find((s: any) => s.id === id && s.schoolId === schoolId);
     if (!student) return res.status(404).json({ error: "Ardayga lama helin." });
-    return res.json([]);
+
+    const auditRows = (db.studentAudit || [])
+      .filter((item: any) => item.schoolId === schoolId && item.studentId === id)
+      .sort((a: any, b: any) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")))
+      .slice(0, 50);
+
+    return res.json(auditRows);
   } catch (e: any) {
     return handleSupabaseError(res, e, "Soo qaadista taariikhda ardayga");
   }
