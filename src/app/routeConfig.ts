@@ -2,7 +2,8 @@ import {
   AppTabId,
   StudentSubSection,
   FinanceSubSection,
-  PeopleSubSection
+  PeopleSubSection,
+  AttendanceSubSection
 } from './navigationConfig';
 
 export type PublicRouteId = 'landing' | 'login' | 'signup' | 'dashboard' | 'activate-teacher';
@@ -13,6 +14,7 @@ export interface ParsedAppRoute {
   studentSubSection: StudentSubSection;
   peopleSubSection: PeopleSubSection;
   financeSubSection: FinanceSubSection;
+  attendanceSubSection: AttendanceSubSection;
   studentProfileId?: string;
 }
 
@@ -51,7 +53,8 @@ export function parseAppLocation(pathname: string, search: string = ''): ParsedA
     activeTab: 'overview',
     studentSubSection: 'all',
     peopleSubSection: 'teachers',
-    financeSubSection: 'overview'
+    financeSubSection: 'overview',
+    attendanceSubSection: 'overview'
   };
 
   if (cleanPath.startsWith('/activate-teacher') || search.includes('token=')) {
@@ -95,8 +98,14 @@ export function parseAppLocation(pathname: string, search: string = ''): ParsedA
     };
   }
 
-  if (cleanPath === '/attendance') {
-    return { ...defaults, publicRoute: 'dashboard', activeTab: 'attendance' };
+  if (cleanPath === '/attendance' || cleanPath.startsWith('/attendance/')) {
+    const rawSub = cleanPath.slice('/attendance/'.length).split('/')[0] || '';
+    const valid: AttendanceSubSection[] = [
+      'overview', 'take', 'daily', 'history', 'students', 'classes', 'analytics', 'reports'
+    ];
+    const sub = rawSub === '' || rawSub === 'overview' ? 'overview' :
+      valid.includes(rawSub as AttendanceSubSection) ? (rawSub as AttendanceSubSection) : 'overview';
+    return { ...defaults, publicRoute: 'dashboard', activeTab: 'attendance', attendanceSubSection: sub };
   }
   if (cleanPath === '/classes') {
     return { ...defaults, publicRoute: 'dashboard', activeTab: 'classes' };
@@ -166,6 +175,7 @@ export function buildWorkspacePath(
     studentSubSection?: StudentSubSection;
     peopleSubSection?: PeopleSubSection;
     financeSubSection?: FinanceSubSection;
+    attendanceSubSection?: AttendanceSubSection;
   }
 ): string {
   switch (tab) {
@@ -175,8 +185,10 @@ export function buildWorkspacePath(
       const sub = options?.studentSubSection || 'all';
       return sub === 'all' ? '/students' : `/students/${sub}`;
     }
-    case 'attendance':
-      return '/attendance';
+    case 'attendance': {
+      const sub = options?.attendanceSubSection || 'overview';
+      return sub === 'overview' ? '/attendance' : `/attendance/${sub}`;
+    }
     case 'classes':
       return '/classes';
     case 'subjects':
