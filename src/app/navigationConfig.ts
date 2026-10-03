@@ -26,6 +26,11 @@ import {
   Layers,
   FileSpreadsheet,
   Settings,
+  ListChecks,
+  CalendarDays,
+  UserRoundSearch,
+  BarChart3,
+  FileBarChart2,
   LucideIcon
 } from 'lucide-react';
 
