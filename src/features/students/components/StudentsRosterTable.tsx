@@ -435,7 +435,7 @@ export const StudentsRosterTable: React.FC<StudentsRosterTableProps> = ({
                                     type="button"
                                     onClick={() => onOpenEditModal(student)}
                                     aria-label="Tafatir Ardayga"
-                                    className="p-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-muted)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors cursor-pointer"
+                                    className="p-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:border-[var(--color-border-strong)] hover:-translate-y-px hover:shadow-sm transition-all cursor-pointer"
                                     title="Tafatir (Edit Student)"
                                   >
                                     <Edit2 className="w-3.5 h-3.5" />
@@ -446,7 +446,7 @@ export const StudentsRosterTable: React.FC<StudentsRosterTableProps> = ({
                                       type="button"
                                       onClick={() => onQuickStatusChange(student, 'active')}
                                       aria-label="Ka dhig Active"
-                                      className="p-1.5 rounded-md border border-[var(--color-success-border)] bg-[var(--color-success-soft)] text-[var(--color-success)] transition-colors cursor-pointer"
+                                      className="p-2 rounded-lg border border-[var(--color-success-border)] bg-[var(--color-success-soft)] text-[var(--color-success)] hover:-translate-y-px hover:shadow-sm transition-all cursor-pointer"
                                       title="Ka dhig Active (Restore to Active)"
                                     >
                                       <RotateCcw className="w-3.5 h-3.5" />
