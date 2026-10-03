@@ -141,7 +141,6 @@ export default function App() {
           setStudentSubSection(parsed.studentSubSection);
           setPeopleSubSection(parsed.peopleSubSection);
           setFinanceSubSection(parsed.financeSubSection);
-      setAttendanceSubSection(parsed.attendanceSubSection);
           setAttendanceSubSection(parsed.attendanceSubSection);
         } else {
           setPublicRoute(parsed.publicRoute);
