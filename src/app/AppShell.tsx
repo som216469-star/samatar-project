@@ -670,7 +670,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                             }}
                             title={collapsed ? item.label : undefined}
                             aria-expanded={isExpanded}
-                            className="flex-1 flex items-center justify-between gap-2.5 px-2.5 py-2 text-xs cursor-pointer min-w-0 text-left"
+                            className={`flex-1 flex items-center justify-between gap-2.5 px-2.5 py-2.5 text-xs cursor-pointer min-w-0 text-left rounded-xl transition-all ${active && item.id === 'students' ? 'bg-[var(--sidebar-active-bg)]/90' : ''}`}
                           >
                             <div className="flex items-center gap-2.5 min-w-0">
                               <Icon
