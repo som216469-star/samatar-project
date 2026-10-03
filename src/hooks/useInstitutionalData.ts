@@ -466,7 +466,7 @@ export function useInstitutionalData({
             a.date === attendanceDate &&
             (a.sessionType || 'before_break') === attendanceSession
         )
-        .map((a) => [a.studentId, a])
+        .map((a) => [a.studentId, a] as const)
     );
 
     const recordsToSave = targetStudents.map((s) => {
