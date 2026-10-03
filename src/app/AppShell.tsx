@@ -25,6 +25,7 @@ import {
   StudentSubSection,
   PeopleSubSection,
   FinanceSubSection,
+  AttendanceSubSection,
   NavItemConfig,
   NavChildItem,
   NormalizedRole,
@@ -61,6 +62,7 @@ export interface AppShellProps {
   studentSubSection: StudentSubSection;
   peopleSubSection: PeopleSubSection;
   financeSubSection: FinanceSubSection;
+  attendanceSubSection: AttendanceSubSection;
   badges: AppShellBadges;
   students: Student[];
   teachers: Teacher[];
@@ -88,6 +90,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   studentSubSection,
   peopleSubSection,
   financeSubSection,
+  attendanceSubSection,
   badges,
   students,
   teachers,
@@ -183,6 +186,8 @@ export const AppShell: React.FC<AppShellProps> = ({
   useEffect(() => {
     if (activeTab === 'students') {
       setExpandedGroups((prev) => ({ ...prev, students: true }));
+    } else if (activeTab === 'attendance') {
+      setExpandedGroups((prev) => ({ ...prev, attendance: true }));
     } else if (activeTab === 'fees') {
       setExpandedGroups((prev) => ({ ...prev, finance: true }));
     }
@@ -229,6 +234,9 @@ export const AppShell: React.FC<AppShellProps> = ({
     if (child.tab === 'fees' && child.financeSubSection) {
       return child.financeSubSection === financeSubSection;
     }
+    if (child.tab === 'attendance' && child.attendanceSubSection) {
+      return child.attendanceSubSection === attendanceSubSection;
+    }
     return false;
   };
 
@@ -255,6 +263,22 @@ export const AppShell: React.FC<AppShellProps> = ({
         export: 'Export Students'
       };
       trail.push({ label: subLabelMap[studentSubSection] || 'All Students' });
+    } else if (activeTab === 'attendance') {
+      trail.push({
+        label: 'Attendance',
+        onClick: () => onNavigate('attendance', { attendanceSubSection: 'overview' })
+      });
+      const aMap: Record<AttendanceSubSection, string> = {
+        overview: 'Attendance Overview',
+        take: 'Take Attendance',
+        daily: 'Daily Register',
+        history: 'Attendance History',
+        students: 'Student Attendance',
+        classes: 'Class Attendance',
+        analytics: 'Attendance Analytics',
+        reports: 'Attendance Reports'
+      };
+      trail.push({ label: aMap[attendanceSubSection] || 'Attendance Overview' });
     } else if (activeTab === 'people') {
       trail.push({ label: 'People & HR' });
       const pMap: Record<PeopleSubSection, string> = {
@@ -288,7 +312,7 @@ export const AppShell: React.FC<AppShellProps> = ({
     }
 
     return trail;
-  }, [activeTab, studentSubSection, peopleSubSection, financeSubSection, settings.schoolName, onNavigate]);
+  }, [activeTab, studentSubSection, peopleSubSection, financeSubSection, attendanceSubSection, settings.schoolName, onNavigate]);
 
   // Command palette search results (strictly filtered by authorized navigation)
   const commandResults = useMemo(() => {
@@ -303,7 +327,8 @@ export const AppShell: React.FC<AppShellProps> = ({
             action: () => {
               onNavigate(c.tab, {
                 studentSubSection: c.studentSubSection,
-                financeSubSection: c.financeSubSection
+                financeSubSection: c.financeSubSection,
+                attendanceSubSection: c.attendanceSubSection
               });
               closeCommandPalette();
             }
@@ -729,7 +754,8 @@ export const AppShell: React.FC<AppShellProps> = ({
                                       onClick={() => {
                                         onNavigate(child.tab, {
                                           studentSubSection: child.studentSubSection,
-                                          financeSubSection: child.financeSubSection
+                                          financeSubSection: child.financeSubSection,
+                                          attendanceSubSection: child.attendanceSubSection
                                         });
                                         if (isMobile) setMobileMenuOpen(false);
                                       }}
