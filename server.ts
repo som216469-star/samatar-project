@@ -2797,7 +2797,7 @@ app.post("/api/students/import", async (req, res) => {
 
     const db = loadLocalDB();
     for (const row of insertRows) {
-      db.students.push({
+      const localStudent = {
         id: row.id,
         schoolId,
         fullName: row.full_name,
@@ -2820,7 +2820,18 @@ app.post("/api/students/import", async (req, res) => {
         medicalNotes: row.medical_notes,
         createdAt: row.created_at,
         updatedAt: row.updated_at
-      });
+      };
+      db.students.push(localStudent);
+      recordLocalStudentAudit(
+        db,
+        authUser,
+        schoolId,
+        row.id,
+        "created",
+        Object.keys(localStudent).filter((key) => !["schoolId", "createdAt", "updatedAt"].includes(key)),
+        null,
+        localStudent
+      );
     }
     saveLocalDB(db);
     return res.status(201).json({ success: true, imported: insertRows.length, failed: 0 });
@@ -3464,7 +3475,13 @@ app.get("/api/students/:id/audit", async (req, res) => {
     const db = loadLocalDB();
     const student = (db.students || []).find((s: any) => s.id === id && s.schoolId === schoolId);
     if (!student) return res.status(404).json({ error: "Ardayga lama helin." });
-    return res.json([]);
+
+    const auditRows = (db.studentAudit || [])
+      .filter((item: any) => item.schoolId === schoolId && item.studentId === id)
+      .sort((a: any, b: any) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")))
+      .slice(0, 50);
+
+    return res.json(auditRows);
   } catch (e: any) {
     return handleSupabaseError(res, e, "Soo qaadista taariikhda ardayga");
   }
