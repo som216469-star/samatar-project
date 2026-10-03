@@ -1,6 +1,6 @@
 import React from 'react';
 import { Users, UserPlus, UserCheck, UserX, Archive, Upload, Download } from 'lucide-react';
-import { StudentSubSection, getStudentPermissions } from '../../../app/navigationConfig';
+import { StudentSubSection, getStudentPermissions, canRoleAccessStudentSubSection } from '../../../app/navigationConfig';
 import { Badge } from '../../../components/ui/primitives';
 
 interface StudentWorkspaceNavProps {
@@ -34,11 +34,14 @@ export const StudentWorkspaceNav: React.FC<StudentWorkspaceNavProps> = ({
   role
 }) => {
   const permissions = getStudentPermissions(role || 'admin');
+  const effectiveRole = role || 'admin';
   const allowed = ITEMS.filter((item) => {
+    if (!permissions.canView) return false;
+    if (!canRoleAccessStudentSubSection(item.id, effectiveRole)) return false;
     if (item.id === 'add') return permissions.canCreate;
     if (item.id === 'import') return permissions.canBulkManage;
     if (item.id === 'export') return permissions.canExport;
-    return permissions.canView;
+    return true;
   });
 
   return (
