@@ -235,7 +235,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
 
   const sortedDates = useMemo(
     () =>
-      Array.from(new Set(attendance.map((record) => record.date)))
+      Array.from(new Set<string>(attendance.map((record) => record.date)))
         .sort((a, b) => b.localeCompare(a)),
     [attendance]
   );
