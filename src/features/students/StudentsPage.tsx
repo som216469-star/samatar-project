@@ -47,6 +47,7 @@ import StudentProfileModal from './components/StudentProfileModal';
 import StudentAddView from './components/StudentAddView';
 import StudentImportView from './components/StudentImportView';
 import StudentExportView from './components/StudentExportView';
+import StudentWorkspaceNav from './components/StudentWorkspaceNav';
 import { StudentsRosterTable } from './components/StudentsRosterTable';
 import { StudentFormModal } from './components/StudentFormModal';
 import { StudentsActionModals } from './components/StudentsActionModals';
@@ -1531,6 +1532,13 @@ export default function StudentsView({
             </Button>}
           </div>
         }
+      />
+
+      <StudentWorkspaceNav
+        active={subSection}
+        role={userRole}
+        counts={{ total: stats.total, active: stats.active, inactive: stats.inactive, archived: stats.archived }}
+        onNavigate={(next) => onNavigateSubSection?.(next)}
       />
 
       {/* CONTEXTUAL SUBSECTION INFO BANNERS */}
