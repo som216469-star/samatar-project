@@ -46,9 +46,9 @@ assertContains(server, 'routeKey === "bulk"', "student bulk rate limiting");
 assertContains(server, 'canViewSensitiveStudentData(authUser)', "student sensitive data policy");
 assertContains(server, 'studentAudit?: Array<', "local student audit storage");
 assertContains(server, 'function recordLocalStudentAudit(', "local student audit writer");
-assertContains(server, 'await studentClassExists(schoolId, student.class, student.section || "")', "local add class integrity");
+assertContains(server, 'await studentClassExists(schoolId, student.class, student.section ||', "local add class integrity");
 assertContains(server, 'await assertStudentClassCapacity(', "local add/update/bulk capacity guardrail");
-assertContains(server, 'recordLocalStudentAudit(db, authUser, schoolId, id, "deleted"', "local delete audit trail");
+assertContains(server, 'recordLocalStudentAudit(db, authUser, schoolId, current.id, "deleted"', "local delete audit trail");
 assertContains(server, 'const auditRows = (db.studentAudit || [])', "local audit endpoint");
 
 
