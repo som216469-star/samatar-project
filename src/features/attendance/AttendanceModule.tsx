@@ -15,6 +15,13 @@ import { Student, AttendanceRecord, SchoolClass } from '../../types';
 import { PageContainer, PageHeader, FilterBar, Section } from '../../components/layout/PageLayout';
 import { Button, StatCard, StatusBadge, EmptyState } from '../../components/ui/primitives';
 
+function getLocalDateString(date = new Date()): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export interface AttendanceModuleProps {
   students: Student[];
   classes: SchoolClass[];
@@ -78,6 +85,29 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
     });
   }, [activeStudents, selectedClass, searchQuery]);
 
+  const currentSessionAttendance = useMemo(() => {
+    const map = new Map<string, AttendanceRecord>();
+    attendance.forEach((record) => {
+      if (
+        record.date === attendanceDate &&
+        (record.sessionType || 'before_break') === attendanceSession
+      ) {
+        map.set(record.studentId, record);
+      }
+    });
+    return map;
+  }, [attendance, attendanceDate, attendanceSession]);
+
+  const attendanceByStudent = useMemo(() => {
+    const map = new Map<string, AttendanceRecord[]>();
+    attendance.forEach((record) => {
+      const list = map.get(record.studentId);
+      if (list) list.push(record);
+      else map.set(record.studentId, [record]);
+    });
+    return map;
+  }, [attendance]);
+
   const sheetSummary = useMemo(() => {
     const target =
       selectedClass === 'All'
@@ -90,12 +120,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
     let excused = 0;
 
     target.forEach((s) => {
-      const r = attendance.find(
-        (a) =>
-          a.date === attendanceDate &&
-          a.studentId === s.id &&
-          (a.sessionType || 'before_break') === attendanceSession
-      );
+      const r = currentSessionAttendance.get(s.id);
       const st = r ? r.status : 'Present';
       if (st === 'Present') present++;
       else if (st === 'Absent') absent++;
@@ -112,7 +137,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
       excused,
       rate
     };
-  }, [activeStudents, selectedClass, attendance, attendanceDate, attendanceSession]);
+  }, [activeStudents, selectedClass, currentSessionAttendance]);
 
   const statusOptions: Array<{
     val: 'Present' | 'Absent' | 'Late' | 'Excused';
@@ -252,7 +277,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                 <input
                   type="date"
                   value={attendanceDate}
-                  max={new Date().toISOString().split('T')[0]}
+                  max={getLocalDateString()}
                   onChange={(e) => onChangeDate(e.target.value)}
                   aria-label="Attendance Date"
                   className="ds-input w-full font-mono"
@@ -357,12 +382,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                     </thead>
                     <tbody>
                       {filteredSheetStudents.map((student) => {
-                        const record = attendance.find(
-                          (a) =>
-                            a.date === attendanceDate &&
-                            a.studentId === student.id &&
-                            (a.sessionType || 'before_break') === attendanceSession
-                        );
+                        const record = currentSessionAttendance.get(student.id);
                         const currentStatus = record ? record.status : 'Present';
 
                         return (
@@ -411,12 +431,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
               {/* Mobile Stacked Attendance Cards */}
               <div className="md:hidden space-y-2.5">
                 {filteredSheetStudents.map((student) => {
-                  const record = attendance.find(
-                    (a) =>
-                      a.date === attendanceDate &&
-                      a.studentId === student.id &&
-                      (a.sessionType || 'before_break') === attendanceSession
-                  );
+                  const record = currentSessionAttendance.get(student.id);
                   const currentStatus = record ? record.status : 'Present';
 
                   return (
@@ -514,7 +529,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                   </thead>
                   <tbody>
                     {students.map((s) => {
-                      const sRecords = attendance.filter((a) => a.studentId === s.id);
+                      const sRecords = attendanceByStudent.get(s.id) || [];
                       const total = sRecords.length;
                       const present = sRecords.filter((a) => a.status === 'Present').length;
                       const absent = sRecords.filter((a) => a.status === 'Absent').length;
@@ -561,7 +576,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
             (() => {
               const s = students.find((x) => x.id === historyStudentId);
               if (!s) return null;
-              const sRecords = attendance.filter((a) => a.studentId === s.id);
+              const sRecords = attendanceByStudent.get(s.id) || [];
               const total = sRecords.length;
               const present = sRecords.filter((a) => a.status === 'Present').length;
               const absent = sRecords.filter((a) => a.status === 'Absent').length;
