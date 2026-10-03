@@ -34,7 +34,7 @@ assertContains(server, 'assigned.includes(String(student.class || "").trim())', 
 
 assertContains(hook, "selectedAttendanceClass === 'All'", "selected class-aware save");
 assertContains(hook, "const targetStudents =", "target roster derivation");
-assertContains(hook, "const attendanceLookup = new Map(", "constant-time current session lookup");
+assertContains(hook, "const attendanceLookup = new Map<string, AttendanceRecord>(", "constant-time current session lookup");
 assertContains(hook, "const fetchAttendanceHistory = useCallback(async () =>", "cumulative history fetch");
 assertContains(hook, "const res = await apiFetch('/api/attendance');", "history endpoint uses unfiltered attendance");
 assertNotContains(hook, "const recordsToSave = activeStudents.map", "regression: save all active students regardless of selected class");
