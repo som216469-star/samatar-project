@@ -9,6 +9,7 @@ import {
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Student, SchoolClass, FeeRecord } from '../../../types';
+import { StudentSubSection } from '../../../app/navigationConfig';
 import { PageContainer, PageHeader } from '../../../components/layout/PageLayout';
 import { downloadStudentSpreadsheet, rowsToCsv } from '../../../lib/studentSpreadsheet';
 import { Badge, Button, Card } from '../../../components/ui/primitives';
@@ -26,6 +27,7 @@ interface StudentExportViewProps {
     [key: string]: any;
   };
   onCancel: () => void;
+  onNavigateSubSection?: (subSection: StudentSubSection) => void;
   showToast: (msg: string, type: 'success' | 'error' | 'warning' | 'info') => void;
   theme?: 'light' | 'dark';
   canViewFinance?: boolean;
@@ -39,6 +41,7 @@ export default function StudentExportView({
   fees,
   settings,
   onCancel,
+  onNavigateSubSection,
   showToast,
   canViewFinance = false
 }: StudentExportViewProps) {
@@ -383,7 +386,7 @@ export default function StudentExportView({
       <StudentWorkspaceNav
         active="export"
         counts={{ total: students.length }}
-        onNavigate={(next) => { if (next !== 'export') onCancel(); }}
+        onNavigate={(next) => { if (next !== 'export') onNavigateSubSection?.(next); }}
       />
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
