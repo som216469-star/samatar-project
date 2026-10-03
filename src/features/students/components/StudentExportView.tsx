@@ -363,7 +363,7 @@ export default function StudentExportView({
   };
 
   return (
-    <PageContainer className="max-w-5xl mx-auto pb-16">
+    <PageContainer className="max-w-6xl mx-auto pb-16">
       <PageHeader
         breadcrumbs={[
           { label: 'Students', onClick: onCancel },
@@ -429,7 +429,7 @@ export default function StudentExportView({
               <button
                 type="button"
                 onClick={() => setScope('all')}
-                className={`p-4 rounded-xl border text-left transition-all ${
+                className={`p-4 rounded-2xl border text-left transition-all hover:-translate-y-px hover:shadow-md ${
                   scope === 'all'
                     ? 'bg-[var(--color-brand-soft)] border-[var(--color-brand)] text-[var(--color-text-primary)]'
                     : 'bg-[var(--color-surface-muted)] border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-border-strong)]'
@@ -446,7 +446,7 @@ export default function StudentExportView({
               <button
                 type="button"
                 onClick={() => setScope('active')}
-                className={`p-4 rounded-xl border text-left transition-all ${
+                className={`p-4 rounded-2xl border text-left transition-all hover:-translate-y-px hover:shadow-md ${
                   scope === 'active'
                     ? 'bg-[var(--color-success-soft)] border-[var(--color-success)] text-[var(--color-text-primary)]'
                     : 'bg-[var(--color-surface-muted)] border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-border-strong)]'
@@ -464,7 +464,7 @@ export default function StudentExportView({
               <button
                 type="button"
                 onClick={() => setScope('inactive')}
-                className={`p-4 rounded-xl border text-left transition-all ${
+                className={`p-4 rounded-2xl border text-left transition-all hover:-translate-y-px hover:shadow-md ${
                   scope === 'inactive'
                     ? 'bg-[var(--color-warning-soft)] border-[var(--color-warning)] text-[var(--color-text-primary)]'
                     : 'bg-[var(--color-surface-muted)] border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-border-strong)]'
@@ -482,7 +482,7 @@ export default function StudentExportView({
               <button
                 type="button"
                 onClick={() => setScope('archived')}
-                className={`p-4 rounded-xl border text-left transition-all ${
+                className={`p-4 rounded-2xl border text-left transition-all hover:-translate-y-px hover:shadow-md ${
                   scope === 'archived'
                     ? 'bg-[var(--color-surface-hover)] border-[var(--color-border-strong)] text-[var(--color-text-primary)]'
                     : 'bg-[var(--color-surface-muted)] border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-border-strong)]'
