@@ -72,6 +72,7 @@ export interface AppShellProps {
       studentSubSection?: StudentSubSection;
       peopleSubSection?: PeopleSubSection;
       financeSubSection?: FinanceSubSection;
+      attendanceSubSection?: AttendanceSubSection;
     }
   ) => void;
   onOpenStudentProfile: (student: Student) => void;
