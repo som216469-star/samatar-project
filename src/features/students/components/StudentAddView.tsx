@@ -18,6 +18,24 @@ import { apiFetch } from '../../../lib/apiClient';
 import { PageContainer, PageHeader } from '../../../components/layout/PageLayout';
 import { Button, Card } from '../../../components/ui/primitives';
 
+function getLocalDateString(date = new Date()): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function isValidDateOnly(value: string): boolean {
+  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split('-').map(Number);
+  const parsed = new Date(year, month - 1, day);
+  return (
+    parsed.getFullYear() === year &&
+    parsed.getMonth() === month - 1 &&
+    parsed.getDate() === day
+  );
+}
+
 interface StudentAddViewProps {
   classes: SchoolClass[];
   existingStudents?: Student[];
@@ -88,7 +106,7 @@ export default function StudentAddView({
     class: classes[0]?.className || '',
     section: classes.find((item) => item.className === classes[0]?.className)?.section || '',
     rollNumber: '',
-    enrollmentDate: new Date().toISOString().split('T')[0],
+    enrollmentDate: getLocalDateString(),
     guardianName: '',
     guardianRelationship: 'Father',
     guardianPhone: '',
@@ -162,7 +180,19 @@ export default function StudentAddView({
         cleanEmergencyContact &&
         s.emergencyContact &&
         s.emergencyContact === cleanEmergencyContact;
-      return Boolean(sameId || sameNameClass || samePhone || sameRoll || sameNationalId);
+      const sameAltPhone =
+        cleanAltPhone.length >= 7 &&
+        s.guardianPhoneAlt &&
+        s.guardianPhoneAlt.replace(/\D/g, '') === cleanAltPhone.replace(/\D/g, '');
+      return Boolean(
+        sameId ||
+        sameNameClass ||
+        samePhone ||
+        sameRoll ||
+        sameNationalId ||
+        sameAltPhone ||
+        sameEmergencyContact
+      );
     });
 
     if (localMatch) {
@@ -349,7 +379,7 @@ export default function StudentAddView({
     if (!validate()) return;
 
     setIsSubmitting(true);
-    const nowDate = new Date().toISOString().split('T')[0];
+    const nowDate = getLocalDateString();
     const newStudent = {
       id: formData.id.trim() || generateStudentId(),
       fullName: formData.fullName.trim(),

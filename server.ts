@@ -2971,27 +2971,110 @@ app.post("/api/students/bulk", async (req, res) => {
   const selected = (db.students || []).filter((s: any) => s.schoolId === schoolId && studentIds.includes(s.id));
   if (selected.length !== studentIds.length) return res.status(404).json({ error: "Qaar ka mid ah ardayda lama helin." });
 
+  if (action === "change_class") {
+    if (!(await studentClassExists(schoolId, targetClass, targetSection))) {
+      return res.status(400).json({ error: "Fasalka cusub kama jiro school-kan." });
+    }
+
+    const activeToMove = selected.filter(
+      (row: any) => String(row.status || "active").toLowerCase() !== "archived"
+    ).length;
+    if (activeToMove > 0) {
+      const capacity = await assertStudentClassCapacity(
+        schoolId,
+        targetClass,
+        activeToMove,
+        studentIds,
+        targetSection
+      );
+      if (!capacity.ok) return res.status(409).json({ error: capacity.error });
+    }
+  }
+
+  if (action === "change_status" && targetStatus === "active") {
+    const restoreCounts = new Map<string, number>();
+    for (const row of selected) {
+      if (String(row.status || "active").toLowerCase() === "active") continue;
+      const classKey = String(row.class || "").trim().toLowerCase();
+      const sectionKey = String(row.section || "").trim().toLowerCase();
+      const key = classKey + "::" + sectionKey;
+      restoreCounts.set(key, (restoreCounts.get(key) || 0) + 1);
+    }
+
+    for (const [key, count] of restoreCounts) {
+      const separator = key.indexOf("::");
+      const classKey = separator >= 0 ? key.slice(0, separator) : key;
+      const sectionKey = separator >= 0 ? key.slice(separator + 2) : "";
+      const representative = selected.find(
+        (row: any) =>
+          String(row.class || "").trim().toLowerCase() === classKey &&
+          String(row.section || "").trim().toLowerCase() === sectionKey
+      );
+      if (!representative) continue;
+
+      const check = await assertStudentClassCapacity(
+        schoolId,
+        String(representative.class || ""),
+        count,
+        studentIds,
+        String(representative.section || "")
+      );
+      if (!check.ok) return res.status(409).json({ error: check.error });
+    }
+  }
+
   if (action === "delete") {
     const hasDependencies =
       (db.fees || []).some((f: any) => studentIds.includes(f.studentId) && f.schoolId === schoolId) ||
       (db.attendance || []).some((a: any) => studentIds.includes(a.studentId) && a.schoolId === schoolId) ||
       (db.examScores || []).some((e: any) => studentIds.includes(e.studentId) && e.schoolId === schoolId);
     if (hasDependencies) return res.status(409).json({ error: "Qaar ka mid ah ardaydan waxay leeyihiin xog ku xiran. Isticmaal Archive." });
+
     db.students = db.students.filter((s: any) => !(studentIds.includes(s.id) && s.schoolId === schoolId));
+    for (const current of selected) {
+      recordLocalStudentAudit(db, authUser, schoolId, current.id, "deleted", ["student"], current, null);
+    }
   } else {
     db.students = db.students.map((s: any) => {
       if (!studentIds.includes(s.id) || s.schoolId !== schoolId) return s;
+
       if (action === "change_class") {
-        return {
+        const updatedStudent = {
           ...s,
           class: targetClass,
-          ...(Object.prototype.hasOwnProperty.call(req.body || {}, 'targetSection')
+          ...(Object.prototype.hasOwnProperty.call(req.body || {}, "targetSection")
             ? { section: targetSection }
             : {}),
           updatedAt: new Date().toISOString()
         };
+        recordLocalStudentAudit(
+          db,
+          authUser,
+          schoolId,
+          s.id,
+          "updated",
+          ["class", ...(Object.prototype.hasOwnProperty.call(req.body || {}, "targetSection") ? ["section"] : [])],
+          s,
+          updatedStudent
+        );
+        return updatedStudent;
       }
-      return { ...s, status: action === "archive" ? "archived" : targetStatus, updatedAt: new Date().toISOString() };
+
+      const updatedStudent = {
+        ...s,
+        status: action === "archive" ? "archived" : targetStatus,
+        updatedAt: new Date().toISOString()
+      };
+      const oldStatus = String(s.status || "active").toLowerCase();
+      const newStatus = String(updatedStudent.status || oldStatus).toLowerCase();
+      const auditAction =
+        oldStatus !== "archived" && newStatus === "archived"
+          ? "archived"
+          : oldStatus === "archived" && newStatus === "active"
+          ? "restored"
+          : "updated";
+      recordLocalStudentAudit(db, authUser, schoolId, s.id, auditAction, ["status"], s, updatedStudent);
+      return updatedStudent;
     });
   }
 
