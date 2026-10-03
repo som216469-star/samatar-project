@@ -9,7 +9,7 @@ import {
   Wallet
 } from 'lucide-react';
 import { Student } from '../../../types';
-import { StudentSubSection } from '../../../app/navigationConfig';
+import { StudentSubSection, canRoleAccessStudentSubSection } from '../../../app/navigationConfig';
 import { StatCard } from '../../../components/ui/primitives';
 
 export interface StudentComputedStats {
@@ -56,6 +56,7 @@ export interface StudentsStatsOverviewProps {
   setShowDashboardDetails?: React.Dispatch<React.SetStateAction<boolean>>;
   onOpenProfile?: (student: Student) => void;
   canViewFinance?: boolean;
+  role?: string | null;
 }
 
 export const StudentsStatsOverview: React.FC<StudentsStatsOverviewProps> = ({
@@ -76,7 +77,8 @@ export const StudentsStatsOverview: React.FC<StudentsStatsOverviewProps> = ({
   setSelectedFeeFilter,
   selectedClassFilter,
   setSelectedClassFilter,
-  canViewFinance = true
+  canViewFinance = true,
+  role = 'admin'
 }) => {
   const safeStats = stats || {
     total: 0,
@@ -96,6 +98,7 @@ export const StudentsStatsOverview: React.FC<StudentsStatsOverviewProps> = ({
   const activeFeeFilter = feeStatusFilter ?? selectedFeeFilter ?? 'all';
 
   const handleNavigateSub = (target: StudentSubSection) => {
+    if (!canRoleAccessStudentSubSection(target, role || 'admin')) return;
     if (onSubSectionChange) onSubSectionChange(target);
     else if (onNavigateSubSection) onNavigateSubSection(target);
     if (setSelectedStatusFilter) {
