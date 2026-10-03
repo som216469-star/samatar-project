@@ -63,6 +63,24 @@ import {
 
 export type { StudentSubSection };
 
+function getLocalDateString(date = new Date()): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function isValidDateOnly(value: string): boolean {
+  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split('-').map(Number);
+  const parsed = new Date(year, month - 1, day);
+  return (
+    parsed.getFullYear() === year &&
+    parsed.getMonth() === month - 1 &&
+    parsed.getDate() === day
+  );
+}
+
 interface StudentsViewProps {
   students: Student[];
   classes: SchoolClass[];
@@ -123,7 +141,14 @@ export default function StudentsView({
     [userRole]
   );
   // --- View & Layout States ---
-  const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
+  const [viewMode, setViewMode] = useState<'table' | 'cards'>(() => {
+    try {
+      const saved = localStorage.getItem('dugsi_student_view');
+      return saved === 'cards' ? 'cards' : 'table';
+    } catch {
+      return 'table';
+    }
+  });
   const [showFiltersDrawer, setShowFiltersDrawer] = useState(false);
   const [showDashboardDetails, setShowDashboardDetails] = useState(false);
 
@@ -168,8 +193,19 @@ export default function StudentsView({
     } catch {}
   }, [visibleColumns]);
 
+  useEffect(() => {
+    try {
+      localStorage.setItem('dugsi_student_view', viewMode);
+    } catch {}
+  }, [viewMode]);
+
   // --- Selection & Bulk Actions ---
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    const validIds = new Set(students.map((student) => student.id));
+    setSelectedStudentIds((selected) => selected.filter((id) => validIds.has(id)));
+  }, [students]);
   const [bulkActionModal, setBulkActionModal] = useState<{
     isOpen: boolean;
     action: 'change_class' | 'change_status' | 'archive' | 'delete' | null;
@@ -413,6 +449,8 @@ export default function StudentsView({
           reason = 'National ID-gan hore ayaa loo isticmaalay';
         else if (cleanAltPhone && match.guardianPhoneAlt === cleanAltPhone)
           reason = 'Telefoonkan labaad hore ayaa loo isticmaalay';
+        else if (cleanEmergencyContact && match.emergencyContact === cleanEmergencyContact)
+          reason = 'Emergency Contact-kan hore ayaa loo isticmaalay';
 
         setDuplicateWarning({
           found: true,
@@ -449,7 +487,7 @@ export default function StudentsView({
 
   // --- Filtered and Sorted Students ---
   const filteredStudents = useMemo(() => {
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getLocalDateString();
     const monthPrefix = todayStr.substring(0, 7);
     const yearPrefix = todayStr.substring(0, 4);
 
@@ -648,7 +686,7 @@ export default function StudentsView({
       address: '',
       section: classes.find((item) => item.className === classes[0]?.className)?.section || '',
       rollNumber: '',
-      createdAt: new Date().toISOString().split('T')[0],
+      createdAt: getLocalDateString(),
       guardianRelationship: '',
       guardianPhoneAlt: '',
       emergencyContact: '',
@@ -731,9 +769,10 @@ export default function StudentsView({
     }
 
     if (formData.dateOfBirth) {
-      const dob = new Date(formData.dateOfBirth + 'T00:00:00');
-      if (Number.isNaN(dob.getTime()) || dob > new Date()) {
-        errors.dateOfBirth = 'Taariikhda dhalashada ma saxna';
+      if (!isValidDateOnly(formData.dateOfBirth)) {
+        errors.dateOfBirth = 'Taariikhda dhalashada ma saxna (YYYY-MM-DD)';
+      } else if (formData.dateOfBirth > getLocalDateString()) {
+        errors.dateOfBirth = 'Taariikhda dhalashada mustaqbal ma noqon karto';
       }
     }
 
