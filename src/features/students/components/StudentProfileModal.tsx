@@ -250,10 +250,10 @@ export default function StudentProfileModal({
         initial={{ opacity: 0, scale: 0.97 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.97 }}
-        className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl max-w-3xl w-full max-h-[92vh] overflow-hidden flex flex-col shadow-[var(--shadow-lg)] text-[var(--color-text-primary)]"
+        className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl max-w-4xl w-full max-h-[92vh] overflow-hidden flex flex-col shadow-2xl text-[var(--color-text-primary)]"
       >
         {/* Top Header Card */}
-        <div className="p-5 sm:p-6 bg-[var(--color-surface-muted)] border-b border-[var(--color-border)]">
+        <div className="p-5 sm:p-6 bg-[var(--color-surface-muted)]/85 border-b border-[var(--color-border)]">
           <div className="flex items-center justify-between gap-2 mb-4">
             <span className="text-[11px] font-mono text-[var(--color-text-muted)]">
               Students · Profile · {student.id}
@@ -263,6 +263,7 @@ export default function StudentProfileModal({
                 <Button
                   size="sm"
                   variant="secondary"
+                  className="rounded-xl"
                   leftIcon={<Edit2 className="w-3.5 h-3.5" />}
                   onClick={() => onEditStudent(student)}
                 >
@@ -285,10 +286,10 @@ export default function StudentProfileModal({
               <img
                 src={student.photo}
                 alt={student.fullName}
-                className="w-20 h-20 rounded-lg object-cover border-2 border-[var(--color-brand-border)] shrink-0 shadow-sm"
+                className="w-20 h-20 rounded-2xl object-cover border-2 border-[var(--color-brand-border)] shrink-0 shadow-lg"
               />
             ) : (
-              <div className="w-20 h-20 rounded-lg bg-[var(--color-brand-soft)] border border-[var(--color-brand-border)] flex items-center justify-center text-[var(--color-brand)] font-bold text-2xl font-mono shrink-0">
+              <div className="w-20 h-20 rounded-2xl bg-[var(--color-brand-soft)] border border-[var(--color-brand-border)] flex items-center justify-center text-[var(--color-brand)] font-bold text-2xl font-mono shrink-0">
                 {student.fullName
                   .split(' ')
                   .map((n) => n[0])
@@ -361,7 +362,7 @@ export default function StudentProfileModal({
 
           {/* Quick Metrics */}
           <div className={`grid gap-2.5 mt-5 pt-4 border-t border-[var(--color-border)] text-xs ${canViewFinance ? 'grid-cols-3' : 'grid-cols-2'}`}>
-            <div className="bg-[var(--color-surface)] p-3 rounded-lg border border-[var(--color-border)]">
+            <div className="bg-[var(--color-surface)] p-3 rounded-xl border border-[var(--color-border)] shadow-sm">
               <span className="text-[10px] text-[var(--color-text-muted)] block font-medium">
                 Heerka Joogitaanka
               </span>
@@ -369,7 +370,7 @@ export default function StudentProfileModal({
                 {attendanceRate === null ? '—' : `${attendanceRate}%`}
               </span>
             </div>
-            <div className="bg-[var(--color-surface)] p-3 rounded-lg border border-[var(--color-border)]">
+            <div className="bg-[var(--color-surface)] p-3 rounded-xl border border-[var(--color-border)] shadow-sm">
               <span className="text-[10px] text-[var(--color-text-muted)] block font-medium">
                 Celceliska Imtixaanka
               </span>
@@ -395,16 +396,16 @@ export default function StudentProfileModal({
         </div>
 
         {/* Modal Navigation Tabs */}
-        <div className="flex items-center gap-1 px-5 sm:px-6 pt-2 bg-[var(--color-surface)] border-b border-[var(--color-border)] overflow-x-auto">
+        <div className="flex items-center gap-1 px-4 sm:px-6 py-2 bg-[var(--color-surface-muted)]/45 border-b border-[var(--color-border)] overflow-x-auto">
           {profileTabs.map((tab) => (
             <button
               key={tab}
               type="button"
               onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2.5 text-xs font-semibold whitespace-nowrap border-b-2 transition-colors ${
+              className={`px-3.5 py-2 rounded-lg text-xs font-semibold whitespace-nowrap border transition-all ${
                 activeTab === tab
-                  ? 'border-[var(--color-brand)] text-[var(--color-brand)]'
-                  : 'border-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+                  ? 'border-[var(--color-brand-border)] bg-[var(--color-brand-soft)] text-[var(--color-brand)] shadow-sm'
+                  : 'border-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-hover)]'
               }`}
             >
               {tab === 'overview'
@@ -424,6 +425,7 @@ export default function StudentProfileModal({
               size="sm"
               variant="secondary"
               leftIcon={<Download className="w-3.5 h-3.5" />}
+              className="rounded-xl"
               onClick={exportReportCardPDF}
             >
               Warbixin PDF

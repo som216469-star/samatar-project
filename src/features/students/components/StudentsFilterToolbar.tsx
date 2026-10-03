@@ -139,7 +139,23 @@ export const StudentsFilterToolbar: React.FC<StudentsFilterToolbarProps> = ({
 
   return (
     <div className="space-y-3">
-      <Card padding="sm" className="space-y-3">
+      <Card padding="sm" className="space-y-3 rounded-2xl shadow-sm">
+        <div className="flex items-center justify-between gap-3 px-1">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-7 h-7 rounded-lg bg-[var(--color-brand-soft)] border border-[var(--color-brand-border)] text-[var(--color-brand)] flex items-center justify-center">
+              <Filter className="w-3.5 h-3.5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] uppercase tracking-[0.15em] font-bold text-[var(--color-text-muted)]">Smart Directory</p>
+              <p className="text-xs font-bold text-[var(--color-text-primary)] truncate">Search & filters</p>
+            </div>
+          </div>
+          {resolvedHasFilters && (
+            <span className="shrink-0 px-2 py-1 rounded-full bg-[var(--color-brand-soft)] border border-[var(--color-brand-border)] text-[10px] font-semibold text-[var(--color-brand)]">
+              {activeFilterCount || 'Active'} filters
+            </span>
+          )}
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-2.5">
           {/* Search Input */}
           <div className="lg:col-span-4 relative">
@@ -149,7 +165,7 @@ export const StudentsFilterToolbar: React.FC<StudentsFilterToolbarProps> = ({
               placeholder="Ku raadi magac, ID, waalid, ama telefoon..."
               value={searchQuery}
               onChange={(e) => resolvedSearchChange(e.target.value)}
-              className="w-full ds-input pl-9 pr-8 py-2"
+              className="w-full ds-input pl-10 pr-8 py-2.5 rounded-xl focus:border-[var(--color-brand)] focus:ring-2 focus:ring-[var(--color-brand)]/10"
             />
             {searchQuery && (
               <button
@@ -169,7 +185,7 @@ export const StudentsFilterToolbar: React.FC<StudentsFilterToolbarProps> = ({
               value={resolvedClass}
               onChange={(e) => resolvedClassChange(e.target.value)}
               aria-label="Filter by class"
-              className="w-full ds-input py-2"
+              className="w-full ds-input py-2.5 rounded-xl focus:border-[var(--color-brand)] focus:ring-2 focus:ring-[var(--color-brand)]/10"
             >
               <option value="all">Dhammaan Fasallada</option>
               {classes.map((c) => (
@@ -320,7 +336,7 @@ export const StudentsFilterToolbar: React.FC<StudentsFilterToolbarProps> = ({
 
       {/* Bulk Action Bar */}
       {resolvedSelectedCount > 0 && (
-        <div className="bg-[var(--color-brand-soft)] border border-[var(--color-brand-border)] rounded-lg px-4 py-2.5 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="bg-[var(--color-brand-soft)] border border-[var(--color-brand-border)] rounded-2xl px-4 py-3 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <span className="px-2 py-0.5 rounded bg-[var(--color-brand)] text-white font-mono text-xs font-bold tabular-nums">
               {resolvedSelectedCount}

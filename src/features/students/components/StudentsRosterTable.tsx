@@ -131,12 +131,12 @@ export const StudentsRosterTable: React.FC<StudentsRosterTableProps> = ({
   return (
     <div className="space-y-4">
       {viewMode === 'table' ? (
-        <Card padding="none" className="overflow-hidden">
+        <Card padding="none" className="overflow-hidden rounded-2xl shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
-              <thead>
-                <tr>
-                  <th className="px-4 py-3 w-10">
+              <thead className="bg-[var(--color-surface-muted)]/70">
+                <tr className="border-b border-[var(--color-border)]">
+                  <th className="px-4 py-3 w-10 text-[10px] uppercase tracking-wider text-[var(--color-text-muted)]">
                     <button
                       type="button"
                       onClick={handleSelectAll}
@@ -152,19 +152,19 @@ export const StudentsRosterTable: React.FC<StudentsRosterTableProps> = ({
                       )}
                     </button>
                   </th>
-                  <th className="px-3 py-3 w-10" scope="col">#</th>
-                  <th className="px-4 py-3" scope="col">Ardayga (Student)</th>
-                  {columns.class && <th className="px-4 py-3" scope="col">Fasalka</th>}
-                  {columns.gender && <th className="px-4 py-3" scope="col">Jinsiga</th>}
+                  <th className="px-3 py-3 w-10 text-[10px] uppercase tracking-wider text-[var(--color-text-muted)]" scope="col">#</th>
+                  <th className="px-4 py-3 text-[10px] uppercase tracking-wider text-[var(--color-text-muted)]" scope="col">Ardayga (Student)</th>
+                  {columns.class && <th className="px-4 py-3 text-[10px] uppercase tracking-wider text-[var(--color-text-muted)]" scope="col">Fasalka</th>}
+                  {columns.gender && <th className="px-4 py-3 text-[10px] uppercase tracking-wider text-[var(--color-text-muted)]" scope="col">Jinsiga</th>}
                   {columns.guardian && (
-                    <th className="px-4 py-3" scope="col">Waalidka & Telefoonka</th>
+                    <th className="px-4 py-3 text-[10px] uppercase tracking-wider text-[var(--color-text-muted)]" scope="col">Waalidka & Telefoonka</th>
                   )}
-                  {columns.fees && <th className="px-4 py-3" scope="col">Biilka</th>}
-                  {columns.status && <th className="px-4 py-3" scope="col">Status</th>}
-                  {columns.regDate && <th className="px-4 py-3" scope="col">Diiwaangelin</th>}
-                  {columns.updated && <th className="px-4 py-3" scope="col">La cusbooneysiiyey</th>}
+                  {columns.fees && <th className="px-4 py-3 text-[10px] uppercase tracking-wider text-[var(--color-text-muted)]" scope="col">Biilka</th>}
+                  {columns.status && <th className="px-4 py-3 text-[10px] uppercase tracking-wider text-[var(--color-text-muted)]" scope="col">Status</th>}
+                  {columns.regDate && <th className="px-4 py-3 text-[10px] uppercase tracking-wider text-[var(--color-text-muted)]" scope="col">Diiwaangelin</th>}
+                  {columns.updated && <th className="px-4 py-3 text-[10px] uppercase tracking-wider text-[var(--color-text-muted)]" scope="col">La cusbooneysiiyey</th>}
                   {columns.actions && (
-                    <th className="px-4 py-3 text-right" scope="col">Ficilada (Actions)</th>
+                    <th className="px-4 py-3 text-right text-[10px] uppercase tracking-wider text-[var(--color-text-muted)]" scope="col">Ficilada (Actions)</th>
                   )}
                 </tr>
               </thead>
@@ -220,7 +220,9 @@ export const StudentsRosterTable: React.FC<StudentsRosterTableProps> = ({
                     return (
                       <tr
                         key={student.id}
-                        className={isSelected ? 'bg-[var(--color-brand-soft)]' : ''}
+                        className={`border-b border-[var(--color-border)] last:border-0 transition-colors hover:bg-[var(--color-surface-hover)]/70 ${
+                          isSelected ? 'bg-[var(--color-brand-soft)]/75' : ''
+                        }`}
                       >
                         <td className="px-4 py-3">
                           <button
@@ -421,7 +423,7 @@ export const StudentsRosterTable: React.FC<StudentsRosterTableProps> = ({
                                 type="button"
                                 onClick={() => onOpenProfile(student)}
                                 aria-label="360° Profile-ka Ardayga"
-                                className="p-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-muted)] text-[var(--color-text-secondary)] hover:text-[var(--color-brand)] hover:border-[var(--color-brand-border)] transition-colors cursor-pointer"
+                                className="p-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] hover:-translate-y-px hover:shadow-sm text-[var(--color-text-secondary)] hover:text-[var(--color-brand)] hover:border-[var(--color-brand-border)] transition-colors cursor-pointer"
                                 title="360° Profile-ka Ardayga"
                               >
                                 <Eye className="w-3.5 h-3.5" />
@@ -433,7 +435,7 @@ export const StudentsRosterTable: React.FC<StudentsRosterTableProps> = ({
                                     type="button"
                                     onClick={() => onOpenEditModal(student)}
                                     aria-label="Tafatir Ardayga"
-                                    className="p-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-muted)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors cursor-pointer"
+                                    className="p-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:border-[var(--color-border-strong)] hover:-translate-y-px hover:shadow-sm transition-all cursor-pointer"
                                     title="Tafatir (Edit Student)"
                                   >
                                     <Edit2 className="w-3.5 h-3.5" />
@@ -444,7 +446,7 @@ export const StudentsRosterTable: React.FC<StudentsRosterTableProps> = ({
                                       type="button"
                                       onClick={() => onQuickStatusChange(student, 'active')}
                                       aria-label="Ka dhig Active"
-                                      className="p-1.5 rounded-md border border-[var(--color-success-border)] bg-[var(--color-success-soft)] text-[var(--color-success)] transition-colors cursor-pointer"
+                                      className="p-2 rounded-lg border border-[var(--color-success-border)] bg-[var(--color-success-soft)] text-[var(--color-success)] hover:-translate-y-px hover:shadow-sm transition-all cursor-pointer"
                                       title="Ka dhig Active (Restore to Active)"
                                     >
                                       <RotateCcw className="w-3.5 h-3.5" />
@@ -497,7 +499,7 @@ export const StudentsRosterTable: React.FC<StudentsRosterTableProps> = ({
             return (
               <Card
                 key={student.id}
-                className={`space-y-3 transition-all ${
+                className={`space-y-3 rounded-2xl transition-all hover:-translate-y-0.5 hover:shadow-lg ${
                   isSelected
                     ? 'border-[var(--color-brand)] bg-[var(--color-brand-soft)]'
                     : ''

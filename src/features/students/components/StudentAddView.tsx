@@ -14,9 +14,11 @@ import {
   Plus
 } from 'lucide-react';
 import { SchoolClass, Student } from '../../../types';
+import { StudentSubSection } from '../../../app/navigationConfig';
 import { apiFetch } from '../../../lib/apiClient';
 import { PageContainer, PageHeader } from '../../../components/layout/PageLayout';
 import { Button, Card } from '../../../components/ui/primitives';
+import StudentWorkspaceNav from './StudentWorkspaceNav';
 
 function getLocalDateString(date = new Date()): string {
   const year = date.getFullYear();
@@ -41,6 +43,7 @@ interface StudentAddViewProps {
   existingStudents?: Student[];
   onAddStudent: (studentData: any) => Promise<boolean>;
   onCancel: () => void;
+  onNavigateSubSection?: (subSection: StudentSubSection) => void;
   showToast: (msg: string, type: 'success' | 'error' | 'warning' | 'info') => void;
   theme?: 'light' | 'dark';
 }
@@ -95,6 +98,7 @@ export default function StudentAddView({
   existingStudents = [],
   onAddStudent,
   onCancel,
+  onNavigateSubSection,
   showToast
 }: StudentAddViewProps) {
   const [formData, setFormData] = useState({
@@ -443,7 +447,7 @@ export default function StudentAddView({
   };
 
   return (
-    <PageContainer className="max-w-5xl mx-auto">
+    <PageContainer className="max-w-6xl mx-auto pb-20">
       <PageHeader
         breadcrumbs={[
           { label: 'Students', onClick: onCancel },
@@ -461,6 +465,12 @@ export default function StudentAddView({
             Ka Noqo (Cancel)
           </Button>
         }
+      />
+
+      <StudentWorkspaceNav
+        active="add"
+        counts={{ total: existingStudents.length }}
+        onNavigate={(next) => { if (next !== 'add') onNavigateSubSection?.(next); }}
       />
 
       {duplicateWarning.found && (
@@ -485,7 +495,7 @@ export default function StudentAddView({
         </div>
       )}
 
-      <form onSubmit={(e) => handleSubmit(e, false)} className="space-y-6 text-xs">
+      <form onSubmit={(e) => handleSubmit(e, false)} className="space-y-5 text-xs">
         {/* SECTION 1: Personal Information */}
         <Card className="space-y-4">
           <div className="flex items-center gap-3 border-b border-[var(--color-border)] pb-3">
@@ -518,7 +528,7 @@ export default function StudentAddView({
                   if (formErrors.fullName) setFormErrors({ ...formErrors, fullName: '' });
                 }}
                 placeholder="Tusaale: Maxamed Cali Jaamac"
-                className="w-full ds-input"
+                className="w-full ds-input focus:border-[var(--color-brand)] focus:ring-2 focus:ring-[var(--color-brand)]/10"
                 required
               />
             </div>
@@ -944,7 +954,7 @@ export default function StudentAddView({
                 <img
                   src={formData.photo}
                   alt="Preview"
-                  className="w-24 h-24 object-cover rounded-lg border-2 border-[var(--color-brand)]"
+                  className="w-24 h-24 object-cover rounded-2xl border-2 border-[var(--color-brand)] shadow-lg"
                 />
                 <button
                   type="button"
@@ -994,7 +1004,7 @@ export default function StudentAddView({
         </Card>
 
         {/* Bottom Actions */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+        <div className="sticky bottom-3 z-20 flex flex-col sm:flex-row items-center justify-between gap-3 p-3 sm:p-3.5 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]/95 backdrop-blur-md shadow-2xl shadow-black/10">
           <Button variant="secondary" size="md" onClick={onCancel}>
             Ka Noqo (Cancel)
           </Button>

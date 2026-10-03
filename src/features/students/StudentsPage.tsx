@@ -42,11 +42,12 @@ import autoTable from 'jspdf-autotable';
 import { Student, SchoolClass, FeeRecord, AttendanceRecord, ExamScore } from '../../types';
 import { StudentSubSection, getStudentPermissions } from '../../app/navigationConfig';
 import { PageContainer, PageHeader } from '../../components/layout/PageLayout';
-import { Button } from '../../components/ui/primitives';
+import { Badge, Button } from '../../components/ui/primitives';
 import StudentProfileModal from './components/StudentProfileModal';
 import StudentAddView from './components/StudentAddView';
 import StudentImportView from './components/StudentImportView';
 import StudentExportView from './components/StudentExportView';
+import StudentWorkspaceNav from './components/StudentWorkspaceNav';
 import { StudentsRosterTable } from './components/StudentsRosterTable';
 import { StudentFormModal } from './components/StudentFormModal';
 import { StudentsActionModals } from './components/StudentsActionModals';
@@ -1339,6 +1340,7 @@ export default function StudentsView({
           return ok;
         }}
         onCancel={() => onNavigateSubSection ? onNavigateSubSection('all') : undefined}
+        onNavigateSubSection={onNavigateSubSection}
         showToast={showToast}
         theme={theme}
       />
@@ -1379,6 +1381,7 @@ export default function StudentsView({
           };
         }}
         onCancel={() => onNavigateSubSection ? onNavigateSubSection('all') : undefined}
+        onNavigateSubSection={onNavigateSubSection}
         showToast={showToast}
         theme={theme}
       />
@@ -1406,6 +1409,7 @@ export default function StudentsView({
         settings={settings}
         canViewFinance={studentPermissions.canViewFinance}
         onCancel={() => onNavigateSubSection ? onNavigateSubSection('all') : undefined}
+        onNavigateSubSection={onNavigateSubSection}
         showToast={showToast}
         theme={theme}
       />
@@ -1448,16 +1452,17 @@ export default function StudentsView({
         ]}
         title={subSectionMeta.title}
         description={subSectionMeta.subtitle}
+        badge={<Badge variant="brand" dot={false} className="uppercase tracking-[0.12em]">Student Directory</Badge>}
         actions={
           <div className="flex items-center gap-2 flex-wrap">
             {/* View Toggle */}
-            <div className="bg-[var(--color-surface-muted)] border border-[var(--color-border)] p-0.5 rounded-lg flex items-center">
+            <div className="bg-[var(--color-surface-muted)] border border-[var(--color-border)] p-1 rounded-xl flex items-center shadow-sm">
               <button
                 type="button"
                 onClick={() => setViewMode('table')}
                 className={`px-2.5 py-1.5 rounded-md text-xs flex items-center gap-1.5 transition-colors font-semibold ${
                   viewMode === 'table'
-                    ? 'bg-[var(--color-brand)] text-white shadow-xs'
+                    ? 'bg-[var(--color-brand)] text-white shadow-md shadow-[var(--color-brand)]/20'
                     : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
                 }`}
                 title="Table View"
@@ -1470,7 +1475,7 @@ export default function StudentsView({
                 onClick={() => setViewMode('cards')}
                 className={`px-2.5 py-1.5 rounded-md text-xs flex items-center gap-1.5 transition-colors font-semibold ${
                   viewMode === 'cards'
-                    ? 'bg-[var(--color-brand)] text-white shadow-xs'
+                    ? 'bg-[var(--color-brand)] text-white shadow-md shadow-[var(--color-brand)]/20'
                     : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
                 }`}
                 title="Cards Grid View"
@@ -1485,6 +1490,7 @@ export default function StudentsView({
               variant="secondary"
               size="sm"
               leftIcon={<Upload className="w-3.5 h-3.5" />}
+              className="rounded-xl"
               onClick={() => {
                 if (onNavigateSubSection) {
                   onNavigateSubSection('import');
@@ -1503,6 +1509,7 @@ export default function StudentsView({
               variant="secondary"
               size="sm"
               leftIcon={<Download className="w-3.5 h-3.5" />}
+              className="rounded-xl"
               onClick={() => {
                 if (onNavigateSubSection) {
                   onNavigateSubSection('export');
@@ -1519,6 +1526,7 @@ export default function StudentsView({
               variant="primary"
               size="md"
               leftIcon={<UserPlus className="w-4 h-4" />}
+              className="rounded-xl shadow-md shadow-[var(--color-brand)]/20"
               onClick={() => {
                 if (onNavigateSubSection) {
                   onNavigateSubSection('add');
@@ -1531,6 +1539,13 @@ export default function StudentsView({
             </Button>}
           </div>
         }
+      />
+
+      <StudentWorkspaceNav
+        active={subSection}
+        role={userRole}
+        counts={{ total: stats.total, active: stats.active, inactive: stats.inactive, archived: stats.archived }}
+        onNavigate={(next) => onNavigateSubSection?.(next)}
       />
 
       {/* CONTEXTUAL SUBSECTION INFO BANNERS */}
@@ -1602,6 +1617,7 @@ export default function StudentsView({
         setShowDashboardDetails={setShowDashboardDetails}
         onOpenProfile={handleOpenProfile}
         canViewFinance={studentPermissions.canViewFinance}
+        role={userRole}
       />
 
       {/* 3 & 4. ADVANCED SEARCH, FILTER, COLUMN VISIBILITY & BULK ACTIONS TOOLBAR */}
