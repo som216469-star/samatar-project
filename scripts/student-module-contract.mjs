@@ -44,6 +44,12 @@ assertContains(server, 'process.env.NODE_ENV === "production"', "production spli
 assertContains(server, 'routeKey === "import"', "student import rate limiting");
 assertContains(server, 'routeKey === "bulk"', "student bulk rate limiting");
 assertContains(server, 'canViewSensitiveStudentData(authUser)', "student sensitive data policy");
+assertContains(server, 'studentAudit?: Array<', "local student audit storage");
+assertContains(server, 'function recordLocalStudentAudit(', "local student audit writer");
+assertContains(server, 'await studentClassExists(schoolId, student.class, student.section || "")', "local add class integrity");
+assertContains(server, 'await assertStudentClassCapacity(', "local add/update/bulk capacity guardrail");
+assertContains(server, 'recordLocalStudentAudit(db, authUser, schoolId, id, "deleted"', "local delete audit trail");
+assertContains(server, 'const auditRows = (db.studentAudit || [])', "local audit endpoint");
 
 
 // Student input and UX contracts.
@@ -55,6 +61,10 @@ assertContains(form, "emergencyContact", "emergency contact form binding");
 assertNotContains(studentsPage, "Math.random()", "student ID randomness regression");
 assertContains(addView, "crypto.randomUUID", "secure student ID generation");
 assertContains(addView, "duplicateCheckSequence", "stale duplicate-check protection");
+assertContains(addView, "sameEmergencyContact", "emergency duplicate warning");
+assertContains(addView, "isValidDateOnly", "strict client DOB validation");
+assertContains(studentsPage, "dugsi_student_view", "student view preference persistence");
+assertContains(studentsPage, "getLocalDateString", "local-date handling");
 assertContains(importView, "Emergency Contact", "import template emergency contact");
 assertContains(importView, "dateOfBirth", "import DOB coverage");
 assertContains(profile, "Student Activity", "profile activity history");
