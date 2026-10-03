@@ -38,6 +38,8 @@ export type StudentSubSection =
   | 'import'
   | 'export';
 
+export type AttendanceSubSection = 'overview' | 'take' | 'daily' | 'history' | 'students' | 'classes' | 'analytics' | 'reports';
+
 export type AppTabId =
   | 'overview'
   | 'students'
