@@ -17,6 +17,7 @@ import { SchoolClass, Student } from '../../../types';
 import { apiFetch } from '../../../lib/apiClient';
 import { PageContainer, PageHeader } from '../../../components/layout/PageLayout';
 import { Button, Card } from '../../../components/ui/primitives';
+import StudentWorkspaceNav from './StudentWorkspaceNav';
 
 function getLocalDateString(date = new Date()): string {
   const year = date.getFullYear();
@@ -461,6 +462,12 @@ export default function StudentAddView({
             Ka Noqo (Cancel)
           </Button>
         }
+      />
+
+      <StudentWorkspaceNav
+        active="add"
+        counts={{ total: existingStudents.length }}
+        onNavigate={(next) => { if (next !== 'add') onCancel(); }}
       />
 
       {duplicateWarning.found && (
