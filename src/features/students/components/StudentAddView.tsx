@@ -14,6 +14,7 @@ import {
   Plus
 } from 'lucide-react';
 import { SchoolClass, Student } from '../../../types';
+import { StudentSubSection } from '../../../app/navigationConfig';
 import { apiFetch } from '../../../lib/apiClient';
 import { PageContainer, PageHeader } from '../../../components/layout/PageLayout';
 import { Button, Card } from '../../../components/ui/primitives';
@@ -42,6 +43,7 @@ interface StudentAddViewProps {
   existingStudents?: Student[];
   onAddStudent: (studentData: any) => Promise<boolean>;
   onCancel: () => void;
+  onNavigateSubSection?: (subSection: StudentSubSection) => void;
   showToast: (msg: string, type: 'success' | 'error' | 'warning' | 'info') => void;
   theme?: 'light' | 'dark';
 }
@@ -96,6 +98,7 @@ export default function StudentAddView({
   existingStudents = [],
   onAddStudent,
   onCancel,
+  onNavigateSubSection,
   showToast
 }: StudentAddViewProps) {
   const [formData, setFormData] = useState({
@@ -467,7 +470,7 @@ export default function StudentAddView({
       <StudentWorkspaceNav
         active="add"
         counts={{ total: existingStudents.length }}
-        onNavigate={(next) => { if (next !== 'add') onCancel(); }}
+        onNavigate={(next) => { if (next !== 'add') onNavigateSubSection?.(next); }}
       />
 
       {duplicateWarning.found && (
