@@ -9,6 +9,7 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { Student, SchoolClass } from '../../../types';
+import { StudentSubSection } from '../../../app/navigationConfig';
 import { PageContainer, PageHeader } from '../../../components/layout/PageLayout';
 import { readStudentSpreadsheet, downloadStudentSpreadsheet } from '../../../lib/studentSpreadsheet';
 import { Badge, Button, Card, StatCard } from '../../../components/ui/primitives';
@@ -21,6 +22,7 @@ interface StudentImportViewProps {
     studentsToImport: any[]
   ) => Promise<{ success: boolean; imported: number; failed: number }>;
   onCancel: () => void;
+  onNavigateSubSection?: (subSection: StudentSubSection) => void;
   showToast: (msg: string, type: 'success' | 'error' | 'warning' | 'info') => void;
   theme?: 'light' | 'dark';
 }
@@ -54,6 +56,7 @@ export default function StudentImportView({
   classes,
   onImportStudents,
   onCancel,
+  onNavigateSubSection,
   showToast
 }: StudentImportViewProps) {
   const [step, setStep] = useState<'upload' | 'preview' | 'complete'>('upload');
@@ -534,7 +537,7 @@ export default function StudentImportView({
       <StudentWorkspaceNav
         active="import"
         counts={{ total: existingStudents.length }}
-        onNavigate={(next) => { if (next !== 'import') onCancel(); }}
+        onNavigate={(next) => { if (next !== 'import') onNavigateSubSection?.(next); }}
       />
 
       {/* STEP 1: Upload Step */}
