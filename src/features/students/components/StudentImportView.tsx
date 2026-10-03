@@ -12,6 +12,7 @@ import { Student, SchoolClass } from '../../../types';
 import { PageContainer, PageHeader } from '../../../components/layout/PageLayout';
 import { readStudentSpreadsheet, downloadStudentSpreadsheet } from '../../../lib/studentSpreadsheet';
 import { Badge, Button, Card, StatCard } from '../../../components/ui/primitives';
+import StudentWorkspaceNav from './StudentWorkspaceNav';
 
 interface StudentImportViewProps {
   existingStudents: Student[];
@@ -528,6 +529,12 @@ export default function StudentImportView({
             </Button>
           </div>
         }
+      />
+
+      <StudentWorkspaceNav
+        active="import"
+        counts={{ total: existingStudents.length }}
+        onNavigate={(next) => { if (next !== 'import') onCancel(); }}
       />
 
       {/* STEP 1: Upload Step */}
