@@ -263,6 +263,7 @@ export default function StudentProfileModal({
                 <Button
                   size="sm"
                   variant="secondary"
+                  className="rounded-xl"
                   leftIcon={<Edit2 className="w-3.5 h-3.5" />}
                   onClick={() => onEditStudent(student)}
                 >
@@ -369,7 +370,7 @@ export default function StudentProfileModal({
                 {attendanceRate === null ? '—' : `${attendanceRate}%`}
               </span>
             </div>
-            <div className="bg-[var(--color-surface)] p-3 rounded-lg border border-[var(--color-border)]">
+            <div className="bg-[var(--color-surface)] p-3 rounded-xl border border-[var(--color-border)] shadow-sm">
               <span className="text-[10px] text-[var(--color-text-muted)] block font-medium">
                 Celceliska Imtixaanka
               </span>
