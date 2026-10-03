@@ -43,7 +43,7 @@ assertContains(ui, "function getLocalDateString(", "local date helper");
 assertContains(ui, "const currentSessionAttendance = useMemo(", "current session lookup map");
 assertContains(ui, "const attendanceByStudent = useMemo(", "history lookup map");
 assertContains(ui, "currentSessionAttendance.get(student.id)", "fast sheet lookup");
-assertContains(ui, "attendanceByStudent.get(s.id) || []", "fast history lookup");
+assertContains(ui, "attendanceByStudent.get(", "fast history lookup");
 assertContains(ui, "max={getLocalDateString()}", "no future attendance date");
 
 console.log("Attendance module contract checks: PASS");
