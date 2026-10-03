@@ -149,7 +149,16 @@ export const StudentsStatsOverview: React.FC<StudentsStatsOverviewProps> = ({
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+      <div className="flex items-center justify-between gap-3 px-1">
+        <div>
+          <p className="text-[10px] uppercase tracking-[0.16em] font-bold text-[var(--color-text-muted)]">Student Intelligence</p>
+          <p className="text-xs font-semibold text-[var(--color-text-primary)]">Live enrollment snapshot</p>
+        </div>
+        <span className="hidden sm:inline-flex items-center gap-1.5 text-[10px] font-mono text-[var(--color-text-muted)]">
+          <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-success)]" /> LIVE DATA
+        </span>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
         <StatCard
           label="Wadarta Ardayda"
           value={safeStats.total ?? 0}
