@@ -3728,12 +3728,17 @@ app.post("/api/attendance", async (req, res) => {
     }
   }
 
+  const incomingIds = new Set(normalizedRecords.map((record) => record.studentId));
+
+  // Scope the local upsert to only the submitted students. Saving one class/session
+  // must never delete attendance belonging to other classes.
   db.attendance = (db.attendance || []).filter(
     (row: any) =>
       !(
         row.schoolId === schoolId &&
         row.date === date &&
-        (row.sessionType || "before_break") === session
+        (row.sessionType || "before_break") === session &&
+        incomingIds.has(String(row.studentId))
       )
   );
 

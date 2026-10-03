@@ -30,6 +30,9 @@ jobs:
       - name: Students production contract checks
         run: npm run test:students-contract
 
+      - name: Attendance production contract checks
+        run: npm run test:attendance-contract
+
       - name: Production build
         run: npm run build
 
