@@ -1340,6 +1340,7 @@ export default function StudentsView({
           return ok;
         }}
         onCancel={() => onNavigateSubSection ? onNavigateSubSection('all') : undefined}
+        onNavigateSubSection={onNavigateSubSection}
         showToast={showToast}
         theme={theme}
       />
@@ -1380,6 +1381,7 @@ export default function StudentsView({
           };
         }}
         onCancel={() => onNavigateSubSection ? onNavigateSubSection('all') : undefined}
+        onNavigateSubSection={onNavigateSubSection}
         showToast={showToast}
         theme={theme}
       />
@@ -1407,6 +1409,7 @@ export default function StudentsView({
         settings={settings}
         canViewFinance={studentPermissions.canViewFinance}
         onCancel={() => onNavigateSubSection ? onNavigateSubSection('all') : undefined}
+        onNavigateSubSection={onNavigateSubSection}
         showToast={showToast}
         theme={theme}
       />
