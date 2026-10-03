@@ -459,7 +459,7 @@ export function useInstitutionalData({
       return;
     }
 
-    const attendanceLookup = new Map(
+    const attendanceLookup = new Map<string, AttendanceRecord>(
       attendance
         .filter(
           (a) =>
