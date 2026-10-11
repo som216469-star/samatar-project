@@ -31,6 +31,7 @@ export default function ClassesPage({
   const [editingClass, setEditingClass] = useState<SchoolClass | null>(null);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [formError, setFormError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; name: string } | null>(null);
 
   const [form, setForm] = useState({
@@ -41,6 +42,7 @@ export default function ClassesPage({
   });
 
   const openAddModal = () => {
+    setFormError('');
     setEditingClass(null);
     setForm({
       className: '',
@@ -52,6 +54,7 @@ export default function ClassesPage({
   };
 
   const openEditModal = (cls: SchoolClass) => {
+    setFormError('');
     setEditingClass(cls);
     setForm({
       className: cls.className,
@@ -64,7 +67,12 @@ export default function ClassesPage({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.className.trim()) return;
+    setFormError('');
+    if (!form.className.trim()) {
+      setFormError('Fadlan geli magaca fasalka.');
+      return;
+    }
+    if (loading) return;
 
     setLoading(true);
     try {
@@ -75,7 +83,11 @@ export default function ClassesPage({
       }
       setShowModal(false);
     } catch (err) {
-      console.error(err);
+      const message = err instanceof Error && err.message
+        ? err.message
+        : 'Fasalka lama kaydin. Fadlan isku day mar kale.';
+      setFormError(message);
+      console.error('Class form submission failed:', err);
     } finally {
       setLoading(false);
     }
@@ -270,6 +282,16 @@ export default function ClassesPage({
         }
       >
         <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+          {formError && (
+            <div
+              role="alert"
+              aria-live="polite"
+              className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2.5 text-sm text-rose-700 dark:text-rose-300"
+            >
+              <p className="font-semibold">Fasalka lama abuuri karin</p>
+              <p className="mt-1 break-words">{formError}</p>
+            </div>
+          )}
           <div className="space-y-1.5">
             <label className="font-semibold text-[var(--color-text-secondary)] block">
               Magaca Fasalka (Class Name) *
