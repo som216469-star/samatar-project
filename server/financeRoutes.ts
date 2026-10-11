@@ -647,6 +647,69 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
       return res.status(400).json({ error: "Fadlan geli cadad lacageed oo sax ah (Valid amount required)" });
     }
 
+    // Cloud payment settlement is locked and committed in one PostgreSQL transaction.
+    if (!getUseLocalFallback() && supabase) {
+      const createdAt = new Date().toISOString();
+      const cloudPayment = {
+        id: "pay-" + crypto.randomUUID(),
+        school_id: schoolId,
+        receipt_number: `REC-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+        payment_date: body.paymentDate || new Date().toISOString().split("T")[0],
+        payment_method: paymentMethod || "Cash",
+        reference: reference || "TXN-" + crypto.randomUUID().slice(0, 8).toUpperCase(),
+        received_by: receivedBy || "Xisaabiyaha",
+        notes: notes || "",
+        created_at: createdAt
+      };
+      const { data, error } = await supabase.rpc("dugsiga_record_payment", {
+        p_school_id: schoolId,
+        p_invoice_id: String(invoiceId || ""),
+        p_amount: payAmount,
+        p_payment: cloudPayment
+      });
+
+      if (error) {
+        console.error("Atomic payment RPC failed:", error.message);
+        if (error.code === "P0002") return res.status(404).json({ error: "Biilka lama helin (Invoice not found)" });
+        if (error.code === "22023") {
+          const exceedsBalance = String(error.message || "").toLowerCase().includes("exceeds");
+          return res.status(exceedsBalance ? 409 : 400).json({
+            error: exceedsBalance
+              ? "Lacagta la bixiyey waxay ka badan tahay baaqiga biilka."
+              : "Xogta lacag-bixintu ma saxna."
+          });
+        }
+        return res.status(503).json({ error: "Lacag-bixinta lama kaydin. Fadlan mar kale isku day." });
+      }
+
+      const payment = data?.payment;
+      const invoice = data?.invoice;
+      if (!payment || !invoice) {
+        console.error("Atomic payment RPC returned an incomplete result.");
+        return res.status(503).json({ error: "Natiijada lacag-bixinta lama xaqiijin karo. Fadlan la xiriir maamulka." });
+      }
+      return res.status(201).json({
+        success: true,
+        payment: {
+          id: payment.id, schoolId: payment.school_id, receiptNumber: payment.receipt_number,
+          invoiceId: payment.invoice_id, invoiceNumber: payment.invoice_number,
+          studentId: payment.student_id, studentName: payment.student_name, className: payment.class_name,
+          amount: Number(payment.amount), paymentDate: payment.payment_date, paymentMethod: payment.payment_method,
+          reference: payment.reference, remainingBalance: Number(payment.remaining_balance || 0),
+          receivedBy: payment.received_by, notes: payment.notes || "", createdAt: payment.created_at
+        },
+        invoice: {
+          id: invoice.id, schoolId: invoice.school_id, invoiceNumber: invoice.invoice_number,
+          studentId: invoice.student_id, studentName: invoice.student_name, className: invoice.class_name,
+          guardianName: invoice.guardian_name, guardianPhone: invoice.guardian_phone,
+          items: invoice.items || [], subtotal: Number(invoice.subtotal || 0), discount: Number(invoice.discount || 0),
+          total: Number(invoice.total || 0), paidAmount: Number(invoice.paid_amount || 0),
+          balance: Number(invoice.balance || 0), issueDate: invoice.issue_date, dueDate: invoice.due_date,
+          status: invoice.status, notes: invoice.notes || "", createdAt: invoice.created_at, updatedAt: invoice.updated_at
+        }
+      });
+    }
+
     const db = getEnsureDB();
     const invoiceIdx = (db.invoices || []).findIndex((inv: any) => inv.id === invoiceId && inv.schoolId === schoolId);
     if (invoiceIdx === -1) {
@@ -1179,6 +1242,34 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
     if (!authorized) return res.status(403).json({ error: "Forbidden" });
 
     const { id } = req.params;
+
+    // Cloud settlement creates/updates the payroll expense in the same transaction.
+    if (!getUseLocalFallback() && supabase) {
+      const { data, error } = await supabase.rpc("dugsiga_mark_payroll_paid", {
+        p_school_id: schoolId,
+        p_payroll_id: id
+      });
+      if (error) {
+        console.error("Atomic payroll RPC failed:", error.message);
+        if (error.code === "P0002") return res.status(404).json({ error: "Payroll record not found" });
+        return res.status(503).json({ error: "Mushaharka iyo kharashkiisa lama wada kaydin. Fadlan mar kale isku day." });
+      }
+      const row = data?.payroll;
+      if (!row) return res.status(503).json({ error: "Natiijada mushaharka lama xaqiijin karo." });
+      return res.json({
+        success: true,
+        payroll: {
+          id: row.id, schoolId: row.school_id, employeeType: row.employee_type, employeeId: row.employee_id,
+          employeeName: row.employee_name, roleOrDepartment: row.role_or_department,
+          basicSalary: Number(row.basic_salary || 0), allowances: Number(row.allowances || 0),
+          deductions: Number(row.deductions || 0), grossSalary: Number(row.gross_salary || 0),
+          netSalary: Number(row.net_salary || 0), paymentDate: row.payment_date,
+          paymentMethod: row.payment_method, payrollPeriod: row.payroll_period, status: row.status,
+          notes: row.notes || "", expenseId: row.expense_id || "", paidAt: row.paid_at || "", createdAt: row.created_at
+        }
+      });
+    }
+
     const db = getEnsureDB();
     const idx = (db.payroll || []).findIndex((pr: any) => pr.id === id && pr.schoolId === schoolId);
     if (idx === -1) return res.status(404).json({ error: "Payroll record not found" });
