@@ -169,23 +169,15 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
     }
   };
 
-  // Helper: synchronize local finance collections with Supabase tables (Tables 21-27) when Cloud DB is active
-  const syncFinanceTableToSupabase = async (table: string, row: Record<string, any>) => {
+  // In cloud mode, saveLocalDB diffs are committed by the request-scoped
+  // dugsiga_apply_tenant_changes RPC. Do not dual-write individual finance rows:
+  // doing so would break payment/invoice and payroll/expense atomicity.
+  const syncFinanceTableToSupabase = async (_table: string, _row: Record<string, any>) => {
     if (getUseLocalFallback() || !supabase) return;
-    try {
-      await supabase.from(table).upsert([row], { onConflict: "id" });
-    } catch {
-      // Resilient fallback if table is not yet provisioned
-    }
   };
 
-  const deleteFinanceRowFromSupabase = async (table: string, id: string, schoolId: string) => {
+  const deleteFinanceRowFromSupabase = async (_table: string, _id: string, _schoolId: string) => {
     if (getUseLocalFallback() || !supabase) return;
-    try {
-      await supabase.from(table).delete().eq("id", id).eq("school_id", schoolId);
-    } catch {
-      // Resilient fallback
-    }
   };
 
   /* =========================================================================
