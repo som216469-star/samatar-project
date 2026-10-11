@@ -10,6 +10,7 @@ import { registerFinanceRoutes } from "./server/financeRoutes.ts";
 import {
   getAuthenticatedUser,
   createSessionToken,
+  generateSecureToken,
   hashPassword,
   verifyPassword,
   requireAuthenticatedRequest,
@@ -17,6 +18,7 @@ import {
   revokeSession,
   validatePassword
 } from "./server/authSession.ts";
+import { sendPasswordResetEmail } from "./server/emailService.ts";
 
 // Load environment variables
 dotenv.config({ override: true });
@@ -312,6 +314,9 @@ interface LocalDB {
     password_hash: string;
     verified: boolean;
     verification_code?: string;
+    password_reset_token_hash?: string | null;
+    password_reset_expires_at?: string | null;
+    password_changed_at?: string | null;
     role?: string;
     school_id?: string;
     teacher_id?: string;
