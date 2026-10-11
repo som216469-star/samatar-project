@@ -358,6 +358,12 @@ const defaultSettings = {
 
 
 type TenantDBBinding = { collection: string; table: string; keyColumns: string[]; readOnly?: boolean };
+type TenantDBChange = {
+  table: string;
+  operation: "upsert" | "delete";
+  row: Record<string, any>;
+  update_columns: string[];
+};
 type TenantDBContext = {
   schoolId: string; db: LocalDB; lastScheduledDB: LocalDB; loadedCollections: Set<string>;
   settingsLoaded: boolean; requireCloud: boolean; pending: Promise<void>; responseStarted?: boolean;
@@ -437,33 +443,64 @@ function serializeTenantRow(row: Record<string, any>, binding: TenantDBBinding, 
   serialized.school_id = schoolId;
   return serialized;
 }
-function buildTenantChanges(previous: LocalDB, next: LocalDB, context: TenantDBContext):
-  Array<{ table: string; operation: "upsert" | "delete"; row: Record<string, any> }> {
-  const changes: Array<{ table: string; operation: "upsert" | "delete"; row: Record<string, any> }> = [];
+function buildTenantChanges(previous: LocalDB, next: LocalDB, context: TenantDBContext): TenantDBChange[] {
+  const changes: TenantDBChange[] = [];
   for (const binding of TENANT_DB_BINDINGS) {
     if (!context.loadedCollections.has(binding.collection) || binding.readOnly) continue;
     const previousRows = Array.isArray((previous as any)[binding.collection]) ? (previous as any)[binding.collection] as Array<Record<string, any>> : [];
     const nextRows = Array.isArray((next as any)[binding.collection]) ? (next as any)[binding.collection] as Array<Record<string, any>> : [];
     const previousByKey = new Map<string, Record<string, any>>(previousRows.map((row): [string, Record<string, any>] => [getRowKey(row, binding), row]));
     const nextByKey = new Map<string, Record<string, any>>(nextRows.map((row): [string, Record<string, any>] => [getRowKey(row, binding), row]));
+
     for (const [key, row] of nextByKey) {
-      if (!key || key.split("\u001f").some((part) => !part)) throw new Error("A record is missing its stable key; the change was rejected.");
+      if (!key || key.split("\\u001f").some((part) => !part)) throw new Error("A record is missing its stable key; the change was rejected.");
       const old = previousByKey.get(key);
-      if (!old || JSON.stringify(old) !== JSON.stringify(row)) {
-        changes.push({ table: binding.table, operation: "upsert", row: serializeTenantRow(row, binding, context.schoolId) });
+      if (old && JSON.stringify(old) === JSON.stringify(row)) continue;
+
+      const rowFields = [...new Set([...Object.keys(old || {}), ...Object.keys(row)])];
+      const changedFields = old
+        ? rowFields.filter((field) => JSON.stringify(old[field]) !== JSON.stringify(row[field]))
+        : Object.keys(row);
+      const rowForWrite: Record<string, any> = { ...row };
+      for (const field of changedFields) {
+        if (!Object.prototype.hasOwnProperty.call(rowForWrite, field)) rowForWrite[field] = null;
+      }
+
+      const updateColumns = changedFields
+        .map((field) => {
+          if (binding.collection === "users" && field === "password_hash") return "password";
+          if (binding.collection === "users" && field === "school_id") return "school_id";
+          return camelToSnake(field);
+        })
+        .filter((column) => column !== "school_id" && !binding.keyColumns.includes(column));
+
+      changes.push({
+        table: binding.table,
+        operation: "upsert",
+        row: serializeTenantRow(rowForWrite, binding, context.schoolId),
+        update_columns: updateColumns
+      });
+    }
+
+    for (const [key, row] of previousByKey) {
+      if (key && !nextByKey.has(key)) {
+        changes.push({
+          table: binding.table,
+          operation: "delete",
+          row: serializeTenantRow(row, binding, context.schoolId),
+          update_columns: []
+        });
       }
     }
-    for (const [key, row] of previousByKey) {
-      if (key && !nextByKey.has(key)) changes.push({ table: binding.table, operation: "delete", row: serializeTenantRow(row, binding, context.schoolId) });
-    }
   }
+
   if (context.settingsLoaded) {
     const beforeSettings = previous.settings ?? null;
     const afterSettings = next.settings ?? null;
     if (JSON.stringify(beforeSettings) !== JSON.stringify(afterSettings)) {
       changes.push(afterSettings === null
-        ? { table: "dugsiga_settings", operation: "delete", row: { school_id: context.schoolId, key: "main_settings" } }
-        : { table: "dugsiga_settings", operation: "upsert", row: { school_id: context.schoolId, key: "main_settings", value: afterSettings } });
+        ? { table: "dugsiga_settings", operation: "delete", row: { school_id: context.schoolId, key: "main_settings" }, update_columns: [] }
+        : { table: "dugsiga_settings", operation: "upsert", row: { school_id: context.schoolId, key: "main_settings", value: afterSettings }, update_columns: ["value"] });
     }
   }
   if (changes.length > 2000) throw new Error("Change batch is too large; please split this operation into smaller requests.");
@@ -528,7 +565,7 @@ async function loadTenantDB(schoolId: string, requestPath: string): Promise<{ db
 function scheduleTenantDBSave(data: LocalDB): void {
   const context = tenantDBContext.getStore();
   if (!context || !context.schoolId || !context.requireCloud) return;
-  let changes: Array<{ table: string; operation: "upsert" | "delete"; row: Record<string, any> }>;
+  let changes: TenantDBChange[];
   let nextSnapshot: LocalDB;
   try {
     nextSnapshot = structuredClone(data);
