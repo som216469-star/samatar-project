@@ -10,7 +10,8 @@
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
     "test:students-contract": "node scripts/student-module-contract.mjs",
-    "test:attendance-contract": "node scripts/attendance-module-contract.mjs"
+    "test:attendance-contract": "node scripts/attendance-module-contract.mjs",
+    "db:migrate-json": "node scripts/migrate-database-json-to-supabase.mjs"
   },
   "engines": {
     "node": ">=18.0.0"
