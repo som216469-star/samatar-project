@@ -51,9 +51,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
           onClick={onBackToLanding}
           className="flex items-center gap-3 cursor-pointer"
         >
-          <div className="w-8 h-8 rounded-[var(--radius-sm)] bg-[var(--color-brand)] text-white flex items-center justify-center font-bold text-sm">
-            D
-          </div>
+          <img src="/brand-mark.svg" alt="" className="w-8 h-8 rounded-[var(--radius-sm)] shrink-0 object-contain" />
           <div className="text-left">
             <span className="text-sm font-bold tracking-tight block">DUGSI PRO 2026</span>
             <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--color-text-muted)] block">
@@ -77,6 +75,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
         {/* Left Institutional Context Column */}
         <div className="lg:col-span-7 p-8 sm:p-14 lg:p-20 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-[var(--color-border)] bg-[var(--color-surface-muted)]">
           <div className="space-y-6 max-w-xl">
+            <img src="/brand-logo.svg" alt="DUGSI PRO — School Management System" className="block w-60 max-w-full h-auto rounded-xl shadow-sm" />
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--color-brand-soft)] border border-[var(--color-brand-border)] text-xs font-semibold text-[var(--color-brand)]">
               <ShieldCheck className="w-3.5 h-3.5" />
               <span>Enterprise School Management Platform</span>
