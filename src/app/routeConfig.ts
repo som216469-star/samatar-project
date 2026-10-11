@@ -6,7 +6,7 @@ import {
   AttendanceSubSection
 } from './navigationConfig';
 
-export type PublicRouteId = 'landing' | 'login' | 'signup' | 'dashboard' | 'activate-teacher';
+export type PublicRouteId = 'landing' | 'login' | 'signup' | 'dashboard' | 'activate-teacher' | 'forgot-password' | 'reset-password';
 
 export interface ParsedAppRoute {
   publicRoute: PublicRouteId;
@@ -57,7 +57,7 @@ export function parseAppLocation(pathname: string, search: string = ''): ParsedA
     attendanceSubSection: 'overview'
   };
 
-  if (cleanPath.startsWith('/activate-teacher') || search.includes('token=')) {
+  if (cleanPath === '/activate-teacher' || cleanPath.startsWith('/activate-teacher/')) {
     return { ...defaults, publicRoute: 'activate-teacher' };
   }
   if (cleanPath === '/login') {
@@ -65,6 +65,12 @@ export function parseAppLocation(pathname: string, search: string = ''): ParsedA
   }
   if (cleanPath === '/signup') {
     return { ...defaults, publicRoute: 'signup' };
+  }
+  if (cleanPath === '/forgot-password') {
+    return { ...defaults, publicRoute: 'forgot-password' };
+  }
+  if (cleanPath === '/reset-password') {
+    return { ...defaults, publicRoute: 'reset-password' };
   }
   if (cleanPath === '/') {
     return defaults;
