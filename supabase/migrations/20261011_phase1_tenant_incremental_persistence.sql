@@ -299,7 +299,7 @@ BEGIN
   WHERE id = p_payroll_id AND school_id = p_school_id
   RETURNING * INTO v_payroll;
 
-  INSERT INTO public.dugsiga_expenses (
+  INSERT INTO public.dugsiga_expenses AS target (
     id, school_id, expense_id, category, description, amount, date, payment_method,
     vendor_payee, reference_number, created_by, notes, status, payroll_id, created_at, updated_at
   )
@@ -332,7 +332,7 @@ BEGIN
     status = 'Paid',
     payroll_id = EXCLUDED.payroll_id,
     updated_at = EXCLUDED.updated_at
-  WHERE public.dugsiga_expenses.school_id = EXCLUDED.school_id
+  WHERE target.school_id = EXCLUDED.school_id
   RETURNING * INTO v_expense;
 
   IF NOT FOUND THEN
@@ -394,7 +394,7 @@ BEGIN
   WHERE id = v_teacher.id AND school_id = v_teacher.school_id
   RETURNING * INTO v_teacher;
 
-  INSERT INTO public.dugsiga_users (
+  INSERT INTO public.dugsiga_users AS target (
     email, password, verified, role, school_id, teacher_id, created_at
   )
   VALUES (
@@ -407,7 +407,7 @@ BEGIN
     role = 'teacher',
     school_id = EXCLUDED.school_id,
     teacher_id = EXCLUDED.teacher_id
-  WHERE public.dugsiga_users.school_id = EXCLUDED.school_id
+  WHERE target.school_id = EXCLUDED.school_id
   RETURNING * INTO v_user;
 
   IF NOT FOUND THEN
