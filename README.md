@@ -42,6 +42,9 @@ The repository includes:
 ```bash
 npm run lint
 npm run test:students-contract
+npm run test:attendance-contract
+npm run test:auth-contract
+npm run test:auth-session
 node scripts/server-smoke.mjs
 npm run build
 ```
@@ -70,13 +73,28 @@ The Render service is configured for Node 22, production mode, and a health chec
 
 Set the following in Render:
 
-- `SESSION_SECRET` — a long random secret; the Blueprint is configured to generate one.
-- `APP_URL` — your live Render URL.
+- `SESSION_SECRET` — a persistent random secret of at least 32 characters. Production refuses to start without it.
+- `APP_URL` — your live Render HTTPS URL. Password-reset links are not generated from an untrusted Host header.
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` — configure these to deliver password recovery and teacher invitation emails. Password recovery intentionally does not expose reset tokens in API responses or logs.
 - `SUPABASE_URL`
 - `SUPABASE_ANON_KEY` or `SUPABASE_PUBLISHABLE_KEY`
 - `SUPABASE_SECRET_KEY` or `SUPABASE_SERVICE_ROLE_KEY`
 
 Add `GEMINI_API_KEY` and SMTP variables when those services are enabled.
+
+
+### Authentication database migration
+
+Before deploying the password-recovery endpoints, apply
+`supabase/migrations/20261011_authentication_recovery.sql` in the Supabase SQL Editor.
+The migration adds expiry/hash fields for one-time password-reset tokens. The canonical
+`DUGSI_PRO_2026_ALL_TABLES.sql` and in-app SQL setup were updated too, but existing databases
+must run the migration explicitly.
+
+Production authentication fails closed when the cloud identity database is unavailable;
+it will not authenticate users from ephemeral local JSON files. Signup issues a secure
+HttpOnly session cookie, and cloud login never accepts a stale local password as a substitute
+for the current Supabase password.
 
 ## Security notes
 
