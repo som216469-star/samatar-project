@@ -46,7 +46,7 @@ export default function ProductShowcase() {
             04 · Interactive Product Tour
           </div>
           <h2 className="landing-display text-3xl sm:text-4xl md:text-5xl font-bold text-white tracking-tight text-balance mb-4">
-            Experience the Dugsi Pro workspace.
+            Experience the Quantora workspace.
           </h2>
           <p className="text-base sm:text-lg text-[#94a3b8] leading-relaxed">
             Switch between live operational views below to inspect how principals, registrars, bursars, and teachers interact with the platform every day.
@@ -85,7 +85,7 @@ export default function ProductShowcase() {
               <span className="w-2.5 h-2.5 rounded-full bg-white/15" />
               <span className="w-2.5 h-2.5 rounded-full bg-white/15" />
               <span className="ml-3 text-xs font-mono text-[#64748b]">
-                dugsipro.app/workspace/{activeTab}
+                /workspace/{activeTab}
               </span>
             </div>
             <div className="text-xs font-mono text-[#94a3b8]">
