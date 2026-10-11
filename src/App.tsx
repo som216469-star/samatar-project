@@ -171,6 +171,7 @@ export default function App() {
       setStudentSubSection(parsed.studentSubSection);
       setPeopleSubSection(parsed.peopleSubSection);
       setFinanceSubSection(parsed.financeSubSection);
+      setAttendanceSubSection(parsed.attendanceSubSection);
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
