@@ -1,11 +1,13 @@
 node_modules/
 build/
 dist/
+dist-mobile/
 coverage/
 .DS_Store
 *.log
 .env*
 !.env.example
+!.env.mobile
 database.json
 dugsi_database.json
 *.local.json

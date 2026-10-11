@@ -1,0 +1,130 @@
+name: Bootstrap Capacitor native projects
+
+on:
+  push:
+    branches:
+      - mobile/capacitor-native-foundation
+    paths:
+      - package.json
+      - package-lock.json
+      - bun.lock
+      - capacitor.config.json
+      - vite.config.ts
+      - .env.mobile
+      - src/lib/authStorage.ts
+      - src/lib/apiClient.ts
+      - src/App.tsx
+      - server.ts
+      - .github/workflows/bootstrap-capacitor.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout mobile foundation branch
+        uses: actions/checkout@v4
+        with:
+          ref: mobile/capacitor-native-foundation
+          persist-credentials: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      # GitHub-hosted Ubuntu runners already provide ANDROID_HOME and sdkmanager.
+      # The third-party setup action currently calls the removed `sdkmanager tools` package.
+
+
+      - name: Regenerate npm and Bun lockfiles
+        run: |
+          npm install --package-lock-only --ignore-scripts
+          bun install --lockfile-only
+
+      - name: Install from the regenerated npm lockfile
+        run: npm ci
+
+      - name: Type-check
+        run: npm run lint
+
+      - name: Run web contract checks
+        run: |
+          npm run test:students-contract
+          npm run test:attendance-contract
+          npm run test:mobile-contract
+
+      - name: Build production web service for Render
+        run: npm run build
+
+      - name: Build isolated Capacitor web assets
+        run: npm run build:mobile
+
+      - name: Generate Android native project
+        run: |
+          if [ ! -d android ]; then npx cap add android; fi
+
+      - name: Generate iOS native project with Swift Package Manager
+        run: |
+          if [ ! -d ios ]; then npx cap add ios --packagemanager SPM; fi
+
+      - name: Synchronize Capacitor native projects
+        run: npx cap sync
+
+      - name: Build Android debug APK
+        run: |
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+          test -n "$SDKMANAGER"
+          echo "Android SDK root: $SDK_ROOT"
+          echo "sdkmanager: $SDKMANAGER"
+          export ANDROID_HOME="$SDK_ROOT"
+          export ANDROID_SDK_ROOT="$SDK_ROOT"
+          export PATH="$SDK_ROOT/platform-tools:$SDK_ROOT/cmdline-tools/latest/bin:$PATH"
+          yes | "$SDKMANAGER" --licenses >/dev/null
+          "$SDKMANAGER" "platforms;android-36" "build-tools;36.0.0"
+          cd android
+          ./gradlew --no-daemon assembleDebug
+
+      - name: Verify generated native scaffolds
+        run: |
+          test -d android/app/src/main
+          test -d ios/App
+          test -f capacitor.config.json
+          echo "Android and iOS native project scaffolds were generated."
+
+      - name: Upload installable Android debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: dugsi-pro-android-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Commit generated lockfiles and native projects
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json bun.lock android ios
+          if git diff --cached --quiet; then
+            echo "Lockfiles and native project scaffolds are already up to date."
+          else
+            git commit -m "Generate Capacitor lockfiles and native project scaffolds"
+            git push origin HEAD:mobile/capacitor-native-foundation
+          fi

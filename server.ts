@@ -154,6 +154,17 @@ function clearAuthRateLimit(keyPrefix: string) {
 const SESSION_COOKIE_NAME = "dugsi_session";
 const SESSION_MAX_AGE_SECONDS = 12 * 60 * 60;
 
+const CAPACITOR_ALLOWED_ORIGINS = new Set([
+  "capacitor://localhost",
+  "https://localhost"
+]);
+
+function isCapacitorClient(req: express.Request): boolean {
+  const origin = String(req.headers.origin || "");
+  return CAPACITOR_ALLOWED_ORIGINS.has(origin) &&
+    String(req.headers["x-dugsi-client"] || "").toLowerCase() === "capacitor";
+}
+
 function requestIsHttps(req: express.Request): boolean {
   const forwardedProto = String(req.headers["x-forwarded-proto"] || "")
     .split(",")[0]
@@ -207,8 +218,24 @@ function apiOriginAllowed(req: express.Request): boolean {
   } catch {}
 
   return req.headers.origin === requestOrigin ||
-    (!!configuredOrigin && req.headers.origin === configuredOrigin);
+    (!!configuredOrigin && req.headers.origin === configuredOrigin) ||
+    CAPACITOR_ALLOWED_ORIGINS.has(String(req.headers.origin || ""));
 }
+
+// Capacitor uses a fixed WebView origin. Allow only our two native origins and
+// deliberately omit Access-Control-Allow-Credentials: native API calls use Bearer tokens.
+app.use("/api", (req, res, next) => {
+  const origin = String(req.headers.origin || "");
+  if (CAPACITOR_ALLOWED_ORIGINS.has(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Vary", "Origin");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Dugsi-Client");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
+    res.setHeader("Access-Control-Max-Age", "600");
+    if (req.method === "OPTIONS") return res.sendStatus(204);
+  }
+  next();
+});
 
 app.use("/api", (req, res, next) => {
   if (["POST", "PUT", "PATCH", "DELETE"].includes(req.method) && !apiOriginAllowed(req)) {
@@ -2424,20 +2451,24 @@ app.post("/api/auth/login", async (req, res) => {
             assignedSubjects: Array.isArray(cloudTeacher.assigned_subjects) ? cloudTeacher.assigned_subjects : []
           };
           const token = createSessionToken(teacherPayload);
-          setSessionCookie(req, res, token);
+          if (!isCapacitorClient(req)) setSessionCookie(req, res, token);
           clearAuthRateLimit(`login:ip:${req.ip || "unknown"}:`);
           clearAuthRateLimit(`login:account:${req.ip || "unknown"}:${cleanEmail}`);
-          return res.json({ success: true, user: teacherPayload });
+          return res.json(
+            isCapacitorClient(req)
+              ? { success: true, user: teacherPayload, token }
+              : { success: true, user: teacherPayload }
+          );
         }
 
         const authRes = buildAuthResponse(cleanEmail, db);
         if (authRes.error) return res.status(403).json({ error: authRes.error });
         if (!authRes.error && authRes.token) {
-          setSessionCookie(req, res, authRes.token);
+          if (!isCapacitorClient(req)) setSessionCookie(req, res, authRes.token);
           const { token: _token, ...safeAuthResponse } = authRes;
           clearAuthRateLimit(`login:ip:${req.ip || "unknown"}:`);
           clearAuthRateLimit(`login:account:${req.ip || "unknown"}:${cleanEmail}`);
-          return res.json(safeAuthResponse);
+          return res.json(isCapacitorClient(req) ? authRes : safeAuthResponse);
         }
         clearAuthRateLimit(`login:ip:${req.ip || "unknown"}:`);
         clearAuthRateLimit(`login:account:${req.ip || "unknown"}:${cleanEmail}`);
@@ -2468,11 +2499,11 @@ app.post("/api/auth/login", async (req, res) => {
     const authRes = buildAuthResponse(cleanEmail, db);
     if (authRes.error) return res.status(403).json({ error: authRes.error });
     if (!authRes.error && authRes.token) {
-      setSessionCookie(req, res, authRes.token);
+      if (!isCapacitorClient(req)) setSessionCookie(req, res, authRes.token);
       const { token: _token, ...safeAuthResponse } = authRes;
       clearAuthRateLimit(`login:ip:${req.ip || "unknown"}:`);
       clearAuthRateLimit(`login:account:${req.ip || "unknown"}:${cleanEmail}`);
-      return res.json(safeAuthResponse);
+      return res.json(isCapacitorClient(req) ? authRes : safeAuthResponse);
     }
     clearAuthRateLimit(`login:ip:${req.ip || "unknown"}:`);
     clearAuthRateLimit(`login:account:${req.ip || "unknown"}:${cleanEmail}`);
