@@ -18,7 +18,7 @@ import {
   revokeSession,
   validatePassword
 } from "./server/authSession.ts";
-import { sendPasswordResetEmail } from "./server/emailService.ts";
+import { sendPasswordResetEmail, sendAccountVerificationEmail } from "./server/emailService.ts";
 
 // Load environment variables
 dotenv.config({ override: true });
@@ -263,6 +263,24 @@ app.use("/api", (req, res, next) => {
       return res.status(429).json({
         error: "Diiwaangelin badan ayaa laga helay cinwaankan. Fadlan sug wax yar."
       });
+    }
+  }
+
+  if (req.method === "POST" && pathName === "/auth/verify-email") {
+    const ip = req.ip || "unknown";
+    const limit = consumeAuthRateLimit(`email-verify:ip:${ip}`, 10, 60 * 60 * 1000);
+    if (!limit.allowed) {
+      res.setHeader("Retry-After", String(limit.retryAfterSeconds));
+      return res.status(429).json({ error: "Codsiyo xaqiijin badan ayaa la sameeyay. Fadlan sug." });
+    }
+  }
+
+  if (req.method === "POST" && pathName === "/auth/resend-verification") {
+    const ip = req.ip || "unknown";
+    const limit = consumeAuthRateLimit(`email-resend:ip:${ip}`, 5, 15 * 60 * 1000);
+    if (!limit.allowed) {
+      res.setHeader("Retry-After", String(limit.retryAfterSeconds));
+      return res.status(429).json({ error: "Codsiyo badan ayaa la sameeyay. Fadlan sug ka hor intaadan mar kale isku dayin." });
     }
   }
 
@@ -2107,6 +2125,8 @@ async function getStudentDependencyIds(studentIds: string[], schoolId: string): 
 const PUBLIC_API_PATHS = [
   /^\/auth\/signup$/,
   /^\/auth\/login$/,
+  /^\/auth\/verify-email$/,
+  /^\/auth\/resend-verification$/,
   /^\/auth\/forgot-password$/,
   /^\/auth\/reset-password$/,
   /^\/teachers\/verify-invitation\/[^/]+$/,
