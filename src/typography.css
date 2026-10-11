@@ -1,0 +1,120 @@
+/*
+ * DUGSI PRO — Premium Typography Layer
+ * Loaded after index.css so existing layout and component behavior stay intact.
+ */
+
+:root {
+  --type-body: 0.9375rem;
+  --type-body-leading: 1.55;
+  --type-caption: 0.75rem;
+  --type-small: 0.8125rem;
+}
+
+/* Preserve browser zoom while avoiding unexpectedly small default text. */
+html {
+  font-size: 100%;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: var(--type-body);
+  line-height: var(--type-body-leading);
+  font-optical-sizing: auto;
+  font-kerning: normal;
+  font-variant-ligatures: common-ligatures contextual;
+  font-feature-settings: "kern" 1, "liga" 1, "calt" 1;
+  font-synthesis: none;
+}
+
+/* More considered line breaks for long school names, page titles, and copy. */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-kerning: normal;
+  text-wrap: balance;
+}
+
+p {
+  text-wrap: pretty;
+}
+
+/* Form controls should use the same typeface without overriding their size utilities. */
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+  font-kerning: inherit;
+}
+
+input,
+select,
+textarea {
+  letter-spacing: inherit;
+}
+
+/* Numeric data stays aligned in dashboards, tables, fees, and attendance summaries. */
+.tabular-nums,
+.metric-value,
+.app-workspace td,
+.app-workspace th {
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+/* Raise legacy micro-labels to a readable 12px floor inside the signed-in workspace. */
+.app-workspace [class~="text-[8px]"],
+.app-workspace [class~="text-[9px]"],
+.app-workspace [class~="text-[10px]"],
+.app-workspace [class~="text-[11px]"] {
+  font-size: var(--type-caption) !important;
+  line-height: 1.35 !important;
+}
+
+/* Small custom components had separate sizes; bring them onto one readable scale. */
+.badge-system,
+.widget-header {
+  font-size: var(--type-caption);
+  line-height: 1.4;
+}
+
+.action-btn {
+  font-size: var(--type-small);
+  line-height: 1.35;
+}
+
+.input-dark {
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+/* Lists and supporting content should be comfortable to scan in the workspace. */
+.app-workspace ul,
+.app-workspace ol,
+.app-workspace ul li,
+.app-workspace ol li {
+  font-size: 0.875rem;
+  line-height: 1.6;
+  letter-spacing: normal;
+}
+
+/* Keep code-like values crisp and visually distinct from product copy. */
+code,
+pre,
+kbd,
+samp {
+  font-family: var(--font-mono);
+  font-variant-ligatures: none;
+  font-feature-settings: "kern" 1, "liga" 0;
+}
+
+/* Do not animate typography or spacing when a user requests reduced motion. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
