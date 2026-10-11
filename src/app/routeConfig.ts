@@ -6,7 +6,7 @@ import {
   AttendanceSubSection
 } from './navigationConfig';
 
-export type PublicRouteId = 'landing' | 'login' | 'signup' | 'dashboard' | 'activate-teacher' | 'forgot-password' | 'reset-password';
+export type PublicRouteId = 'landing' | 'login' | 'signup' | 'dashboard' | 'activate-teacher' | 'forgot-password' | 'reset-password' | 'verify-email';
 
 export interface ParsedAppRoute {
   publicRoute: PublicRouteId;
@@ -71,6 +71,9 @@ export function parseAppLocation(pathname: string, search: string = ''): ParsedA
   }
   if (cleanPath === '/reset-password') {
     return { ...defaults, publicRoute: 'reset-password' };
+  }
+  if (cleanPath === '/verify-email') {
+    return { ...defaults, publicRoute: 'verify-email' };
   }
   if (cleanPath === '/') {
     return defaults;
