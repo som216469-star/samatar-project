@@ -2450,152 +2450,189 @@ app.get("/api/documentation-pdf", (req, res) => {
 });
 
 app.post("/api/auth/login", async (req, res) => {
-  const { email, password } = req.body;
-  if (!email || !password) return res.status(400).json({ error: "Fadlan geli email iyo password." });
-  const cleanEmail = email.trim().toLowerCase();
-  const db = loadLocalDB();
-  const localUser = db.users.find(u => u.email.toLowerCase() === cleanEmail);
+  const { email, password } = req.body || {};
+  if (!isValidEmailAddress(email) || typeof password !== "string" || password.length === 0) {
+    return res.status(400).json({ error: "Fadlan geli email sax ah iyo password." });
+  }
 
-  // 1. Supabase is the cloud source of truth when available.
+  const cleanEmail = email.trim().toLowerCase();
+  if (!(await ensureProductionAuthBackend(res))) return;
+
+  // Once cloud storage is active, it is the only credential source of truth.
+  // A stale local mirror must not let an old password bypass Supabase.
   if (!useLocalFallback && supabase) {
     try {
       const { data: user, error } = await supabase
         .from("dugsiga_users")
         .select("*")
-        .ilike("email", cleanEmail)
+        .eq("email", cleanEmail)
         .maybeSingle();
 
       if (error) {
-        if (error.message?.includes("fetch failed") || error.message?.includes("ENOTFOUND")) {
+        console.warn("Cloud login lookup failed:", error.message);
+        if (process.env.NODE_ENV !== "production" && (
+          error.message?.includes("fetch failed") || error.message?.includes("ENOTFOUND")
+        )) {
           useLocalFallback = true;
           customSupabaseActive = false;
-        }
-      } else if (user) {
-        const cloudCheck = await verifyPassword(password, user.password);
-        const localCheck = localUser
-          ? await verifyPassword(password, localUser.password_hash)
-          : { valid: false, needsRehash: false };
-
-        if (!cloudCheck.valid && !localCheck.valid) {
-          return res.status(400).json({ error: "Email ama password ayaa qalad ah." });
-        }
-
-        let upgradedHash: string | null = null;
-        if (cloudCheck.needsRehash || localCheck.needsRehash || !cloudCheck.valid) {
-          upgradedHash = await hashPassword(password);
-          await supabase
-            .from("dugsiga_users")
-            .update({ password: upgradedHash })
-            .ilike("email", cleanEmail);
-        }
-
-        const canonicalHash = upgradedHash || user.password;
-        const localIdx = db.users.findIndex(u => u.email.toLowerCase() === cleanEmail);
-        if (localIdx !== -1) {
-          db.users[localIdx].password_hash = canonicalHash;
-          db.users[localIdx].verified = true;
-          db.users[localIdx].role = user.role || db.users[localIdx].role || "admin";
-          db.users[localIdx].school_id = user.school_id || db.users[localIdx].school_id || cleanEmail;
-          db.users[localIdx].teacher_id = user.teacher_id || db.users[localIdx].teacher_id;
         } else {
-          db.users.push({
-            email: cleanEmail,
-            password_hash: canonicalHash,
-            verified: true,
-            role: user.role || "admin",
-            school_id: user.school_id || cleanEmail,
-            teacher_id: user.teacher_id
+          return res.status(503).json({
+            error: "Adeegga login-ka si ku-meel-gaar ah uma shaqaynayo. Fadlan mar kale isku day."
           });
         }
-        saveLocalDB(db);
+      } else {
+        if (!user) return res.status(401).json({ error: "Email ama password ayaa qalad ah." });
 
-        if (String(user.role || "").trim().toLowerCase() === "teacher" && user.teacher_id) {
-          const { data: cloudTeacher, error: teacherLookupError } = await supabase
+        const passwordCheck = await verifyPassword(password, user.password);
+        if (!passwordCheck.valid) {
+          return res.status(401).json({ error: "Email ama password ayaa qalad ah." });
+        }
+
+        let canonicalHash = user.password;
+        if (passwordCheck.needsRehash) {
+          canonicalHash = await hashPassword(password);
+          const { error: hashUpdateError } = await supabase
+            .from("dugsiga_users")
+            .update({ password: canonicalHash })
+            .eq("email", cleanEmail);
+          if (hashUpdateError) {
+            console.warn("Password hash upgrade failed:", hashUpdateError.message);
+            return res.status(503).json({
+              error: "Login-ka lama dhammaystiri karin hadda. Fadlan mar kale isku day."
+            });
+          }
+        }
+
+        const rawRole = String(user.role || "").trim().toLowerCase();
+        let userPayload: any;
+
+        if (rawRole === "teacher") {
+          if (!user.teacher_id) {
+            return res.status(403).json({ error: "Akoonka macallinka lama xiriirin diiwaan macallin oo sax ah." });
+          }
+
+          const { data: teacher, error: teacherError } = await supabase
             .from("dugsiga_teachers")
             .select("id, school_id, name, email, status, assigned_classes, assigned_subjects")
             .eq("id", user.teacher_id)
             .eq("school_id", user.school_id || cleanEmail)
             .maybeSingle();
 
-          if (teacherLookupError) {
-            console.warn("Teacher status lookup error:", teacherLookupError.message);
+          if (teacherError) {
+            console.warn("Teacher status lookup failed:", teacherError.message);
             return res.status(503).json({
-              error: "Akoonka macallinka lama xaqiijin karin hadda. Fadlan mar kale isku day."
+              error: "Xaaladda akoonka macallinka lama xaqiijin karin hadda."
             });
-          } else if (!cloudTeacher) {
+          }
+          if (!teacher) {
             return res.status(403).json({ error: "Akoonka macallinka lama helin ama waa la saaray." });
-          } else if (cloudTeacher.status === "DEACTIVATED" || cloudTeacher.status === "INACTIVE") {
-            return res.status(403).json({ error: "Akoonkaaga macallinka waa la hakiyey (Account deactivated). Fadlan la xiriir maamulka iskuulka." });
-          } else if (cloudTeacher.status === "INVITED") {
-            return res.status(403).json({ error: "Akoonkan weli lama dhaqaajin. Fadlan isticmaal link-gii casuumaadda." });
+          }
+          const teacherStatus = String(teacher.status || "ACTIVE").trim().toUpperCase();
+          if (teacherStatus !== "ACTIVE") {
+            return res.status(403).json({
+              error: teacherStatus === "INVITED"
+                ? "Akoonkan weli lama dhaqaajin. Fadlan isticmaal link-gii casuumaadda."
+                : "Akoonkaaga macallinka ma firfircoona. Fadlan la xiriir maamulka dugsiga."
+            });
           }
 
-          const teacherPayload: any = {
+          userPayload = {
             email: cleanEmail,
             role: "teacher",
-            name: cloudTeacher.name,
-            teacherId: cloudTeacher.id,
-            schoolId: cloudTeacher.school_id || user.school_id || cleanEmail,
-            assignedClasses: Array.isArray(cloudTeacher.assigned_classes) ? cloudTeacher.assigned_classes : [],
-            assignedSubjects: Array.isArray(cloudTeacher.assigned_subjects) ? cloudTeacher.assigned_subjects : []
+            name: teacher.name,
+            teacherId: teacher.id,
+            schoolId: String(teacher.school_id || user.school_id || "").trim(),
+            assignedClasses: Array.isArray(teacher.assigned_classes) ? teacher.assigned_classes : [],
+            assignedSubjects: Array.isArray(teacher.assigned_subjects) ? teacher.assigned_subjects : []
           };
-          const token = createSessionToken(teacherPayload);
-          setSessionCookie(req, res, token);
-          clearAuthRateLimit(`login:ip:${req.ip || "unknown"}:`);
-          clearAuthRateLimit(`login:account:${req.ip || "unknown"}:${cleanEmail}`);
-          return res.json({ success: true, user: teacherPayload });
+        } else {
+          const allowedAdminRoles = new Set(["admin", "school admin", "super admin", "principal"]);
+          if (!allowedAdminRoles.has(rawRole)) {
+            return res.status(403).json({ error: "Doorka akoonkan lama taageero." });
+          }
+
+          userPayload = {
+            email: cleanEmail,
+            role: user.role || "admin",
+            schoolId: String(user.school_id || cleanEmail)
+          };
         }
 
-        const authRes = buildAuthResponse(cleanEmail, db);
-        if (authRes.error) return res.status(403).json({ error: authRes.error });
-        if (!authRes.error && authRes.token) {
-          setSessionCookie(req, res, authRes.token);
-          const { token: _token, ...safeAuthResponse } = authRes;
-          clearAuthRateLimit(`login:ip:${req.ip || "unknown"}:`);
-          clearAuthRateLimit(`login:account:${req.ip || "unknown"}:${cleanEmail}`);
-          return res.json(safeAuthResponse);
+        if (!userPayload.schoolId) {
+          return res.status(403).json({ error: "Aqoonsiga dugsiga ee akoonka lama xaqiijin karin." });
         }
+
+        // Keep a local read-only compatibility mirror, but never authenticate from it
+        // while cloud mode is healthy.
+        const db = loadLocalDB();
+        const localIndex = db.users.findIndex(
+          (item: any) => String(item.email || "").trim().toLowerCase() === cleanEmail
+        );
+        const localRecord = {
+          email: cleanEmail,
+          password_hash: canonicalHash,
+          verified: true,
+          role: user.role,
+          school_id: user.school_id || cleanEmail,
+          teacher_id: user.teacher_id
+        };
+        if (localIndex >= 0) db.users[localIndex] = { ...db.users[localIndex], ...localRecord };
+        else db.users.push(localRecord);
+        saveLocalDB(db);
+
+        const token = createSessionToken(userPayload);
+        setSessionCookie(req, res, token);
         clearAuthRateLimit(`login:ip:${req.ip || "unknown"}:`);
         clearAuthRateLimit(`login:account:${req.ip || "unknown"}:${cleanEmail}`);
-        return res.json(authRes);
+        return res.json({ success: true, user: userPayload });
       }
-    } catch (e: any) {
-      if (e?.message?.includes("fetch failed") || e?.message?.includes("ENOTFOUND")) {
+    } catch (error: any) {
+      console.warn("Cloud login failed unexpectedly:", error?.message || error);
+      if (process.env.NODE_ENV === "production") {
+        return res.status(503).json({
+          error: "Adeegga login-ka si ku-meel-gaar ah uma shaqaynayo. Fadlan mar kale isku day."
+        });
+      }
+      if (error?.message?.includes("fetch failed") || error?.message?.includes("ENOTFOUND")) {
         useLocalFallback = true;
         customSupabaseActive = false;
       } else {
-        console.log("Supabase login check notice:", e?.message || e);
+        return res.status(503).json({ error: "Login-ka lama dhammaystiri karin hadda." });
       }
     }
   }
 
-  // 2. Secure local fallback with transparent legacy-hash upgrade.
-  if (localUser) {
-    const localCheck = await verifyPassword(password, localUser.password_hash);
-    if (!localCheck.valid) {
-      return res.status(400).json({ error: "Email ama password ayaa qalad ah." });
-    }
-
-    if (localCheck.needsRehash) {
-      localUser.password_hash = await hashPassword(password);
-      saveLocalDB(db);
-    }
-
-    const authRes = buildAuthResponse(cleanEmail, db);
-    if (authRes.error) return res.status(403).json({ error: authRes.error });
-    if (!authRes.error && authRes.token) {
-      setSessionCookie(req, res, authRes.token);
-      const { token: _token, ...safeAuthResponse } = authRes;
-      clearAuthRateLimit(`login:ip:${req.ip || "unknown"}:`);
-      clearAuthRateLimit(`login:account:${req.ip || "unknown"}:${cleanEmail}`);
-      return res.json(safeAuthResponse);
-    }
-    clearAuthRateLimit(`login:ip:${req.ip || "unknown"}:`);
-    clearAuthRateLimit(`login:account:${req.ip || "unknown"}:${cleanEmail}`);
-    return res.json(authRes);
+  // Local-file authentication is development-only; production was rejected above
+  // whenever the cloud database is not available.
+  const db = loadLocalDB();
+  const localUser = db.users.find(
+    (item: any) => String(item.email || "").trim().toLowerCase() === cleanEmail
+  );
+  if (!localUser) {
+    return res.status(401).json({ error: "Email ama password ayaa qalad ah." });
   }
 
-  return res.status(400).json({ error: "Email ama password ayaa qalad ah." });
+  const localCheck = await verifyPassword(password, localUser.password_hash);
+  if (!localCheck.valid) {
+    return res.status(401).json({ error: "Email ama password ayaa qalad ah." });
+  }
+  if (localCheck.needsRehash) {
+    localUser.password_hash = await hashPassword(password);
+    localUser.password_changed_at = new Date().toISOString();
+    saveLocalDB(db);
+  }
+
+  const authResponse = buildAuthResponse(cleanEmail, db);
+  if (authResponse.error) return res.status(403).json({ error: authResponse.error });
+  if (authResponse.token && authResponse.user) {
+    setSessionCookie(req, res, authResponse.token);
+    const { token: _token, ...safeAuthResponse } = authResponse;
+    clearAuthRateLimit(`login:ip:${req.ip || "unknown"}:`);
+    clearAuthRateLimit(`login:account:${req.ip || "unknown"}:${cleanEmail}`);
+    return res.json(safeAuthResponse);
+  }
+
+  return res.status(401).json({ error: "Email ama password ayaa qalad ah." });
 });
 
 
