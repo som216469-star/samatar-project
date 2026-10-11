@@ -32,7 +32,15 @@ for (const unsupportedRole of ["Accountant", "Principal", "Receptionist", "Libra
 }
 
 assertContains(server, 'if (pathName === "/user/profile" || pathName === "/auth/logout") return null;', "profile/logout exceptions stay explicit");
-assertContains(server, 'return "system.admin";', "unknown routes are administrator-only by default");
+const routePolicyStart = server.indexOf("function requiredPermissionForRequest(");
+const routePolicyEnd = server.indexOf("// Password hashing is centralized", routePolicyStart);
+if (routePolicyStart < 0 || routePolicyEnd <= routePolicyStart) {
+  throw new Error("RBAC security contract failed: API route policy boundaries not found");
+}
+const routePolicy = server.slice(routePolicyStart, routePolicyEnd).trim();
+if (!/return "system\\.admin";\\s*}\\s*$/.test(routePolicy)) {
+  throw new Error("RBAC security contract failed: unclassified endpoints must be administrator-only");
+}
 assertContains(server, "if (!hasPermission(authUser.role, requiredPermission))", "central API middleware enforces the permission map");
 assertContains(server, 'normalizeRole(authUser.role) === "admin"', "sensitive student fields are admin-only");
 assertContains(server, "const normalizedCloudRole = normalizeRole(String(user.role || \"\"));", "cloud login canonicalizes the database role");
