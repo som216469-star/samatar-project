@@ -98,7 +98,7 @@ Do this only after online attendance is reliable.
 
 - Queue only explicitly supported offline actions (initially attendance), with unique idempotency keys, created-at timestamps, retry limits and visible sync status.
 - On reconnect, validate permissions again on the server and handle conflicts visibly; never silently overwrite newer server records.
-- Add push notifications via Expo Notifications only with user permission and a server-side device-token registry. Do not put sensitive student information in lock-screen notification text by default.
+- Add push notifications through Capacitor Push Notifications only with user permission and a server-side device-token registry. Do not put sensitive student information in lock-screen notification text by default.
 
 **Gate:** airplane-mode attendance can be queued and synced without duplicates; conflicts and failed syncs remain visible; revoked users cannot continue syncing protected writes.
 
