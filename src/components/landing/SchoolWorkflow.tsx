@@ -57,7 +57,7 @@ export default function SchoolWorkflow() {
       short: 'Automated marks',
       icon: Award,
       detail:
-        'Subject instructors enter term exam scores; Dugsi Pro computes percentages and assigns A, B, C, D, or Fail grades.',
+        'Subject instructors enter term exam scores; Quantora computes percentages and assigns A, B, C, D, or Fail grades.',
     },
     {
       index: '07',
