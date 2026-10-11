@@ -12,7 +12,7 @@ export default function AnnouncementBar({ onNavigate, isAuthenticated }: Announc
       <div className="max-w-7xl mx-auto flex items-center justify-center gap-2 text-center text-[#94a3b8]">
         <span className="inline-flex items-center gap-1.5 font-medium text-white">
           <Sparkles className="w-3.5 h-3.5 text-[#a78bfa]" />
-          <span className="font-semibold">DUGSI PRO 2026</span>
+          <span className="font-semibold">QUANTORA</span>
         </span>
         <span className="text-white/20 hidden sm:inline">•</span>
         <span className="hidden sm:inline">Modern School Management Made Simple</span>
