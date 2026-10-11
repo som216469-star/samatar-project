@@ -19,8 +19,8 @@ DUGSI PRO 2026 is a modern school management web application for students, atten
 Prerequisites: Node.js 22+
 
 ```bash
-npm ci
-npm run dev
+bun install
+bun run dev
 ```
 
 The development server runs the Vite SPA through Express.
@@ -28,9 +28,9 @@ The development server runs the Vite SPA through Express.
 ## Production build
 
 ```bash
-npm ci
-npm run build
-npm start
+bun install
+bun run build
+bun run start
 ```
 
 The production server serves the compiled SPA and API from the same Express process.
@@ -40,28 +40,28 @@ The production server serves the compiled SPA and API from the same Express proc
 The repository includes:
 
 ```bash
-npm run lint
-npm run test:students-contract
+bun run lint
+bun run test:students-contract
 node scripts/server-smoke.mjs
-npm run build
+bun run build
 ```
 
 The GitHub Actions workflow runs type-checking, student production contract checks, the production build, the runtime smoke test, and a production dependency audit.
 
 ## Render deployment
 
-The repository includes `render.yaml` for a Render web service.
+The repository includes `render.yaml` for a Render web service. Bun 1.4.2 is the package manager used by Render and CI.
 
 Build command:
 
 ```
-npm ci && npm run build
+bun install && bun run build
 ```
 
 Start command:
 
 ```
-npm start
+bun run start
 ```
 
 The Render service is configured for Node 22, production mode, and a health check on `/`.
