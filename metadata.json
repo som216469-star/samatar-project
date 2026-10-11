@@ -1,6 +1,6 @@
 {
-  "name": "DUGSI PRO 2026",
-  "description": "Run your school smarter with DUGSI PRO 2026. Manage students, attendance, fees, exams, results, staff, and everyday school operations in one modern platform.",
+  "name": "Quantora",
+  "description": "Run your school smarter with Quantora. Manage students, attendance, fees, exams, results, staff, and everyday school operations in one modern platform.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

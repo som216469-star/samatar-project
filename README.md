@@ -1,6 +1,6 @@
-# DUGSI PRO 2026
+# Quantora
 
-DUGSI PRO 2026 is a modern school management web application for students, attendance, academics, finance, staff, admissions, library, inventory, reports, and school operations.
+Quantora is a modern school management web application for students, attendance, academics, finance, staff, admissions, library, inventory, reports, and school operations.
 
 ## Stack
 

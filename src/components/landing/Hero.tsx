@@ -64,7 +64,7 @@ export default function Hero({ onNavigate, isAuthenticated, onViewDemo }: HeroPr
 
           {/* Supporting paragraph */}
           <p className="text-base sm:text-lg md:text-xl text-[#94a3b8] max-w-2xl mx-auto leading-relaxed mb-9 font-normal">
-            Dugsi Pro brings student registries, twice-daily attendance, exam grading, tuition billing, and staff operations into one cohesive institutional workspace.
+            Quantora brings student registries, twice-daily attendance, exam grading, tuition billing, and staff operations into one cohesive institutional workspace.
           </p>
 
           {/* Primary & Secondary CTAs */}
@@ -109,7 +109,7 @@ export default function Hero({ onNavigate, isAuthenticated, onViewDemo }: HeroPr
                   <span className="w-2.5 h-2.5 rounded-full bg-white/15" />
                 </div>
                 <span className="ml-2 text-xs font-mono text-[#94a3b8] truncate">
-                  DUGSI PRO · Al-Nuur Academy Workspace
+                  QUANTORA · Al-Nuur Academy Workspace
                 </span>
               </div>
 

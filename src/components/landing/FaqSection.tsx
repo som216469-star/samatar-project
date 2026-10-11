@@ -42,8 +42,8 @@ export default function FaqSection() {
 
   const faqs = [
     {
-      q: 'What school operations can be managed inside Dugsi Pro?',
-      a: 'Dugsi Pro unifies 12 core institutional modules: Student Directory & Profiles, Admissions Pipeline, Classes & Subjects, Weekly Timetables, Multi-Session Attendance (Morning & Afternoon), Examinations & Automated Grading, Tuition Invoicing & Payment Receipts, Expenses & Payroll, Library Lending, Asset Inventory, Announcements, and Official PDF Reports.',
+      q: 'What school operations can be managed inside Quantora?',
+      a: 'Quantora unifies 12 core institutional modules: Student Directory & Profiles, Admissions Pipeline, Classes & Subjects, Weekly Timetables, Multi-Session Attendance (Morning & Afternoon), Examinations & Automated Grading, Tuition Invoicing & Payment Receipts, Expenses & Payroll, Library Lending, Asset Inventory, Announcements, and Official PDF Reports.',
     },
     {
       q: 'How is our school data kept private and isolated from other schools?',
@@ -59,10 +59,10 @@ export default function FaqSection() {
     },
     {
       q: 'Do teachers see school financial records or payroll?',
-      a: 'No. Dugsi Pro enforces strict Role-Based Access Control (RBAC). Teachers only access their assigned classrooms, attendance sheets, exam score entry, and timetables. Financial ledgers, payroll, and system settings are restricted to authorized administrators and bursars.',
+      a: 'No. Quantora enforces strict Role-Based Access Control (RBAC). Teachers only access their assigned classrooms, attendance sheets, exam score entry, and timetables. Financial ledgers, payroll, and system settings are restricted to authorized administrators and bursars.',
     },
     {
-      q: 'Can Dugsi Pro generate printable PDF report cards and fee receipts?',
+      q: 'Can Quantora generate printable PDF report cards and fee receipts?',
       a: 'Yes. The platform includes built-in PDF and Excel engines that generate official student report cards with principal remarks, printable tuition receipts, attendance statements, and financial audit summaries.',
     },
   ];

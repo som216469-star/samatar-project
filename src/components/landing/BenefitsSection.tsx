@@ -17,7 +17,7 @@ export default function BenefitsSection() {
       metricFigure: '100%',
       metricContext: 'Visibility into daily attendance and monthly tuition collections across all grades',
       quote:
-        'Before Dugsi Pro, reconciling monthly tuition collections with classroom rosters took four days every month. Now our registrar and bursar work from the exact same live ledger.',
+        'Before Quantora, reconciling monthly tuition collections with classroom rosters took four days every month. Now our registrar and bursar work from the exact same live ledger.',
       author: 'macallin Cumar Xaaji',
       roleTitle: 'Principal, Al-Nuur Secondary Academy (640 Students)',
     },
@@ -53,7 +53,7 @@ export default function BenefitsSection() {
       metricFigure: '+28%',
       metricContext: 'Increase in on-time monthly tuition collection within the first academic term',
       quote:
-        'Tracking partial tuition payments used to be our biggest source of disputes. Dugsi Pro logs every payment timestamp and lets us send instant WhatsApp receipts to parents.',
+        'Tracking partial tuition payments used to be our biggest source of disputes. Quantora logs every payment timestamp and lets us send instant WhatsApp receipts to parents.',
       author: 'Axmed Warsame Cali',
       roleTitle: 'Senior Bursar, Barwaaqo Educational Institute',
     },

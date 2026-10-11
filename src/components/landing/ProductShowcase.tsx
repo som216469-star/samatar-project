@@ -85,7 +85,7 @@ export default function ProductShowcase() {
               <span className="w-2.5 h-2.5 rounded-full bg-white/15" />
               <span className="w-2.5 h-2.5 rounded-full bg-white/15" />
               <span className="ml-3 text-xs font-mono text-[#64748b]">
-                dugsipro.app/workspace/{activeTab}
+                /workspace/{activeTab}
               </span>
             </div>
             <div className="text-xs font-mono text-[#94a3b8]">

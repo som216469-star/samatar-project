@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function WhyDugsiPro() {
+export default function WhyQuantora() {
   const principles = [
     {
       index: '01',
@@ -54,7 +54,7 @@ export default function WhyDugsiPro() {
             Engineered for institutional trust and longevity.
           </h2>
           <p className="text-base sm:text-lg text-[#94a3b8] leading-relaxed">
-            Dugsi Pro combines modern web performance with strict security boundaries so your school’s academic and financial history remains protected year after year.
+            Quantora combines modern web performance with strict security boundaries so your school’s academic and financial history remains protected year after year.
           </p>
         </div>
 

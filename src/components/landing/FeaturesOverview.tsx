@@ -43,7 +43,7 @@ export default function FeaturesOverview({
             Every operational department, connected out of the box.
           </h2>
           <p className="text-base sm:text-lg text-[#94a3b8] leading-relaxed">
-            Beyond core academics and finance, Dugsi Pro equips your institution with dedicated modules for admissions, scheduling, library lending, asset tracking, communications, and role security.
+            Beyond core academics and finance, Quantora equips your institution with dedicated modules for admissions, scheduling, library lending, asset tracking, communications, and role security.
           </p>
         </div>
 

@@ -70,7 +70,8 @@ export default function Navbar({
           onClick={() => handleNavClick('hero')}
           className="text-left text-lg font-bold tracking-tight text-white hover:text-[#cbd5e1] transition-colors duration-150 cursor-pointer whitespace-nowrap shrink-0 landing-display flex items-center gap-2.5"
         >
-          <span>DugsiPro</span>
+          <img src="/brand-mark.svg" alt="" className="h-8 w-8 rounded-lg shadow-sm" />
+          <span>Quantora</span>
           <span className="badge-system">v2026.04</span>
         </button>
 

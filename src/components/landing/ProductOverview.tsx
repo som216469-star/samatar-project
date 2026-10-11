@@ -192,7 +192,7 @@ export default function ProductOverview({
           One platform for your entire school.
         </h2>
         <p className="text-base sm:text-lg text-[#94a3b8] leading-relaxed">
-          Dugsi Pro is architected around a single institutional data core. When a registrar enrolls a student or a bursar records a payment, every connected module updates immediately without duplicate entry.
+          Quantora is architected around a single institutional data core. When a registrar enrolls a student or a bursar records a payment, every connected module updates immediately without duplicate entry.
         </p>
       </div>
 
