@@ -10,6 +10,7 @@ import { registerFinanceRoutes } from "./server/financeRoutes.ts";
 import {
   getAuthenticatedUser,
   createSessionToken,
+  generateSecureToken,
   hashPassword,
   verifyPassword,
   requireAuthenticatedRequest,
@@ -17,6 +18,7 @@ import {
   revokeSession,
   validatePassword
 } from "./server/authSession.ts";
+import { sendPasswordResetEmail } from "./server/emailService.ts";
 
 // Load environment variables
 dotenv.config({ override: true });
@@ -124,6 +126,23 @@ function consumeAuthRateLimit(key: string, maxAttempts: number, windowMs: number
   retryAfterSeconds: number;
 } {
   const now = Date.now();
+
+  // Bound in-memory limiter growth when attackers rotate email values or route keys.
+  if (authRateBuckets.size > 1000) {
+    for (const [bucketKey, bucket] of authRateBuckets) {
+      if (bucket.resetAt <= now) authRateBuckets.delete(bucketKey);
+    }
+    if (authRateBuckets.size > 5000) {
+      const removeCount = authRateBuckets.size - 4000;
+      let removed = 0;
+      for (const bucketKey of authRateBuckets.keys()) {
+        authRateBuckets.delete(bucketKey);
+        removed += 1;
+        if (removed >= removeCount) break;
+      }
+    }
+  }
+
   const current = authRateBuckets.get(key);
 
   if (!current || current.resetAt <= now) {
@@ -152,7 +171,7 @@ function clearAuthRateLimit(keyPrefix: string) {
 }
 
 const SESSION_COOKIE_NAME = "dugsi_session";
-const SESSION_MAX_AGE_SECONDS = 12 * 60 * 60;
+const SESSION_MAX_AGE_SECONDS = 8 * 60 * 60;
 
 function requestIsHttps(req: express.Request): boolean {
   const forwardedProto = String(req.headers["x-forwarded-proto"] || "")
@@ -246,6 +265,28 @@ app.use("/api", (req, res, next) => {
     }
   }
 
+  if (req.method === "POST" && pathName === "/auth/forgot-password") {
+    const ip = req.ip || "unknown";
+    const limit = consumeAuthRateLimit(`password-reset:ip:${ip}`, 5, 15 * 60 * 1000);
+    if (!limit.allowed) {
+      res.setHeader("Retry-After", String(limit.retryAfterSeconds));
+      return res.status(429).json({
+        error: "Codsiyo badan ayaa la sameeyay. Fadlan sug ka hor intaadan mar kale isku dayin."
+      });
+    }
+  }
+
+  if (req.method === "POST" && pathName === "/auth/reset-password") {
+    const ip = req.ip || "unknown";
+    const limit = consumeAuthRateLimit(`password-change:ip:${ip}`, 10, 15 * 60 * 1000);
+    if (!limit.allowed) {
+      res.setHeader("Retry-After", String(limit.retryAfterSeconds));
+      return res.status(429).json({
+        error: "Isku-dayo badan ayaa la sameeyay. Fadlan sug ka hor intaadan mar kale isku dayin."
+      });
+    }
+  }
+
   if (req.method === "POST" && pathName === "/teachers/activate-account") {
     const ip = req.ip || "unknown";
     const limit = consumeAuthRateLimit(`activation:ip:${ip}`, 10, 60 * 60 * 1000);
@@ -312,6 +353,9 @@ interface LocalDB {
     password_hash: string;
     verified: boolean;
     verification_code?: string;
+    password_reset_token_hash?: string | null;
+    password_reset_expires_at?: string | null;
+    password_changed_at?: string | null;
     role?: string;
     school_id?: string;
     teacher_id?: string;
@@ -456,46 +500,60 @@ function getSchoolId(req: express.Request): string {
 }
 
 function buildAuthResponse(cleanEmail: string, db: any) {
-  // Check if user is a teacher
-  const teacher = (db.teachers || []).find((t: any) => (t.email || "").toLowerCase() === cleanEmail);
+  const userRecord = (db.users || []).find(
+    (u: any) => String(u.email || "").trim().toLowerCase() === cleanEmail
+  );
+  if (!userRecord) {
+    return { error: "Email ama password ayaa qalad ah." };
+  }
+
+  const teacher = (db.teachers || []).find(
+    (item: any) => String(item.email || "").trim().toLowerCase() === cleanEmail
+  );
   if (teacher) {
-    if (teacher.status === "DEACTIVATED") {
-      return { error: "Akoonkaaga macallinka waa la hakiyey (Account deactivated). Fadlan la xiriir maamulka iskuulka." };
+    const status = String(teacher.status || "ACTIVE").trim().toUpperCase();
+    if (status !== "ACTIVE") {
+      return {
+        error: status === "INVITED"
+          ? "Akoonkan weli lama dhaqaajin. Fadlan isticmaal link-gii casuumaadda ee email-kaaga laguugu soo diray."
+          : "Akoonkaaga macallinka ma firfircoona. Fadlan la xiriir maamulka dugsiga."
+      };
     }
-    if (teacher.status === "INVITED") {
-      return { error: "Akoonkan weli lama dhaqaajin. Fadlan isticmaal link-gii casuumaadda ee email-kaaga laguugu soo diray si aad u samaysato password." };
-    }
+
     teacher.lastLoginAt = new Date().toISOString();
     const userPayload: any = {
       email: cleanEmail,
       role: "teacher",
       name: teacher.name,
       teacherId: teacher.id,
-      schoolId: teacher.schoolId || cleanEmail,
-      assignedClasses: teacher.assignedClasses || [],
-      assignedSubjects: teacher.assignedSubjects || []
+      schoolId: String(teacher.schoolId || userRecord.school_id || "").trim(),
+      assignedClasses: Array.isArray(teacher.assignedClasses) ? teacher.assignedClasses : [],
+      assignedSubjects: Array.isArray(teacher.assignedSubjects) ? teacher.assignedSubjects : []
     };
+    if (!userPayload.schoolId) {
+      return { error: "Aqoonsiga dugsiga ee akoonka lama xaqiijin karin." };
+    }
     const token = createSessionToken(userPayload);
-    return {
-      success: true,
-      token,
-      user: userPayload
-    };
+    return { success: true, token, user: userPayload };
   }
 
-  // Otherwise school administrator
-  const userRecord = (db.users || []).find((u: any) => (u.email || "").toLowerCase() === cleanEmail);
+  const rawRole = String(userRecord.role || "admin").trim().toLowerCase();
+  const allowedAdminRoles = new Set(["admin", "school admin", "super admin", "principal"]);
+  if (!allowedAdminRoles.has(rawRole)) {
+    return { error: "Doorka akoonkan lama taageero. Fadlan la xiriir maamulka dugsiga." };
+  }
+  const schoolId = String(userRecord.school_id || "").trim();
+  if (!schoolId) {
+    return { error: "Aqoonsiga dugsiga ee akoonka lama xaqiijin karin." };
+  }
+
   const userPayload: any = {
     email: cleanEmail,
-    role: userRecord?.role || "admin",
-    schoolId: userRecord?.school_id || cleanEmail
+    role: rawRole === "admin" ? "admin" : userRecord.role,
+    schoolId
   };
   const token = createSessionToken(userPayload);
-  return {
-    success: true,
-    token,
-    user: userPayload
-  };
+  return { success: true, token, user: userPayload };
 }
 
 const supabaseTableCheckErrors: Record<string, { code: string; message: string }> = {};
@@ -713,6 +771,49 @@ async function checkSupabaseStatus() {
 
 checkSupabaseStatus();
 
+function isValidEmailAddress(value: unknown): value is string {
+  if (typeof value !== "string" || value.length > 254) return false;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
+
+function getTrustedAppOrigin(req: express.Request): string | null {
+  const configured = String(process.env.APP_URL || "").trim();
+  if (configured) {
+    try {
+      const url = new URL(configured);
+      if (url.username || url.password) return null;
+      if (url.protocol === "https:" || (process.env.NODE_ENV !== "production" && url.protocol === "http:")) {
+        return url.origin;
+      }
+    } catch {
+      return null;
+    }
+    return null;
+  }
+
+  // In production, never construct a bearer-token URL from an untrusted Host header.
+  if (process.env.NODE_ENV === "production") return null;
+  const protocol = req.secure || req.headers["x-forwarded-proto"] === "https" ? "https" : "http";
+  const host = req.get("host") || "localhost:3000";
+  return `${protocol}://${host}`;
+}
+
+async function ensureProductionAuthBackend(res: express.Response): Promise<boolean> {
+  if (process.env.NODE_ENV !== "production") return true;
+
+  // Production authentication must never silently fall back to ephemeral JSON files.
+  if (!supabase || useLocalFallback) {
+    await checkSupabaseStatus();
+  }
+  if (!supabase || useLocalFallback) {
+    res.status(503).json({
+      error: "Adeegga xaqiijinta akoonka si ku-meel-gaar ah uma shaqaynayo. Fadlan mar kale isku day."
+    });
+    return false;
+  }
+  return true;
+}
+
 const SQL_SETUP_SCRIPT = `
 -- =========================================================================
 -- DUGSI PRO 2026 — PRODUCTION SAFE NON-DESTRUCTIVE DATABASE SETUP
@@ -729,8 +830,20 @@ CREATE TABLE IF NOT EXISTS dugsiga_users (
   school_id TEXT,
   teacher_id TEXT,
   verification_code TEXT,
+  password_reset_token_hash TEXT,
+  password_reset_expires_at TIMESTAMPTZ,
+  password_changed_at TIMESTAMPTZ,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+ALTER TABLE public.dugsiga_users
+  ADD COLUMN IF NOT EXISTS password_reset_token_hash TEXT,
+  ADD COLUMN IF NOT EXISTS password_reset_expires_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS password_changed_at TIMESTAMPTZ;
+
+CREATE INDEX IF NOT EXISTS idx_dugsiga_users_password_reset_expiry
+  ON public.dugsiga_users (password_reset_expires_at)
+  WHERE password_reset_token_hash IS NOT NULL;
 
 -- 2. Students Table
 CREATE TABLE IF NOT EXISTS dugsiga_students (
@@ -2059,6 +2172,8 @@ async function getStudentDependencyIds(studentIds: string[], schoolId: string): 
 const PUBLIC_API_PATHS = [
   /^\/auth\/signup$/,
   /^\/auth\/login$/,
+  /^\/auth\/forgot-password$/,
+  /^\/auth\/reset-password$/,
   /^\/auth\/verify$/,
   /^\/teachers\/verify-invitation\/[^/]+$/,
   /^\/teachers\/activate-account$/
@@ -2228,85 +2343,121 @@ app.get("/api/supabase-server-test", expressWithSupabase({ auth: "none" }, async
 }));
 
 app.post("/api/auth/signup", async (req, res) => {
-  const { email, password } = req.body;
-  if (!email || !password || !email.includes("@")) {
-    return res.status(400).json({ error: "Email sax ah iyo password fadlan geli." });
+  const { email, password } = req.body || {};
+  if (!isValidEmailAddress(email) || typeof password !== "string" || !password) {
+    return res.status(400).json({ error: "Fadlan geli email sax ah iyo password." });
   }
+
   const cleanEmail = email.trim().toLowerCase();
   const passwordValidation = validatePassword(password);
   if (!passwordValidation.valid) {
     return res.status(400).json({ error: passwordValidation.error });
   }
-  const passwordHash = await hashPassword(password);
+  if (!(await ensureProductionAuthBackend(res))) return;
 
   const db = loadLocalDB();
-  const existingLocalUser = db.users.find(u => u.email.toLowerCase() === cleanEmail);
-  if (existingLocalUser) {
-    return res.status(400).json({ error: "Email-kan horey ayaa loo diiwaangeliyey. Fadlan 'Sign In' ku gal." });
-  }
+  const passwordHash = await hashPassword(password);
+  let cloudAccountCreated = false;
 
-  // If Supabase is connected, attempt check & sync to Supabase
   if (!useLocalFallback && supabase) {
-    try {
-      const { data: existingUser, error: selectErr } = await supabase
-        .from("dugsiga_users")
-        .select("email")
-        .ilike("email", cleanEmail)
-        .maybeSingle();
+    const { data: existingUser, error: lookupError } = await supabase
+      .from("dugsiga_users")
+      .select("email")
+      .eq("email", cleanEmail)
+      .maybeSingle();
 
-      if (selectErr) {
-        if (selectErr.message?.includes("fetch failed") || selectErr.message?.includes("ENOTFOUND")) {
-          useLocalFallback = true;
-          customSupabaseActive = false;
-        }
-      } else if (existingUser) {
-        return res.status(400).json({ error: "Email-kan horey ayaa loo diiwaangeliyey. Fadlan 'Sign In' ku gal." });
-      }
-
-      if (!useLocalFallback) {
-        const { error: insertError } = await supabase.from("dugsiga_users").insert([{
-          email: cleanEmail, password: passwordHash, verified: true, role: "admin", school_id: cleanEmail
-        }]);
-
-        if (insertError) {
-          if (insertError.code === "23505") {
-            return res.status(400).json({ error: "Email-kan horey ayaa loo diiwaangeliyey. Fadlan 'Sign In' ku gal." });
-          }
-          if (insertError.message?.includes("fetch failed") || insertError.message?.includes("ENOTFOUND")) {
-            useLocalFallback = true;
-            customSupabaseActive = false;
-          } else {
-            console.log("Supabase auth insert notice:", insertError.message);
-          }
-        }
-      }
-    } catch (sbErr: any) {
-      if (sbErr?.message?.includes("fetch failed") || sbErr?.message?.includes("ENOTFOUND")) {
+    if (lookupError) {
+      console.warn("Signup account lookup failed:", lookupError.message);
+      if (process.env.NODE_ENV !== "production" && (
+        lookupError.message?.includes("fetch failed") || lookupError.message?.includes("ENOTFOUND")
+      )) {
         useLocalFallback = true;
         customSupabaseActive = false;
       } else {
-        console.log("Supabase auth notice:", sbErr?.message || sbErr);
+        return res.status(503).json({
+          error: "Adeegga diiwaangelintu si ku-meel-gaar ah uma shaqaynayo. Fadlan mar kale isku day."
+        });
+      }
+    } else if (existingUser) {
+      return res.status(409).json({
+        error: "Email-kan horey ayaa loo diiwaangeliyey. Fadlan 'Sign In' ku gal."
+      });
+    }
+
+    if (!useLocalFallback) {
+      const { error: insertError } = await supabase.from("dugsiga_users").insert([{
+        email: cleanEmail,
+        password: passwordHash,
+        verified: true,
+        role: "admin",
+        school_id: cleanEmail
+      }]);
+
+      if (insertError) {
+        if (insertError.code === "23505") {
+          return res.status(409).json({
+            error: "Email-kan horey ayaa loo diiwaangeliyey. Fadlan 'Sign In' ku gal."
+          });
+        }
+        console.warn("Signup account creation failed:", insertError.message);
+        if (process.env.NODE_ENV !== "production" && (
+          insertError.message?.includes("fetch failed") || insertError.message?.includes("ENOTFOUND")
+        )) {
+          useLocalFallback = true;
+          customSupabaseActive = false;
+        } else {
+          return res.status(503).json({
+            error: "Akoonka lama abuuri karin hadda. Fadlan mar kale isku day."
+          });
+        }
+      } else {
+        cloudAccountCreated = true;
       }
     }
   }
 
-  // Always ensure user is saved in local database for seamless offline resilience
-  if (!db.users.some(u => u.email.toLowerCase() === cleanEmail)) {
-    db.users.push({
-      email: cleanEmail,
-      password_hash: passwordHash,
-      verified: true,
-      role: "admin",
-      school_id: cleanEmail
+  if (process.env.NODE_ENV === "production" && !cloudAccountCreated) {
+    return res.status(503).json({
+      error: "Diiwaangelinta ammaan ahaan lama dhammaystiri karin. Fadlan mar kale isku day."
     });
-    saveLocalDB(db);
   }
 
-  res.json({
+  if (useLocalFallback && db.users.some(
+    (user: any) => String(user.email || "").trim().toLowerCase() === cleanEmail
+  )) {
+    return res.status(409).json({
+      error: "Email-kan horey ayaa loo diiwaangeliyey. Fadlan 'Sign In' ku gal."
+    });
+  }
+
+  const nowIso = new Date().toISOString();
+  const userRecord = {
+    email: cleanEmail,
+    password_hash: passwordHash,
+    verified: true,
+    role: "admin",
+    school_id: cleanEmail,
+    password_changed_at: nowIso,
+    password_reset_token_hash: null,
+    password_reset_expires_at: null
+  };
+  const localIndex = db.users.findIndex(
+    (user: any) => String(user.email || "").trim().toLowerCase() === cleanEmail
+  );
+  if (localIndex >= 0) db.users[localIndex] = { ...db.users[localIndex], ...userRecord };
+  else db.users.push(userRecord);
+  saveLocalDB(db);
+
+  // Registration returns a real server-issued session. The browser must not
+  // enter the protected workspace based only on a client-side user object.
+  const userPayload = { email: cleanEmail, role: "admin", schoolId: cleanEmail };
+  const sessionToken = createSessionToken(userPayload);
+  setSessionCookie(req, res, sessionToken);
+
+  return res.status(201).json({
     success: true,
-    message: "Diiwaangelintu way guuleysatay! Hadda geli kartaa.",
-    emailSent: false,
-    user: { email: cleanEmail }
+    message: "Diiwaangelintu way guuleysatay. Akoonkaaga waa la furay.",
+    user: userPayload
   });
 });
 
@@ -2334,154 +2485,431 @@ app.get("/api/documentation-pdf", (req, res) => {
 });
 
 app.post("/api/auth/login", async (req, res) => {
-  const { email, password } = req.body;
-  if (!email || !password) return res.status(400).json({ error: "Fadlan geli email iyo password." });
-  const cleanEmail = email.trim().toLowerCase();
-  const db = loadLocalDB();
-  const localUser = db.users.find(u => u.email.toLowerCase() === cleanEmail);
+  const { email, password } = req.body || {};
+  if (!isValidEmailAddress(email) || typeof password !== "string" || password.length === 0) {
+    return res.status(400).json({ error: "Fadlan geli email sax ah iyo password." });
+  }
 
-  // 1. Supabase is the cloud source of truth when available.
+  const cleanEmail = email.trim().toLowerCase();
+  if (!(await ensureProductionAuthBackend(res))) return;
+
+  // Once cloud storage is active, it is the only credential source of truth.
+  // A stale local mirror must not let an old password bypass Supabase.
   if (!useLocalFallback && supabase) {
     try {
       const { data: user, error } = await supabase
         .from("dugsiga_users")
         .select("*")
-        .ilike("email", cleanEmail)
+        .eq("email", cleanEmail)
         .maybeSingle();
 
       if (error) {
-        if (error.message?.includes("fetch failed") || error.message?.includes("ENOTFOUND")) {
+        console.warn("Cloud login lookup failed:", error.message);
+        if (process.env.NODE_ENV !== "production" && (
+          error.message?.includes("fetch failed") || error.message?.includes("ENOTFOUND")
+        )) {
           useLocalFallback = true;
           customSupabaseActive = false;
-        }
-      } else if (user) {
-        const cloudCheck = await verifyPassword(password, user.password);
-        const localCheck = localUser
-          ? await verifyPassword(password, localUser.password_hash)
-          : { valid: false, needsRehash: false };
-
-        if (!cloudCheck.valid && !localCheck.valid) {
-          return res.status(400).json({ error: "Email ama password ayaa qalad ah." });
-        }
-
-        let upgradedHash: string | null = null;
-        if (cloudCheck.needsRehash || localCheck.needsRehash || !cloudCheck.valid) {
-          upgradedHash = await hashPassword(password);
-          await supabase
-            .from("dugsiga_users")
-            .update({ password: upgradedHash })
-            .ilike("email", cleanEmail);
-        }
-
-        const canonicalHash = upgradedHash || user.password;
-        const localIdx = db.users.findIndex(u => u.email.toLowerCase() === cleanEmail);
-        if (localIdx !== -1) {
-          db.users[localIdx].password_hash = canonicalHash;
-          db.users[localIdx].verified = true;
-          db.users[localIdx].role = user.role || db.users[localIdx].role || "admin";
-          db.users[localIdx].school_id = user.school_id || db.users[localIdx].school_id || cleanEmail;
-          db.users[localIdx].teacher_id = user.teacher_id || db.users[localIdx].teacher_id;
         } else {
-          db.users.push({
-            email: cleanEmail,
-            password_hash: canonicalHash,
-            verified: true,
-            role: user.role || "admin",
-            school_id: user.school_id || cleanEmail,
-            teacher_id: user.teacher_id
+          return res.status(503).json({
+            error: "Adeegga login-ka si ku-meel-gaar ah uma shaqaynayo. Fadlan mar kale isku day."
           });
         }
-        saveLocalDB(db);
+      } else {
+        if (!user) return res.status(401).json({ error: "Email ama password ayaa qalad ah." });
 
-        if (String(user.role || "").trim().toLowerCase() === "teacher" && user.teacher_id) {
-          const { data: cloudTeacher, error: teacherLookupError } = await supabase
+        const passwordCheck = await verifyPassword(password, user.password);
+        if (!passwordCheck.valid) {
+          return res.status(401).json({ error: "Email ama password ayaa qalad ah." });
+        }
+
+        let canonicalHash = user.password;
+        if (passwordCheck.needsRehash) {
+          canonicalHash = await hashPassword(password);
+          const { error: hashUpdateError } = await supabase
+            .from("dugsiga_users")
+            .update({ password: canonicalHash })
+            .eq("email", cleanEmail);
+          if (hashUpdateError) {
+            console.warn("Password hash upgrade failed:", hashUpdateError.message);
+            return res.status(503).json({
+              error: "Login-ka lama dhammaystiri karin hadda. Fadlan mar kale isku day."
+            });
+          }
+        }
+
+        const rawRole = String(user.role || "").trim().toLowerCase();
+        let userPayload: any;
+
+        if (rawRole === "teacher") {
+          if (!user.teacher_id) {
+            return res.status(403).json({ error: "Akoonka macallinka lama xiriirin diiwaan macallin oo sax ah." });
+          }
+
+          const { data: teacher, error: teacherError } = await supabase
             .from("dugsiga_teachers")
             .select("id, school_id, name, email, status, assigned_classes, assigned_subjects")
             .eq("id", user.teacher_id)
             .eq("school_id", user.school_id || cleanEmail)
             .maybeSingle();
 
-          if (teacherLookupError) {
-            console.warn("Teacher status lookup error:", teacherLookupError.message);
+          if (teacherError) {
+            console.warn("Teacher status lookup failed:", teacherError.message);
             return res.status(503).json({
-              error: "Akoonka macallinka lama xaqiijin karin hadda. Fadlan mar kale isku day."
+              error: "Xaaladda akoonka macallinka lama xaqiijin karin hadda."
             });
-          } else if (!cloudTeacher) {
+          }
+          if (!teacher) {
             return res.status(403).json({ error: "Akoonka macallinka lama helin ama waa la saaray." });
-          } else if (cloudTeacher.status === "DEACTIVATED" || cloudTeacher.status === "INACTIVE") {
-            return res.status(403).json({ error: "Akoonkaaga macallinka waa la hakiyey (Account deactivated). Fadlan la xiriir maamulka iskuulka." });
-          } else if (cloudTeacher.status === "INVITED") {
-            return res.status(403).json({ error: "Akoonkan weli lama dhaqaajin. Fadlan isticmaal link-gii casuumaadda." });
+          }
+          const teacherStatus = String(teacher.status || "ACTIVE").trim().toUpperCase();
+          if (teacherStatus !== "ACTIVE") {
+            return res.status(403).json({
+              error: teacherStatus === "INVITED"
+                ? "Akoonkan weli lama dhaqaajin. Fadlan isticmaal link-gii casuumaadda."
+                : "Akoonkaaga macallinka ma firfircoona. Fadlan la xiriir maamulka dugsiga."
+            });
           }
 
-          const teacherPayload: any = {
+          userPayload = {
             email: cleanEmail,
             role: "teacher",
-            name: cloudTeacher.name,
-            teacherId: cloudTeacher.id,
-            schoolId: cloudTeacher.school_id || user.school_id || cleanEmail,
-            assignedClasses: Array.isArray(cloudTeacher.assigned_classes) ? cloudTeacher.assigned_classes : [],
-            assignedSubjects: Array.isArray(cloudTeacher.assigned_subjects) ? cloudTeacher.assigned_subjects : []
+            name: teacher.name,
+            teacherId: teacher.id,
+            schoolId: String(teacher.school_id || user.school_id || "").trim(),
+            assignedClasses: Array.isArray(teacher.assigned_classes) ? teacher.assigned_classes : [],
+            assignedSubjects: Array.isArray(teacher.assigned_subjects) ? teacher.assigned_subjects : []
           };
-          const token = createSessionToken(teacherPayload);
-          setSessionCookie(req, res, token);
-          clearAuthRateLimit(`login:ip:${req.ip || "unknown"}:`);
-          clearAuthRateLimit(`login:account:${req.ip || "unknown"}:${cleanEmail}`);
-          return res.json({ success: true, user: teacherPayload });
+        } else {
+          const allowedAdminRoles = new Set(["admin", "school admin", "super admin", "principal"]);
+          if (!allowedAdminRoles.has(rawRole)) {
+            return res.status(403).json({ error: "Doorka akoonkan lama taageero." });
+          }
+
+          userPayload = {
+            email: cleanEmail,
+            role: user.role || "admin",
+            schoolId: String(user.school_id || cleanEmail)
+          };
         }
 
-        const authRes = buildAuthResponse(cleanEmail, db);
-        if (authRes.error) return res.status(403).json({ error: authRes.error });
-        if (!authRes.error && authRes.token) {
-          setSessionCookie(req, res, authRes.token);
-          const { token: _token, ...safeAuthResponse } = authRes;
-          clearAuthRateLimit(`login:ip:${req.ip || "unknown"}:`);
-          clearAuthRateLimit(`login:account:${req.ip || "unknown"}:${cleanEmail}`);
-          return res.json(safeAuthResponse);
+        if (!userPayload.schoolId) {
+          return res.status(403).json({ error: "Aqoonsiga dugsiga ee akoonka lama xaqiijin karin." });
         }
+
+        // Keep a local read-only compatibility mirror, but never authenticate from it
+        // while cloud mode is healthy.
+        const db = loadLocalDB();
+        const localIndex = db.users.findIndex(
+          (item: any) => String(item.email || "").trim().toLowerCase() === cleanEmail
+        );
+        const localRecord = {
+          email: cleanEmail,
+          password_hash: canonicalHash,
+          verified: true,
+          role: user.role,
+          school_id: user.school_id || cleanEmail,
+          teacher_id: user.teacher_id
+        };
+        if (localIndex >= 0) db.users[localIndex] = { ...db.users[localIndex], ...localRecord };
+        else db.users.push(localRecord);
+        saveLocalDB(db);
+
+        const token = createSessionToken(userPayload);
+        setSessionCookie(req, res, token);
         clearAuthRateLimit(`login:ip:${req.ip || "unknown"}:`);
         clearAuthRateLimit(`login:account:${req.ip || "unknown"}:${cleanEmail}`);
-        return res.json(authRes);
+        return res.json({ success: true, user: userPayload });
       }
-    } catch (e: any) {
-      if (e?.message?.includes("fetch failed") || e?.message?.includes("ENOTFOUND")) {
+    } catch (error: any) {
+      console.warn("Cloud login failed unexpectedly:", error?.message || error);
+      if (process.env.NODE_ENV === "production") {
+        return res.status(503).json({
+          error: "Adeegga login-ka si ku-meel-gaar ah uma shaqaynayo. Fadlan mar kale isku day."
+        });
+      }
+      if (error?.message?.includes("fetch failed") || error?.message?.includes("ENOTFOUND")) {
         useLocalFallback = true;
         customSupabaseActive = false;
       } else {
-        console.log("Supabase login check notice:", e?.message || e);
+        return res.status(503).json({ error: "Login-ka lama dhammaystiri karin hadda." });
       }
     }
   }
 
-  // 2. Secure local fallback with transparent legacy-hash upgrade.
-  if (localUser) {
-    const localCheck = await verifyPassword(password, localUser.password_hash);
-    if (!localCheck.valid) {
-      return res.status(400).json({ error: "Email ama password ayaa qalad ah." });
-    }
-
-    if (localCheck.needsRehash) {
-      localUser.password_hash = await hashPassword(password);
-      saveLocalDB(db);
-    }
-
-    const authRes = buildAuthResponse(cleanEmail, db);
-    if (authRes.error) return res.status(403).json({ error: authRes.error });
-    if (!authRes.error && authRes.token) {
-      setSessionCookie(req, res, authRes.token);
-      const { token: _token, ...safeAuthResponse } = authRes;
-      clearAuthRateLimit(`login:ip:${req.ip || "unknown"}:`);
-      clearAuthRateLimit(`login:account:${req.ip || "unknown"}:${cleanEmail}`);
-      return res.json(safeAuthResponse);
-    }
-    clearAuthRateLimit(`login:ip:${req.ip || "unknown"}:`);
-    clearAuthRateLimit(`login:account:${req.ip || "unknown"}:${cleanEmail}`);
-    return res.json(authRes);
+  // Local-file authentication is development-only; production was rejected above
+  // whenever the cloud database is not available.
+  const db = loadLocalDB();
+  const localUser = db.users.find(
+    (item: any) => String(item.email || "").trim().toLowerCase() === cleanEmail
+  );
+  if (!localUser) {
+    return res.status(401).json({ error: "Email ama password ayaa qalad ah." });
   }
 
-  return res.status(400).json({ error: "Email ama password ayaa qalad ah." });
+  const localCheck = await verifyPassword(password, localUser.password_hash);
+  if (!localCheck.valid) {
+    return res.status(401).json({ error: "Email ama password ayaa qalad ah." });
+  }
+  if (localCheck.needsRehash) {
+    localUser.password_hash = await hashPassword(password);
+    localUser.password_changed_at = new Date().toISOString();
+    saveLocalDB(db);
+  }
+
+  const authResponse = buildAuthResponse(cleanEmail, db);
+  if (authResponse.error) return res.status(403).json({ error: authResponse.error });
+  if (authResponse.token && authResponse.user) {
+    setSessionCookie(req, res, authResponse.token);
+    const { token: _token, ...safeAuthResponse } = authResponse;
+    clearAuthRateLimit(`login:ip:${req.ip || "unknown"}:`);
+    clearAuthRateLimit(`login:account:${req.ip || "unknown"}:${cleanEmail}`);
+    return res.json(safeAuthResponse);
+  }
+
+  return res.status(401).json({ error: "Email ama password ayaa qalad ah." });
 });
 
+
+app.post("/api/auth/forgot-password", async (req, res) => {
+  const emailInput = req.body?.email;
+  if (!isValidEmailAddress(emailInput)) {
+    return res.status(400).json({ error: "Fadlan geli email sax ah." });
+  }
+  if (!(await ensureProductionAuthBackend(res))) return;
+
+  const smtpUser = process.env.SMTP_USER || process.env.EMAIL_USER;
+  const smtpPassword = process.env.SMTP_PASS || process.env.EMAIL_PASS;
+  if (!smtpUser || !smtpPassword) {
+    return res.status(503).json({
+      error: "Adeegga email recovery lama diyaarin. Fadlan la xiriir maamulka system-ka."
+    });
+  }
+
+  const appOrigin = getTrustedAppOrigin(req);
+  if (!appOrigin) {
+    return res.status(503).json({
+      error: "APP_URL HTTPS ah lama diyaarin. Fadlan la xiriir maamulka system-ka."
+    });
+  }
+
+  const cleanEmail = emailInput.trim().toLowerCase();
+  const genericResponse = {
+    success: true,
+    message: "Haddii email-ku ku xiran yahay akoon jira, link dib-u-dejin ayaa loo soo diray."
+  };
+  const token = generateSecureToken();
+  const tokenHash = crypto.createHash("sha256").update(token, "utf8").digest("hex");
+  const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+  let eligibleAccount = false;
+
+  if (!useLocalFallback && supabase) {
+    const { data: account, error: lookupError } = await supabase
+      .from("dugsiga_users")
+      .select("email,role,school_id,teacher_id")
+      .eq("email", cleanEmail)
+      .maybeSingle();
+
+    if (lookupError) {
+      console.warn("Password reset account lookup failed:", lookupError.message);
+      return res.status(503).json({
+        error: "Adeegga recovery-ga si ku-meel-gaar ah uma shaqaynayo. Fadlan mar kale isku day."
+      });
+    }
+
+    if (account) {
+      const role = String(account.role || "").trim().toLowerCase();
+      const adminRoles = new Set(["admin", "school admin", "super admin", "principal"]);
+      if (adminRoles.has(role)) {
+        eligibleAccount = true;
+      } else if (role === "teacher" && account.teacher_id) {
+        const { data: teacher, error: teacherError } = await supabase
+          .from("dugsiga_teachers")
+          .select("status")
+          .eq("id", account.teacher_id)
+          .eq("school_id", account.school_id || cleanEmail)
+          .maybeSingle();
+
+        if (teacherError) {
+          console.warn("Password reset teacher lookup failed:", teacherError.message);
+          return res.status(503).json({
+            error: "Adeegga recovery-ga si ku-meel-gaar ah uma shaqaynayo."
+          });
+        }
+        eligibleAccount = Boolean(teacher) &&
+          String(teacher?.status || "ACTIVE").trim().toUpperCase() === "ACTIVE";
+      }
+    }
+
+    if (eligibleAccount) {
+      const { data: updated, error: updateError } = await supabase
+        .from("dugsiga_users")
+        .update({
+          password_reset_token_hash: tokenHash,
+          password_reset_expires_at: expiresAt
+        })
+        .eq("email", cleanEmail)
+        .select("email")
+        .maybeSingle();
+
+      if (updateError || !updated) {
+        console.warn("Password reset token could not be stored:", updateError?.message || "account no longer exists");
+        return res.status(503).json({
+          error: "Recovery-ga lama diyaarin karin hadda. Fadlan mar kale isku day."
+        });
+      }
+    }
+  } else {
+    const db = loadLocalDB();
+    const localUser = db.users.find(
+      (item: any) => String(item.email || "").trim().toLowerCase() === cleanEmail
+    );
+    if (localUser) {
+      const role = String(localUser.role || "").trim().toLowerCase();
+      const adminRoles = new Set(["admin", "school admin", "super admin", "principal"]);
+      const isActiveTeacher = role !== "teacher" || (db.teachers || []).some((teacher: any) =>
+        String(teacher.email || "").trim().toLowerCase() === cleanEmail &&
+        String(teacher.status || "ACTIVE").trim().toUpperCase() === "ACTIVE"
+      );
+      eligibleAccount = (adminRoles.has(role) || role === "teacher") && isActiveTeacher;
+      if (eligibleAccount) {
+        localUser.password_reset_token_hash = tokenHash;
+        localUser.password_reset_expires_at = expiresAt;
+        saveLocalDB(db);
+      }
+    }
+  }
+
+  // Identical response whether or not an eligible account exists, to prevent
+  // email enumeration. Recovery tokens are stored only as hashes.
+  if (!eligibleAccount) return res.json(genericResponse);
+
+  const resetLink = `${appOrigin}/reset-password?token=${encodeURIComponent(token)}`;
+  const delivery = await sendPasswordResetEmail({
+    toEmail: cleanEmail,
+    resetLink,
+    expiresInMinutes: 30
+  });
+
+  if (!delivery.success) {
+    console.warn("Password reset email could not be delivered:", delivery.error || "unknown email error");
+    if (!useLocalFallback && supabase) {
+      await supabase
+        .from("dugsiga_users")
+        .update({ password_reset_token_hash: null, password_reset_expires_at: null })
+        .eq("email", cleanEmail)
+        .eq("password_reset_token_hash", tokenHash);
+    }
+    const db = loadLocalDB();
+    const localUser = db.users.find(
+      (item: any) => String(item.email || "").trim().toLowerCase() === cleanEmail
+    );
+    if (localUser?.password_reset_token_hash === tokenHash) {
+      localUser.password_reset_token_hash = null;
+      localUser.password_reset_expires_at = null;
+      saveLocalDB(db);
+    }
+  }
+
+  return res.json(genericResponse);
+});
+
+app.post("/api/auth/reset-password", async (req, res) => {
+  const { token, password, confirmPassword } = req.body || {};
+  if (typeof token !== "string" || token.length < 32 || token.length > 512) {
+    return res.status(400).json({
+      error: "Link-ga dib-u-dejintu ma saxna ama wuu dhacay. Codso link cusub."
+    });
+  }
+  if (typeof password !== "string" || password !== confirmPassword) {
+    return res.status(400).json({ error: "Labada password isma laha. Fadlan hubi." });
+  }
+  const passwordValidation = validatePassword(password);
+  if (!passwordValidation.valid) {
+    return res.status(400).json({ error: passwordValidation.error });
+  }
+  if (!(await ensureProductionAuthBackend(res))) return;
+
+  const tokenHash = crypto.createHash("sha256").update(token, "utf8").digest("hex");
+  const nowIso = new Date().toISOString();
+  const passwordHash = await hashPassword(password);
+
+  if (!useLocalFallback && supabase) {
+    // Conditional update clears the token atomically, making the link one-time.
+    const { data: updated, error } = await supabase
+      .from("dugsiga_users")
+      .update({
+        password: passwordHash,
+        verified: true,
+        password_changed_at: nowIso,
+        password_reset_token_hash: null,
+        password_reset_expires_at: null
+      })
+      .eq("password_reset_token_hash", tokenHash)
+      .gt("password_reset_expires_at", nowIso)
+      .select("email,role,school_id,teacher_id")
+      .maybeSingle();
+
+    if (error) {
+      console.warn("Password reset update failed:", error.message);
+      return res.status(503).json({
+        error: "Password-ka lama beddeli karin hadda. Fadlan mar kale isku day."
+      });
+    }
+    if (!updated) {
+      return res.status(400).json({
+        error: "Link-gu ma shaqaynayo ama wuu dhacay. Codso recovery link cusub."
+      });
+    }
+
+    const db = loadLocalDB();
+    const localIndex = db.users.findIndex(
+      (item: any) => String(item.email || "").trim().toLowerCase() === String(updated.email || "").toLowerCase()
+    );
+    const localRecord = {
+      email: String(updated.email || "").toLowerCase(),
+      password_hash: passwordHash,
+      verified: true,
+      role: updated.role,
+      school_id: updated.school_id,
+      teacher_id: updated.teacher_id,
+      password_changed_at: nowIso,
+      password_reset_token_hash: null,
+      password_reset_expires_at: null
+    };
+    if (localIndex >= 0) db.users[localIndex] = { ...db.users[localIndex], ...localRecord };
+    else db.users.push(localRecord);
+    saveLocalDB(db);
+    return res.json({
+      success: true,
+      message: "Password-kaaga waa la beddelay. Fadlan mar kale login samee."
+    });
+  }
+
+  const db = loadLocalDB();
+  const localIndex = db.users.findIndex((item: any) =>
+    String(item.password_reset_token_hash || "") === tokenHash &&
+    typeof item.password_reset_expires_at === "string" &&
+    item.password_reset_expires_at > nowIso
+  );
+  if (localIndex < 0) {
+    return res.status(400).json({
+      error: "Link-gu ma shaqaynayo ama wuu dhacay. Codso recovery link cusub."
+    });
+  }
+
+  const localUser = db.users[localIndex];
+  localUser.password_hash = passwordHash;
+  localUser.verified = true;
+  localUser.password_changed_at = nowIso;
+  localUser.password_reset_token_hash = null;
+  localUser.password_reset_expires_at = null;
+  saveLocalDB(db);
+  return res.json({
+    success: true,
+    message: "Password-kaaga waa la beddelay. Fadlan mar kale login samee."
+  });
+});
 
 app.get("/api/students", async (req, res) => {
   const schoolId = getSchoolId(req);

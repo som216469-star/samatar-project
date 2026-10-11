@@ -19,11 +19,19 @@ export interface SessionPayload {
   user: AuthenticatedUser;
 }
 
-// Short-lived stateless signed sessions work across Cloud Run instances/restarts.
-// Use a dedicated SESSION_SECRET in production; SUPABASE_SECRET_KEY is only a fallback
-// so existing deployments continue to work until SESSION_SECRET is configured.
-const rawSessionSecret = (
-  process.env.SESSION_SECRET ||
+// Production sessions require a dedicated persistent secret. Do not reuse a
+// Supabase service-role key for signing browser sessions.
+const configuredSessionSecret = String(process.env.SESSION_SECRET || "").trim();
+if (
+  process.env.NODE_ENV === "production" &&
+  configuredSessionSecret.length < 32
+) {
+  throw new Error(
+    "SECURITY CONFIGURATION ERROR: Set SESSION_SECRET to a persistent random value of at least 32 characters before starting in production."
+  );
+}
+
+const rawSessionSecret = configuredSessionSecret || (
   process.env.SUPABASE_SECRET_KEY ||
   process.env.SUPABASE_SERVICE_ROLE_KEY ||
   ""
@@ -31,7 +39,7 @@ const rawSessionSecret = (
 
 if (!rawSessionSecret) {
   console.warn(
-    "SECURITY WARNING: SESSION_SECRET is not configured. Sessions will be tied to this server process and invalidate on restart."
+    "SECURITY WARNING: SESSION_SECRET is not configured. Development sessions will be invalidated when this process restarts."
   );
 }
 
@@ -39,7 +47,7 @@ const SESSION_SECRET = rawSessionSecret
   ? crypto.createHash("sha256").update(rawSessionSecret, "utf8").digest()
   : crypto.randomBytes(32);
 
-const SESSION_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
+const SESSION_TTL_MS = 8 * 60 * 60 * 1000; // 8 hours
 const revokedSessions = new Map<string, number>();
 
 function cleanupRevocations() {

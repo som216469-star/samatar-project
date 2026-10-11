@@ -15,11 +15,23 @@ CREATE TABLE IF NOT EXISTS dugsiga_users (
   password TEXT NOT NULL,
   verified BOOLEAN DEFAULT TRUE,
   verification_code TEXT,
+  password_reset_token_hash TEXT,
+  password_reset_expires_at TIMESTAMPTZ,
+  password_changed_at TIMESTAMPTZ,
   role TEXT DEFAULT 'admin',
   school_id TEXT,
   teacher_id TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
+
+ALTER TABLE public.dugsiga_users
+  ADD COLUMN IF NOT EXISTS password_reset_token_hash TEXT,
+  ADD COLUMN IF NOT EXISTS password_reset_expires_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS password_changed_at TIMESTAMPTZ;
+
+CREATE INDEX IF NOT EXISTS idx_dugsiga_users_password_reset_expiry
+  ON public.dugsiga_users (password_reset_expires_at)
+  WHERE password_reset_token_hash IS NOT NULL;
 
 -- 2. Students Table (Diiwaanka Ardayda)
 CREATE TABLE IF NOT EXISTS dugsiga_students (

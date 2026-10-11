@@ -37,6 +37,7 @@ import PeoplePage from './features/people/PeoplePage';
 import StaffAttendancePage from './features/people/StaffAttendancePage';
 import { TeacherDashboardPage } from './features/teacher/TeacherDashboardPage';
 import { TeacherActivationPage } from './features/teacher/TeacherActivationPage';
+import PasswordRecoveryPage from './features/auth/PasswordRecoveryPage';
 import ClassesPage from './features/academics/ClassesPage';
 import SubjectsPage from './features/academics/SubjectsPage';
 import ExamsPage from './features/academics/ExamsPage';
@@ -285,6 +286,35 @@ export default function App() {
     );
   }
 
+  if (publicRoute === 'forgot-password') {
+    return (
+      <PasswordRecoveryPage
+        mode="request"
+        initialEmail={email}
+        onBackToLogin={() => {
+          setPublicRoute('login');
+          setAuthError('');
+          window.history.pushState({}, '', '/login');
+        }}
+      />
+    );
+  }
+
+  if (publicRoute === 'reset-password') {
+    const params = new URLSearchParams(window.location.search);
+    return (
+      <PasswordRecoveryPage
+        mode="reset"
+        token={params.get('token') || ''}
+        onBackToLogin={() => {
+          setPublicRoute('login');
+          setAuthError('');
+          window.history.pushState({}, '', '/login');
+        }}
+      />
+    );
+  }
+
   if (publicRoute === 'activate-teacher') {
     const params = new URLSearchParams(window.location.search);
     const token = params.get('token') || '';
@@ -325,12 +355,10 @@ export default function App() {
           setPublicRoute('landing');
           window.history.pushState({}, '', '/');
         }}
-        onForgotPassword={() =>
-          showToast(
-            'Fadlan la xiriir maamulka dugsiga si loo cusbooneysiiyo furaha sirta ah.',
-            'info'
-          )
-        }
+        onForgotPassword={() => {
+          setPublicRoute('forgot-password');
+          window.history.pushState({}, '', '/forgot-password');
+        }}
         toasts={toasts}
         onDismissToast={dismissToast}
       />
