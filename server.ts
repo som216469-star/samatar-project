@@ -510,10 +510,14 @@ async function testSupabaseTable(tableName: string, checkColumn?: string): Promi
   }
 }
 
-let useLocalFallback = false;
+let useLocalFallback = true;
 let customSupabaseActive = false;
 
 function handleSupabaseError(res: any, error: any, context: string) {
+  if (error?.message?.includes("fetch failed") || error?.message?.includes("ENOTFOUND")) {
+    useLocalFallback = true;
+    customSupabaseActive = false;
+  }
   console.warn(`Backend database notice during "${context}":`, error?.message || error);
   return res.status(500).json({
     error: error?.message || "Khalad ayaa dhacay inta hawsha lagu jiray. Fadlan dib iskugu day."
@@ -573,6 +577,20 @@ async function checkSupabaseStatus() {
     return;
   }
   try {
+    // 1. Fast connectivity probe with timeout
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 2500);
+    try {
+      await fetch(supabaseUrl, { signal: controller.signal });
+      clearTimeout(timeout);
+    } catch {
+      clearTimeout(timeout);
+      useLocalFallback = true;
+      customSupabaseActive = false;
+      console.log("Supabase endpoint unreachable. Using local database fallback.");
+      return;
+    }
+
     const studentsExist = await testSupabaseTable("dugsiga_students", "school_id");
     const attendanceExists = await testSupabaseTable("dugsiga_attendance", "school_id");
     const classesExist = await testSupabaseTable("dugsiga_classes", "school_id");
@@ -2141,35 +2159,53 @@ app.post("/api/auth/signup", async (req, res) => {
 
   const db = loadLocalDB();
   const existingLocalUser = db.users.find(u => u.email.toLowerCase() === cleanEmail);
+  if (existingLocalUser) {
+    return res.status(400).json({ error: "Email-kan horey ayaa loo diiwaangeliyey. Fadlan 'Sign In' ku gal." });
+  }
 
   // If Supabase is connected, attempt check & sync to Supabase
   if (!useLocalFallback && supabase) {
     try {
-      const { data: existingUser } = await supabase
+      const { data: existingUser, error: selectErr } = await supabase
         .from("dugsiga_users")
         .select("email")
         .ilike("email", cleanEmail)
         .maybeSingle();
 
-      if (existingUser) {
+      if (selectErr) {
+        if (selectErr.message?.includes("fetch failed") || selectErr.message?.includes("ENOTFOUND")) {
+          useLocalFallback = true;
+          customSupabaseActive = false;
+        }
+      } else if (existingUser) {
         return res.status(400).json({ error: "Email-kan horey ayaa loo diiwaangeliyey. Fadlan 'Sign In' ku gal." });
       }
 
-      const { error: insertError } = await supabase.from("dugsiga_users").insert([{
-        email: cleanEmail, password: passwordHash, verified: true, role: "admin", school_id: cleanEmail
-      }]);
+      if (!useLocalFallback) {
+        const { error: insertError } = await supabase.from("dugsiga_users").insert([{
+          email: cleanEmail, password: passwordHash, verified: true, role: "admin", school_id: cleanEmail
+        }]);
 
-      if (insertError) {
-        if (insertError.code === "23505") {
-          return res.status(400).json({ error: "Email-kan horey ayaa loo diiwaangeliyey. Fadlan 'Sign In' ku gal." });
+        if (insertError) {
+          if (insertError.code === "23505") {
+            return res.status(400).json({ error: "Email-kan horey ayaa loo diiwaangeliyey. Fadlan 'Sign In' ku gal." });
+          }
+          if (insertError.message?.includes("fetch failed") || insertError.message?.includes("ENOTFOUND")) {
+            useLocalFallback = true;
+            customSupabaseActive = false;
+          } else {
+            console.log("Supabase auth insert notice:", insertError.message);
+          }
         }
-        console.warn("Supabase auth insert notice:", insertError.message);
       }
     } catch (sbErr: any) {
-      console.warn("Supabase auth notice:", sbErr?.message || sbErr);
+      if (sbErr?.message?.includes("fetch failed") || sbErr?.message?.includes("ENOTFOUND")) {
+        useLocalFallback = true;
+        customSupabaseActive = false;
+      } else {
+        console.log("Supabase auth notice:", sbErr?.message || sbErr);
+      }
     }
-  } else if (existingLocalUser) {
-    return res.status(400).json({ error: "Email-kan horey ayaa loo diiwaangeliyey. Fadlan 'Sign In' ku gal." });
   }
 
   // Always ensure user is saved in local database for seamless offline resilience
@@ -2231,7 +2267,12 @@ app.post("/api/auth/login", async (req, res) => {
         .ilike("email", cleanEmail)
         .maybeSingle();
 
-      if (!error && user) {
+      if (error) {
+        if (error.message?.includes("fetch failed") || error.message?.includes("ENOTFOUND")) {
+          useLocalFallback = true;
+          customSupabaseActive = false;
+        }
+      } else if (user) {
         const cloudCheck = await verifyPassword(password, user.password);
         const localCheck = localUser
           ? await verifyPassword(password, localUser.password_hash)
@@ -2321,7 +2362,12 @@ app.post("/api/auth/login", async (req, res) => {
         return res.json(authRes);
       }
     } catch (e: any) {
-      console.warn("Supabase login check notice:", e?.message || e);
+      if (e?.message?.includes("fetch failed") || e?.message?.includes("ENOTFOUND")) {
+        useLocalFallback = true;
+        customSupabaseActive = false;
+      } else {
+        console.log("Supabase login check notice:", e?.message || e);
+      }
     }
   }
 
