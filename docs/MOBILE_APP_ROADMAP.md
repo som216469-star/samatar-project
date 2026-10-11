@@ -55,13 +55,14 @@ Implementation requirements:
 
 ### Phase 2 — Native app foundation
 
-Create `apps/mobile/` as an independently buildable Capacitor app, without replacing the current Vite web entrypoint.
+Build Capacitor Android/iOS shells alongside the existing root React/Vite application; do not create a second frontend or replace the current web entrypoint.
 
-- Configure Expo Router, TypeScript, DUGSI PRO brand assets, app name, Android package ID and iOS bundle ID.
-- Build a mobile API client with a single configured API base URL, JSON/error normalization, timeout and safe retry rules. Never retry non-idempotent writes blindly.
-- Add secure session restoration, token refresh, logout and a clear session-expired state.
-- Implement adaptive navigation and reusable components: loading, empty, error, offline, confirmation, input validation, data list and detail view.
-- Add development, preview and production configuration. Commit lockfiles; publish no secrets in `EXPO_PUBLIC_*` variables except the public API URL and any explicitly approved public settings.
+- Use `capacitor.config.json` with app ID `com.dugsipro.app` and the isolated `dist-mobile` output directory.
+- Build the existing responsive React UI with `vite build --mode mobile`, relative asset URLs and no competing PWA service worker.
+- Keep one configured API base URL in `.env.mobile`; this public URL is configuration, not a secret. Never place Supabase keys, SMTP credentials or session secrets in the mobile bundle.
+- Add secure session restoration with iOS Keychain / Android Keystore, bearer-token API calls, logout and a clear expired-session state. Refresh-token rotation and persistent device revocation remain a separate security gate before a commercial release.
+- Generate and commit the Android and iOS Capacitor projects; run `cap sync` whenever the web bundle or native plugin list changes.
+- Keep both `package-lock.json` and `bun.lock` synchronized so GitHub CI and Render installs remain deterministic.
 
 **Gate:** the app opens on Android and iOS, can sign in/sign out, handles invalid credentials and lost network gracefully, and the web deployment build is still green.
 
@@ -106,7 +107,7 @@ Do this only after online attendance is reliable.
 1. Ship preview builds to a small internal test group first.
 2. Validate on physical Android devices and an iOS simulator/device, with slow connections, expired sessions, app restarts and OS permission denial.
 3. Produce an Android APK for internal installation; produce Android App Bundle / iOS archive for stores only when the relevant store accounts, signing and ownership are ready.
-4. Use Expo EAS Build / Submit for native artifacts and release automation. Render remains the web/API host; a mobile binary is not deployed to Render.
+4. Use Android Gradle tooling for APK/AAB output and Xcode on macOS for iOS archives; code signing and store submission require the appropriate developer accounts. Render remains the web/API host; a mobile binary is not deployed to Render.
 5. Release gradually, monitor API error rates and auth failures, and keep a rollback path for each API/schema change.
 
 **Gate:** release checklist signed off; no critical/high security defects; all P0 role and tenant-isolation tests pass; support and versioning details documented.
@@ -116,7 +117,7 @@ Do this only after online attendance is reliable.
 | Area | Required tests |
 |---|---|
 | Web regression | Existing TypeScript check, student/attendance contract tests, production build, server smoke test and production dependency audit. |
-| Native quality | TypeScript, lint, Expo Doctor, unit tests and Android/iOS JavaScript bundle exports in CI. |
+| Native quality | TypeScript, lint, Capacitor configuration/sync checks, unit tests, an Android Gradle build in CI and iOS project validation on a macOS runner. |
 | Authentication | Correct/incorrect login, inactive/invited teacher denial, access-token expiry, refresh rotation, replayed refresh token, logout and password/session failures. |
 | Roles | Admin allowed; teacher denied for admin-only routes; teacher can see only assigned classes; unknown roles denied by default. |
 | Tenant security | A user from school A cannot read, create, update, export or delete school B records by changing IDs or request bodies. |
@@ -125,7 +126,7 @@ Do this only after online attendance is reliable.
 | Devices | Small screen, keyboard overlap, screen-reader labels, app background/foreground, poor connectivity and signed-out navigation. |
 | Release | Preview builds, install/uninstall, app upgrade, signing and basic production smoke tests. |
 
-CI should retain the existing root web job and add a separate mobile job that installs from `apps/mobile`'s lockfile, runs quality checks and exports Android/iOS bundles. A signed EAS production build should be a manual/release workflow, not a requirement for every pull request.
+CI should retain the existing root web job and validate the separate `dist-mobile` build plus native project scaffolds. Once the initial setup is stable, add dedicated Android Gradle and macOS/Xcode validation jobs. Signed store builds should be manual/release workflows, not a requirement for every pull request.
 
 ## 4. Security and database migration rules
 
@@ -138,12 +139,12 @@ CI should retain the existing root web job and add a separate mobile job that in
 
 ## 5. Official implementation references
 
-- Expo Router: https://docs.expo.dev/router/introduction/
-- Expo EAS Build: https://docs.expo.dev/build/introduction/
-- Expo build setup: https://docs.expo.dev/build/setup/
-- Supabase + Expo React Native quickstart: https://supabase.com/docs/guides/getting-started/quickstarts/expo-react-native
+- Capacitor configuration: https://capacitorjs.com/docs/config
+- Capacitor CLI workflow: https://capacitorjs.com/docs/cli/commands/add
+- Capacitor environment setup: https://capacitorjs.com/docs/getting-started/environment-setup
+- Capacitor 8 upgrade/support notes: https://capacitorjs.com/docs/updating/8-0
 - Supabase security checklist: https://supabase.com/docs/guides/security/product-security/
 
 ## Recommended first implementation slice
 
-Start Phase 1 and the minimal Phase 2 shell in a dedicated feature branch. Deliver secure mobile-session APIs plus login/logout screens and API-level tests first. Do not begin offline sync, push notifications, finance writes or a whole-web rewrite until that slice passes its acceptance gate.
+Finish the dedicated Capacitor feature branch first: regenerate both lockfiles, create native project scaffolds, run web and mobile-contract checks, validate the Render web build, and verify the restricted native CORS/token flow. Do not call this store-ready yet; refresh-token rotation, persistent revocation, real Android/iOS device testing and release signing must pass their later acceptance gates.
