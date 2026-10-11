@@ -1,6 +1,6 @@
 # DUGSI PRO Web + Mobile Delivery Roadmap
 
-**Status:** Proposed implementation plan  
+**Status:** Capacitor implementation is being prepared on a dedicated GitHub branch; native scaffolds and CI must pass before merging.  
 **Existing production:** React 19 + TypeScript + Vite web SPA served by Express on Render  
 **Database:** Existing Supabase project and `dugsiga_*` tables  
 **Allowed application roles:** `admin` and `teacher` only  
@@ -8,7 +8,7 @@
 
 ## 1. Architecture decision
 
-Keep the current web application and its Render service running. Add a separate native client under `apps/mobile/` using Expo, React Native, TypeScript and Expo Router. Android and iOS will use the same Express API and Supabase data as the web application; they will not create their own copy of school records.
+Keep the current web application and Render service running. Package the existing React/Vite application with Capacitor for Android and iOS, using a distinct `dist-mobile/` web bundle so the native assets can never overwrite Render's `dist/server.cjs`. The mobile build targets the shared Express API at `https://samatar-project.onrender.com`; it does not create a second backend or database. This first delivery reuses the responsive web UI inside the native WebView; genuinely native screens and platform-specific workflows remain later enhancements.
 
 Keep one authoritative permission model. Resolve the school ID, account role and teacher's assigned classes on the server. The native UI may hide actions for usability, but the API must enforce every permission on every request.
 
@@ -45,7 +45,7 @@ Implementation requirements:
 - Reuse the existing credential verification and account activation rules; refactor shared logic if needed rather than maintaining two independent password-checking implementations.
 - Return an access token only from the native login endpoint, with an explicit expiry. Keep access tokens short-lived; use refresh-token rotation for longer sessions.
 - Store only a hash of each opaque refresh token on the server. Persist device/session state in an additive Supabase migration; revoke refresh tokens on logout, rotation reuse or account deactivation.
-- Store the refresh token in OS-backed secure storage on the device (Expo SecureStore), not AsyncStorage or ordinary preferences. Keep access tokens in memory where practical.
+- Keep the short-lived access token in memory and store it only in OS-backed secure storage (iOS Keychain / Android Keystore via `@aparajita/capacitor-secure-storage`), never in localStorage or ordinary preferences.
 - Resolve `role`, `school_id`, teacher ID and assigned classes from trusted server/database records, never from client-supplied values.
 - Preserve existing web cookie behavior. The mobile client sends the access token in `Authorization: Bearer …` and never receives any service-role or secret key.
 - Apply login rate limiting, generic credential errors, token-expiry handling and audit-safe logging. Never log passwords, access tokens or refresh tokens.
@@ -55,7 +55,7 @@ Implementation requirements:
 
 ### Phase 2 — Native app foundation
 
-Create `apps/mobile/` as an independently buildable Expo app, without replacing the current Vite web entrypoint.
+Create `apps/mobile/` as an independently buildable Capacitor app, without replacing the current Vite web entrypoint.
 
 - Configure Expo Router, TypeScript, DUGSI PRO brand assets, app name, Android package ID and iOS bundle ID.
 - Build a mobile API client with a single configured API base URL, JSON/error normalization, timeout and safe retry rules. Never retry non-idempotent writes blindly.
