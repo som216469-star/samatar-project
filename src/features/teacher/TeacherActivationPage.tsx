@@ -58,7 +58,7 @@ export const TeacherActivationPage: React.FC<TeacherActivationViewProps> = ({
           setTeacherData({
             teacherName: data.teacherName,
             email: data.email,
-            schoolName: data.schoolName || 'Dugsi Pro 2026'
+            schoolName: data.schoolName || 'Quantora'
           });
         }
       } catch {
@@ -122,7 +122,7 @@ export const TeacherActivationPage: React.FC<TeacherActivationViewProps> = ({
           </div>
           <div>
             <h1 className="text-base font-bold text-[var(--color-text-primary)] tracking-tight">
-              {teacherData?.schoolName || 'Dugsi Pro 2026'}
+              {teacherData?.schoolName || 'Quantora'}
             </h1>
             <p className="text-xs text-[var(--color-text-secondary)]">
               Nidaamka Dhaqaajinta Akoonka Macallinka
@@ -199,7 +199,7 @@ export const TeacherActivationPage: React.FC<TeacherActivationViewProps> = ({
           <form onSubmit={handleActivate} className="space-y-4">
             <div className="p-3.5 rounded-lg bg-[var(--color-surface-muted)] border border-[var(--color-border)] space-y-1">
               <div className="text-xs text-[var(--color-brand)] font-medium">
-                Ku soo dhowow DUGSI PRO:
+                Ku soo dhowow QUANTORA:
               </div>
               <div className="text-sm font-bold text-[var(--color-text-primary)]">
                 {teacherData.teacherName}

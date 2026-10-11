@@ -2,137 +2,209 @@ const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
 
-// CRC32 table for PNG chunk checksums
+// Quantora's Q mark is generated from geometry, not a separately maintained
+// bitmap, so every web and native icon stays consistent with public/brand-mark.svg.
 const crcTable = new Uint32Array(256);
 for (let i = 0; i < 256; i++) {
   let c = i;
-  for (let k = 0; k < 8; k++) {
-    c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
-  }
+  for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
   crcTable[i] = c;
 }
 
-function crc32(buf) {
+function crc32(buffer) {
   let c = 0xFFFFFFFF;
-  for (let i = 0; i < buf.length; i++) {
-    c = crcTable[(c ^ buf[i]) & 0xFF] ^ (c >>> 8);
-  }
+  for (let i = 0; i < buffer.length; i++) c = crcTable[(c ^ buffer[i]) & 0xFF] ^ (c >>> 8);
   return (c ^ 0xFFFFFFFF) >>> 0;
 }
 
-function createPNG(width, height, isMaskable = false) {
-  // RGBA buffer with scanline filter byte 0 at each row start
+function pngChunk(type, data) {
+  const typeBuffer = Buffer.from(type);
+  const length = Buffer.alloc(4);
+  length.writeUInt32BE(data.length, 0);
+  const crc = Buffer.alloc(4);
+  crc.writeUInt32BE(crc32(Buffer.concat([typeBuffer, data])), 0);
+  return Buffer.concat([length, typeBuffer, data, crc]);
+}
+
+function clamp(value, min = 0, max = 1) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function lerp(a, b, t) {
+  return Math.round(a + (b - a) * t);
+}
+
+function quantoraCyan(y, width) {
+  const t = clamp((y - width * 0.17) / (width * 0.66));
+  const top = [18, 245, 239];
+  const middle = [18, 201, 245];
+  const bottom = [7, 136, 255];
+  if (t < 0.52) {
+    const u = t / 0.52;
+    return [lerp(top[0], middle[0], u), lerp(top[1], middle[1], u), lerp(top[2], middle[2], u)];
+  }
+  const u = (t - 0.52) / 0.48;
+  return [lerp(middle[0], bottom[0], u), lerp(middle[1], bottom[1], u), lerp(middle[2], bottom[2], u)];
+}
+
+function pointInPolygon(x, y, points) {
+  let inside = false;
+  for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+    const xi = points[i][0], yi = points[i][1];
+    const xj = points[j][0], yj = points[j][1];
+    const crosses = ((yi > y) !== (yj > y)) && (x < ((xj - xi) * (y - yi)) / ((yj - yi) || 1e-9) + xi);
+    if (crosses) inside = !inside;
+  }
+  return inside;
+}
+
+function createPNG(width, height, fullBleed = true) {
+  // 3x3 supersampling makes the circular strokes smooth even for small favicons.
+  const samples = 3;
   const rowStride = 1 + width * 4;
   const rawData = Buffer.alloc(rowStride * height);
-
   const cx = width / 2;
   const cy = height / 2;
-  const rOuter = Math.min(width, height) * 0.46;
-  const rEmblem = Math.min(width, height) * (isMaskable ? 0.28 : 0.32);
+  const scale = width / 512;
+  const outerRadius = 169 * scale;
+  const outerStroke = 22 * scale;
+  const innerRadius = 79 * scale;
+  const innerCy = 250 * scale;
+  const innerStroke = 20 * scale;
+  const slash = [[237, 238], [255, 220], [426, 391], [408, 409]].map(([x, y]) => [x * scale, y * scale]);
 
   for (let y = 0; y < height; y++) {
     const rowOffset = y * rowStride;
-    rawData[rowOffset] = 0; // Filter: None
-
+    rawData[rowOffset] = 0; // PNG filter: None
     for (let x = 0; x < width; x++) {
-      const pxOffset = rowOffset + 1 + x * 4;
-      const dx = x - cx;
-      const dy = y - cy;
-      const dist = Math.sqrt(dx * dx + dy * dy);
+      let sumR = 0, sumG = 0, sumB = 0, sumA = 0;
+      for (let sy = 0; sy < samples; sy++) {
+        for (let sx = 0; sx < samples; sx++) {
+          const px = x + (sx + 0.5) / samples;
+          const py = y + (sy + 0.5) / samples;
+          const dx = px - cx;
+          const dy = py - cy;
+          const distance = Math.sqrt(dx * dx + dy * dy);
 
-      // Background styling
-      let r = 10, g = 10, b = 12, a = 255; // #0a0a0c
+          // Deep navy background with a discreet blue glow behind the Q.
+          const glow = clamp(1 - distance / (width * 0.50)) * 0.24;
+          let r = Math.round(3 + 3 * glow);
+          let g = Math.round(16 + 27 * glow);
+          let b = Math.round(33 + 34 * glow);
+          let alpha = 255;
 
-      if (!isMaskable) {
-        // Squircle / rounded box
-        const cornerR = width * 0.22;
-        const qx = Math.max(0, Math.abs(dx) - (cx - cornerR));
-        const qy = Math.max(0, Math.abs(dy) - (cy - cornerR));
-        const cornerDist = Math.sqrt(qx * qx + qy * qy);
-        if (cornerDist > cornerR) {
-          a = 0; // Transparent outside corner
+          // Older browser icons may use transparent, rounded corners. Maskable
+          // and native app icons use a full-bleed dark background.
+          if (!fullBleed) {
+            const corner = width * 0.22;
+            const qx = Math.max(0, Math.abs(dx) - (cx - corner));
+            const qy = Math.max(0, Math.abs(dy) - (cy - corner));
+            if (Math.sqrt(qx * qx + qy * qy) > corner) alpha = 0;
+          }
+
+          if (alpha > 0) {
+            const outerDistance = Math.abs(distance - outerRadius);
+            const innerDx = px - cx;
+            const innerDy = py - innerCy;
+            const innerDistance = Math.sqrt(innerDx * innerDx + innerDy * innerDy);
+            const isOuter = outerDistance <= outerStroke / 2;
+            const isInner = innerDistance <= innerRadius + innerStroke / 2
+              && innerDistance >= innerRadius - innerStroke / 2;
+            const isSlash = pointInPolygon(px, py, slash);
+
+            // Paint outer ring, then inner ring, then the Q's diagonal stroke.
+            if (isOuter) [r, g, b] = quantoraCyan(py, height);
+            if (isInner) [r, g, b] = quantoraCyan(py, height);
+            if (isSlash) [r, g, b] = quantoraCyan(py, height);
+          }
+
+          sumR += r * alpha / 255;
+          sumG += g * alpha / 255;
+          sumB += b * alpha / 255;
+          sumA += alpha;
         }
       }
 
-      if (a > 0) {
-        // Subtle radial gradient from center
-        const gradT = Math.min(1, dist / (width * 0.6));
-        r = Math.round(24 * (1 - gradT) + 10 * gradT);
-        g = Math.round(19 * (1 - gradT) + 10 * gradT);
-        b = Math.round(38 * (1 - gradT) + 12 * gradT);
-
-        // Draw central emblem (Graduate diamond cap + shield)
-        const inDiamond = (Math.abs(dx) / (rEmblem * 1.1) + Math.abs(dy - (height * -0.05)) / (rEmblem * 0.65)) <= 1;
-        const inShield = (Math.abs(dx) < rEmblem * 0.75) && (dy > 0) && (dy < rEmblem * 0.85);
-
-        if (inDiamond || inShield) {
-          // Violet / Purple gradient
-          const py = (dy + rEmblem) / (2 * rEmblem);
-          r = Math.round(196 * (1 - py) + 109 * py); // #c4b5fd to #6d28d9
-          g = Math.round(181 * (1 - py) + 40 * py);
-          b = Math.round(253 * (1 - py) + 217 * py);
-        } else if (dist < rOuter && dist > rOuter - (width * 0.015)) {
-          // Subtle border ring
-          r = 124; g = 58; b = 237; // Violet accent
-        }
-      }
-
-      rawData[pxOffset] = r;
-      rawData[pxOffset + 1] = g;
-      rawData[pxOffset + 2] = b;
-      rawData[pxOffset + 3] = a;
+      const pixel = rowOffset + 1 + x * 4;
+      const count = samples * samples;
+      rawData[pixel] = Math.round(sumR / count);
+      rawData[pixel + 1] = Math.round(sumG / count);
+      rawData[pixel + 2] = Math.round(sumB / count);
+      rawData[pixel + 3] = Math.round(sumA / count);
     }
   }
 
-  // PNG chunks
   const signature = Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
-
-  // IHDR chunk
-  const ihdrData = Buffer.alloc(13);
-  ihdrData.writeUInt32BE(width, 0);
-  ihdrData.writeUInt32BE(height, 4);
-  ihdrData[8] = 8; // Bit depth: 8
-  ihdrData[9] = 6; // Color type: RGBA
-  ihdrData[10] = 0; // Compression: Deflate
-  ihdrData[11] = 0; // Filter: Default
-  ihdrData[12] = 0; // Interlace: None
-
-  const ihdrChunk = Buffer.concat([
-    Buffer.from([0x00, 0x00, 0x00, 0x0D]),
-    Buffer.from('IHDR'),
-    ihdrData,
-    Buffer.alloc(4)
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(width, 0);
+  ihdr.writeUInt32BE(height, 4);
+  ihdr[8] = 8;  // bit depth
+  ihdr[9] = 6;  // RGBA
+  const compressed = zlib.deflateSync(rawData, { level: 9 });
+  return Buffer.concat([
+    signature,
+    pngChunk('IHDR', ihdr),
+    pngChunk('IDAT', compressed),
+    pngChunk('IEND', Buffer.alloc(0))
   ]);
-  ihdrChunk.writeUInt32BE(crc32(Buffer.concat([Buffer.from('IHDR'), ihdrData])), 17);
-
-  // IDAT chunk (compressed pixel data)
-  const compressedData = zlib.deflateSync(rawData);
-  const idatLength = Buffer.alloc(4);
-  idatLength.writeUInt32BE(compressedData.length, 0);
-  const idatTypeAndData = Buffer.concat([Buffer.from('IDAT'), compressedData]);
-  const idatCrc = Buffer.alloc(4);
-  idatCrc.writeUInt32BE(crc32(idatTypeAndData), 0);
-  const idatChunk = Buffer.concat([idatLength, idatTypeAndData, idatCrc]);
-
-  // IEND chunk
-  const iendChunk = Buffer.from([0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82]);
-
-  return Buffer.concat([signature, ihdrChunk, idatChunk, iendChunk]);
 }
 
-const publicDir = path.join(__dirname, '..', 'public');
+function createICO() {
+  const sizes = [16, 32, 48];
+  const images = sizes.map((size) => createPNG(size, size, true));
+  const header = Buffer.alloc(6);
+  header.writeUInt16LE(0, 0);
+  header.writeUInt16LE(1, 2);
+  header.writeUInt16LE(images.length, 4);
 
-const icons = [
-  { file: 'pwa-192x192.png', size: 192, maskable: false },
-  { file: 'pwa-512x512.png', size: 512, maskable: false },
-  { file: 'pwa-maskable-512x512.png', size: 512, maskable: true },
-  { file: 'apple-touch-icon.png', size: 180, maskable: false },
-  { file: 'favicon.ico', size: 64, maskable: false }
+  const entries = Buffer.alloc(images.length * 16);
+  let offset = header.length + entries.length;
+  images.forEach((image, index) => {
+    const entry = index * 16;
+    const size = sizes[index];
+    entries[entry] = size === 256 ? 0 : size;
+    entries[entry + 1] = size === 256 ? 0 : size;
+    entries[entry + 2] = 0;
+    entries[entry + 3] = 0;
+    entries.writeUInt16LE(1, entry + 4);
+    entries.writeUInt16LE(32, entry + 6);
+    entries.writeUInt32LE(image.length, entry + 8);
+    entries.writeUInt32LE(offset, entry + 12);
+    offset += image.length;
+  });
+  return Buffer.concat([header, entries, ...images]);
+}
+
+const root = path.join(__dirname, '..');
+const iconOutputs = [
+  { file: 'public/pwa-192x192.png', size: 192, fullBleed: true },
+  { file: 'public/pwa-512x512.png', size: 512, fullBleed: true },
+  { file: 'public/pwa-maskable-512x512.png', size: 512, fullBleed: true },
+  { file: 'public/apple-touch-icon.png', size: 180, fullBleed: true },
+  { file: 'android/app/src/main/res/mipmap-mdpi/ic_launcher.png', size: 48, fullBleed: true },
+  { file: 'android/app/src/main/res/mipmap-mdpi/ic_launcher_round.png', size: 48, fullBleed: true },
+  { file: 'android/app/src/main/res/mipmap-hdpi/ic_launcher.png', size: 72, fullBleed: true },
+  { file: 'android/app/src/main/res/mipmap-hdpi/ic_launcher_round.png', size: 72, fullBleed: true },
+  { file: 'android/app/src/main/res/mipmap-xhdpi/ic_launcher.png', size: 96, fullBleed: true },
+  { file: 'android/app/src/main/res/mipmap-xhdpi/ic_launcher_round.png', size: 96, fullBleed: true },
+  { file: 'android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png', size: 144, fullBleed: true },
+  { file: 'android/app/src/main/res/mipmap-xxhdpi/ic_launcher_round.png', size: 144, fullBleed: true },
+  { file: 'android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png', size: 192, fullBleed: true },
+  { file: 'android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png', size: 192, fullBleed: true },
+  { file: 'ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png', size: 1024, fullBleed: true }
 ];
 
-icons.forEach(({ file, size, maskable }) => {
-  const pngBuf = createPNG(size, size, maskable);
-  const outPath = path.join(publicDir, file);
-  fs.writeFileSync(outPath, pngBuf);
-  console.log(`Generated ${file} (${size}x${size}, ${pngBuf.length} bytes)`);
-});
+for (const icon of iconOutputs) {
+  const outputPath = path.join(root, icon.file);
+  if (icon.file.startsWith('android/') || icon.file.startsWith('ios/')) {
+    if (!fs.existsSync(path.dirname(outputPath))) continue;
+  }
+  const buffer = createPNG(icon.size, icon.size, icon.fullBleed);
+  fs.writeFileSync(outputPath, buffer);
+  console.log('Generated ' + icon.file + ' (' + icon.size + 'x' + icon.size + ', ' + buffer.length + ' bytes)');
+}
+
+const faviconPath = path.join(root, 'public', 'favicon.ico');
+const icoBuffer = createICO();
+fs.writeFileSync(faviconPath, icoBuffer);
+console.log('Generated public/favicon.ico (' + icoBuffer.length + ' bytes)');

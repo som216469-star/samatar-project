@@ -182,9 +182,9 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
     <PageContainer>
       {/* 1. WELCOME & SCHOOL CONTEXT HEADER */}
       <PageHeader
-        moduleLabel="DUGSI PRO 2026 // EXECUTIVE OVERVIEW"
+        moduleLabel="QUANTORA // EXECUTIVE OVERVIEW"
         title="Executive Overview"
-        subtitle={`${settings.schoolName || 'Dugsi Pro'} · Academic Year ${
+        subtitle={`${settings.schoolName || 'Quantora'} · Academic Year ${
           settings.academicYear || '2025/2026'
         } · Real-time institutional operations & financial telemetry`}
         badge={

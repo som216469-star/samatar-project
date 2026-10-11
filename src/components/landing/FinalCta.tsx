@@ -26,7 +26,7 @@ export default function FinalCta({
         </div>
 
         <h2 className="landing-display text-3xl sm:text-4xl md:text-5xl font-bold text-white tracking-tight text-balance mb-5 leading-tight">
-          Bring your entire school operation onto Dugsi Pro today.
+          Bring your entire school operation onto Quantora today.
         </h2>
 
         <p className="text-base sm:text-lg text-[#94a3b8] max-w-2xl mx-auto mb-10 leading-relaxed">

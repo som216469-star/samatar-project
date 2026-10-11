@@ -46,7 +46,7 @@ export default function FeatureDetailSections({
             Purpose-built modules for every daily school workflow.
           </h2>
           <p className="text-base sm:text-lg text-[#94a3b8] leading-relaxed">
-            Explore how each capability inside Dugsi Pro replaces manual paperwork with structured, auditable institutional workflows.
+            Explore how each capability inside Quantora replaces manual paperwork with structured, auditable institutional workflows.
           </p>
         </div>
 
@@ -334,7 +334,7 @@ export default function FeatureDetailSections({
               Automated grading matrices and term rankings.
             </h3>
             <p className="text-sm sm:text-base text-[#94a3b8] leading-relaxed">
-              Enter subject marks per term and let Dugsi Pro automatically compute percentages, apply your school&apos;s custom pass threshold, and assign letter grades (Grade A, B, C, D, or Fail).
+              Enter subject marks per term and let Quantora automatically compute percentages, apply your school&apos;s custom pass threshold, and assign letter grades (Grade A, B, C, D, or Fail).
             </p>
 
             <ul className="space-y-2.5 pt-1 text-xs sm:text-sm text-[#cbd5e1]">

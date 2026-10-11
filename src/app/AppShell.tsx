@@ -244,7 +244,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   // Compute current breadcrumb trail
   const breadcrumbs = useMemo(() => {
     const trail: Array<{ label: string; onClick?: () => void }> = [
-      { label: settings.schoolName || 'Dugsi Pro', onClick: () => onNavigate('overview') }
+      { label: settings.schoolName || 'Quantora', onClick: () => onNavigate('overview') }
     ];
 
     if (activeTab === 'overview') {
@@ -546,7 +546,7 @@ export const AppShell: React.FC<AppShellProps> = ({
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-extrabold text-white truncate tracking-tight font-display">
-                    {settings.schoolName || 'DugsiPro'}
+                    {settings.schoolName || 'Quantora'}
                   </span>
                   <span className="badge-system">v2026.04</span>
                 </div>

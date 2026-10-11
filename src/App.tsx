@@ -270,7 +270,7 @@ export default function App() {
         setPublicRoute('dashboard');
         setActiveTab('overview');
         window.history.pushState({}, '', '/dashboard');
-        showToast('Ku soo dhowow Dugsi Pro 2026!', 'success');
+        showToast('Ku soo dhowow Quantora!', 'success');
       }
     } catch {
       setAuthError('Xiriirka serverka waa la waayay. Fadlan isku day mar kale.');
@@ -628,7 +628,7 @@ export default function App() {
             classes={data.classes}
             teachers={data.teachers}
             staff={data.staff}
-            schoolName={data.settings.schoolName || 'Dugsi Pro'}
+            schoolName={data.settings.schoolName || 'Quantora'}
             currency={data.settings.currency || 'USD'}
             subSection={financeSubSection}
             onSubSectionChange={(sub) =>

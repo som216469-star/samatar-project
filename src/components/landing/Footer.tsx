@@ -21,9 +21,10 @@ export default function Footer({
             <button
               type="button"
               onClick={() => onScrollTo('hero')}
-              className="text-left text-lg font-bold tracking-tight text-white landing-display cursor-pointer"
+              className="text-left text-lg font-bold tracking-tight text-white landing-display cursor-pointer inline-flex items-center gap-2"
             >
-              DUGSI PRO
+              <img src="/brand-mark.svg" alt="" className="h-8 w-8 rounded-lg shadow-sm" />
+              <span>QUANTORA</span>
             </button>
             <p className="text-xs sm:text-sm text-[#94a3b8] leading-relaxed max-w-sm">
               The unified school management platform for student registries, twice-daily attendance, automated exam grading, tuition finance, and institutional operations.
@@ -194,7 +195,7 @@ export default function Footer({
 
         {/* Quiet Copyright Bar */}
         <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-[#64748b]">
-          <p>&copy; {new Date().getFullYear()} Dugsi Pro. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} Quantora. All rights reserved.</p>
           <div className="flex items-center gap-4">
             <button
               type="button"

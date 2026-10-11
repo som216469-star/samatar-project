@@ -1,6 +1,6 @@
 {
   "appId": "com.dugsipro.app",
-  "appName": "DUGSI PRO",
+  "appName": "Quantora",
   "webDir": "dist-mobile",
   "bundledWebRuntime": false,
   "ios": {
