@@ -111,116 +111,173 @@ export function registerTeacherAuthRoutes(
    * Zero-trust: password is encrypted, token is permanently invalidated.
    */
   app.post("/api/teachers/activate-account", async (req, res) => {
-    const { token, password, confirmPassword } = req.body;
-
-    if (!token) {
-      return res.status(400).json({ error: "Token-ka casuumaaddu waa khasab." });
+    if (process.env.NODE_ENV === "production" && (getUseLocalFallback() || !supabase)) {
+      return res.status(503).json({ error: "Adeegga dhaqaajinta akoonka macallinka si ku-meel-gaar ah uma shaqaynayo." });
     }
 
-    if (password !== confirmPassword) {
+    const { token, password, confirmPassword } = req.body || {};
+    if (typeof token !== "string" || token.length < 32 || token.length > 512) {
+      return res.status(400).json({ error: "Token-ka casuumaaddu ma saxna." });
+    }
+    if (typeof password !== "string" || password !== confirmPassword) {
       return res.status(400).json({ error: "Labada password isma laha. Fadlan hubi." });
     }
-
     const passwordValidation = validatePassword(password);
     if (!passwordValidation.valid) {
       return res.status(400).json({ error: passwordValidation.error });
     }
 
     const db = loadLocalDB();
-    const teacherIndex = (db.teachers || []).findIndex((t: any) => t.invitationToken === token);
-    let teacher = teacherIndex > -1 ? db.teachers[teacherIndex] : null;
+    let teacher: any = null;
+    let localTeacherIndex = -1;
+    const nowIso = new Date().toISOString();
 
-    if (!teacher && !getUseLocalFallback() && supabase) {
-      try {
-        const { data, error } = await supabase
-          .from("dugsiga_teachers")
-          .select("*")
-          .eq("invitation_token", token)
-          .maybeSingle();
-        if (!error && data) {
-          teacher = {
-            id: data.id,
-            schoolId: data.school_id,
-            name: data.name,
-            email: data.email,
-            status: data.status,
-            invitationExpiresAt: data.invitation_expires_at
-          };
-        }
-      } catch (e) {}
+    // In cloud mode, only the current database invitation may authorize activation;
+    // never trust a stale local mirror after an invite was used or revoked.
+    if (!getUseLocalFallback() && supabase) {
+      const { data, error } = await supabase
+        .from("dugsiga_teachers")
+        .select("*")
+        .eq("invitation_token", token)
+        .eq("status", "INVITED")
+        .gt("invitation_expires_at", nowIso)
+        .maybeSingle();
+
+      if (error) {
+        console.warn("Teacher invitation lookup failed:", error.message);
+        return res.status(503).json({ error: "Casuumaadda lama xaqiijin karin hadda. Fadlan mar kale isku day." });
+      }
+      teacher = data;
+      if (teacher) {
+        teacher = {
+          ...teacher,
+          schoolId: teacher.school_id,
+          teacherId: teacher.teacher_id,
+          invitationToken: token,
+          invitationExpiresAt: teacher.invitation_expires_at,
+          assignedClasses: Array.isArray(teacher.assigned_classes) ? teacher.assigned_classes : [],
+          assignedSubjects: Array.isArray(teacher.assigned_subjects) ? teacher.assigned_subjects : []
+        };
+      }
+    } else {
+      localTeacherIndex = (db.teachers || []).findIndex((item: any) => item.invitationToken === token);
+      teacher = localTeacherIndex >= 0 ? db.teachers[localTeacherIndex] : null;
+      if (teacher && (
+        String(teacher.status || "INVITED").toUpperCase() !== "INVITED" ||
+        !teacher.invitationExpiresAt ||
+        new Date(teacher.invitationExpiresAt).getTime() <= Date.now()
+      )) {
+        teacher = null;
+      }
     }
 
     if (!teacher) {
-      return res.status(400).json({ error: "Casuumaad sax ah lama helin ama horey ayaa loo dhaqaajiyey." });
+      return res.status(400).json({ error: "Casuumaad sax ah lama helin, way dhacday, ama horey ayaa loo isticmaalay." });
     }
 
-    if (teacher.invitationExpiresAt && new Date(teacher.invitationExpiresAt) < new Date()) {
-      return res.status(400).json({ error: "Casuumaaddani way dhacday. Fadlan weydiiso maamulka in laguu soo diro mid cusub." });
+    const cleanEmail = String(teacher.email || "").trim().toLowerCase();
+    if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      return res.status(400).json({ error: "Email sax ah kuma xirna casuumaaddan." });
     }
-
-    const cleanEmail = (teacher.email || "").trim().toLowerCase();
     const passwordHash = await hashPassword(password);
-    const nowIso = new Date().toISOString();
 
-    // 1. Update Teacher Record
-    if (teacherIndex > -1) {
-      db.teachers[teacherIndex].status = "ACTIVE";
-      db.teachers[teacherIndex].invitationToken = null; // Token invalidated permanently
-      db.teachers[teacherIndex].activatedAt = nowIso;
-      db.teachers[teacherIndex].invitationStatus = "ACTIVE";
-    }
-
-    // 2. Create or Update User in Local DB
-    if (!db.users) db.users = [];
-    const userIndex = db.users.findIndex((u: any) => (u.email || "").toLowerCase() === cleanEmail);
-    if (userIndex > -1) {
-      db.users[userIndex].password_hash = passwordHash;
-      db.users[userIndex].verified = true;
-      db.users[userIndex].role = "teacher";
-      db.users[userIndex].school_id = teacher.schoolId;
-      db.users[userIndex].teacher_id = teacher.id;
-      delete db.users[userIndex].invitation_token;
-    } else {
-      db.users.push({
-        email: cleanEmail,
-        password_hash: passwordHash,
-        verified: true,
-        role: "teacher",
-        school_id: teacher.schoolId,
-        teacher_id: teacher.id
-      });
-    }
-
-    saveLocalDB(db);
-
-    // 3. Update Supabase if active
     if (!getUseLocalFallback() && supabase) {
-      try {
+      // Atomically claim the invitation before writing the password. Concurrent
+      // replays cannot overwrite the password chosen by the successful request.
+      const { data: activatedTeacher, error: activateError } = await supabase
+        .from("dugsiga_teachers")
+        .update({
+          status: "ACTIVE",
+          invitation_token: null,
+          activated_at: nowIso
+        })
+        .eq("id", teacher.id)
+        .eq("school_id", teacher.schoolId)
+        .eq("invitation_token", token)
+        .eq("status", "INVITED")
+        .gt("invitation_expires_at", nowIso)
+        .select("id")
+        .maybeSingle();
+
+      if (activateError) {
+        console.warn("Teacher activation claim failed:", activateError.message);
+        return res.status(503).json({ error: "Akoonka lama dhaqaajin karin hadda. Fadlan mar kale isku day." });
+      }
+      if (!activatedTeacher) {
+        return res.status(400).json({ error: "Casuumaaddan horey ayaa loo isticmaalay ama way dhacday." });
+      }
+
+      const { error: userError } = await supabase
+        .from("dugsiga_users")
+        .upsert([{
+          email: cleanEmail,
+          password: passwordHash,
+          verified: true,
+          role: "teacher",
+          school_id: teacher.schoolId,
+          teacher_id: teacher.id,
+          password_changed_at: nowIso,
+          password_reset_token_hash: null,
+          password_reset_expires_at: null
+        }], { onConflict: "email" });
+
+      if (userError) {
+        console.warn("Teacher login identity activation failed:", userError.message);
+        // Restore the invitation only if this request still owns the activation
+        // transition, so the teacher can retry without leaking a valid account.
         await supabase
           .from("dugsiga_teachers")
           .update({
-            status: "ACTIVE",
-            invitation_token: null,
-            activated_at: nowIso
+            status: "INVITED",
+            invitation_token: token,
+            activated_at: null
           })
-          .eq("id", teacher.id);
-
-          await supabase
-          .from("dugsiga_users")
-          .upsert([
-            {
-              email: cleanEmail,
-              password: passwordHash,
-              verified: true,
-              role: "teacher",
-              school_id: teacher.schoolId,
-              teacher_id: teacher.id
-            }
-          ], { onConflict: "email" });
-      } catch (sbErr) {
-        console.warn("Supabase teacher activation update notice:", sbErr);
+          .eq("id", teacher.id)
+          .eq("school_id", teacher.schoolId)
+          .eq("status", "ACTIVE")
+          .eq("activated_at", nowIso);
+        return res.status(503).json({ error: "Akoonka login-ka lama diyaarin karin hadda. Fadlan isku day mar kale." });
       }
     }
+
+    if (!db.teachers) db.teachers = [];
+    const localIndex = db.teachers.findIndex((item: any) => item.id === teacher.id);
+    const normalizedTeacher = {
+      ...(localIndex >= 0 ? db.teachers[localIndex] : {}),
+      id: teacher.id,
+      teacherId: teacher.teacherId || teacher.teacher_id || teacher.id,
+      schoolId: teacher.schoolId || teacher.school_id,
+      name: teacher.name,
+      email: cleanEmail,
+      status: "ACTIVE",
+      invitationToken: null,
+      invitationExpiresAt: teacher.invitationExpiresAt || teacher.invitation_expires_at,
+      activatedAt: nowIso,
+      invitationStatus: "ACTIVE",
+      assignedClasses: Array.isArray(teacher.assignedClasses) ? teacher.assignedClasses : [],
+      assignedSubjects: Array.isArray(teacher.assignedSubjects) ? teacher.assignedSubjects : []
+    };
+    if (localIndex >= 0) db.teachers[localIndex] = normalizedTeacher;
+    else db.teachers.push(normalizedTeacher);
+
+    if (!db.users) db.users = [];
+    const userIndex = db.users.findIndex(
+      (user: any) => String(user.email || "").trim().toLowerCase() === cleanEmail
+    );
+    const localUser = {
+      email: cleanEmail,
+      password_hash: passwordHash,
+      verified: true,
+      role: "teacher",
+      school_id: teacher.schoolId || teacher.school_id,
+      teacher_id: teacher.id,
+      password_changed_at: nowIso,
+      password_reset_token_hash: null,
+      password_reset_expires_at: null
+    };
+    if (userIndex >= 0) db.users[userIndex] = { ...db.users[userIndex], ...localUser };
+    else db.users.push(localUser);
+    saveLocalDB(db);
 
     return res.json({
       success: true,
