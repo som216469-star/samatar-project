@@ -10,6 +10,7 @@ import { registerFinanceRoutes } from "./server/financeRoutes.ts";
 import {
   getAuthenticatedUser,
   createSessionToken,
+  generateSecureToken,
   hashPassword,
   verifyPassword,
   requireAuthenticatedRequest,
@@ -17,6 +18,7 @@ import {
   revokeSession,
   validatePassword
 } from "./server/authSession.ts";
+import { sendPasswordResetEmail } from "./server/emailService.ts";
 
 // Load environment variables
 dotenv.config({ override: true });
@@ -152,7 +154,7 @@ function clearAuthRateLimit(keyPrefix: string) {
 }
 
 const SESSION_COOKIE_NAME = "dugsi_session";
-const SESSION_MAX_AGE_SECONDS = 12 * 60 * 60;
+const SESSION_MAX_AGE_SECONDS = 8 * 60 * 60;
 
 function requestIsHttps(req: express.Request): boolean {
   const forwardedProto = String(req.headers["x-forwarded-proto"] || "")
@@ -246,6 +248,24 @@ app.use("/api", (req, res, next) => {
     }
   }
 
+  if (req.method === "POST" && pathName === "/auth/forgot-password") {
+    const ip = req.ip || "unknown";
+    const limit = consumeAuthRateLimit(`password-reset:ip:${ip}`, 5, 15 * 60 * 1000);
+    if (!limit.allowed) {
+      res.setHeader("Retry-After", String(limit.retryAfterSeconds));
+      return res.status(429).json({ error: "Codsiyo badan ayaa la sameeyay. Fadlan sug ka hor intaadan mar kale isku dayin." });
+    }
+  }
+
+  if (req.method === "POST" && pathName === "/auth/reset-password") {
+    const ip = req.ip || "unknown";
+    const limit = consumeAuthRateLimit(`password-change:ip:${ip}`, 10, 15 * 60 * 1000);
+    if (!limit.allowed) {
+      res.setHeader("Retry-After", String(limit.retryAfterSeconds));
+      return res.status(429).json({ error: "Isku-dayo badan ayaa la sameeyay. Fadlan sug ka hor intaadan mar kale isku dayin." });
+    }
+  }
+
   if (req.method === "POST" && pathName === "/teachers/activate-account") {
     const ip = req.ip || "unknown";
     const limit = consumeAuthRateLimit(`activation:ip:${ip}`, 10, 60 * 60 * 1000);
@@ -312,6 +332,9 @@ interface LocalDB {
     password_hash: string;
     verified: boolean;
     verification_code?: string;
+    password_reset_token_hash?: string | null;
+    password_reset_expires_at?: string | null;
+    password_changed_at?: string | null;
     role?: string;
     school_id?: string;
     teacher_id?: string;
@@ -456,15 +479,31 @@ function getSchoolId(req: express.Request): string {
 }
 
 function buildAuthResponse(cleanEmail: string, db: any) {
-  // Check if user is a teacher
-  const teacher = (db.teachers || []).find((t: any) => (t.email || "").toLowerCase() === cleanEmail);
-  if (teacher) {
-    if (teacher.status === "DEACTIVATED") {
-      return { error: "Akoonkaaga macallinka waa la hakiyey (Account deactivated). Fadlan la xiriir maamulka iskuulka." };
+  const userRecord = (db.users || []).find(
+    (u: any) => String(u.email || "").trim().toLowerCase() === cleanEmail
+  );
+  if (!userRecord) {
+    return { error: "Email ama password ayaa qalad ah." };
+  }
+
+  const rawRole = String(userRecord.role || "admin").trim().toLowerCase();
+  const teacher = (db.teachers || []).find(
+    (t: any) => String(t.email || "").trim().toLowerCase() === cleanEmail
+  );
+
+  if (rawRole === "teacher") {
+    if (!teacher || (userRecord.teacher_id && userRecord.teacher_id !== teacher.id)) {
+      return { error: "Akoonka macallinka lama helin ama waa la saaray." };
     }
-    if (teacher.status === "INVITED") {
-      return { error: "Akoonkan weli lama dhaqaajin. Fadlan isticmaal link-gii casuumaadda ee email-kaaga laguugu soo diray si aad u samaysato password." };
+    const status = String(teacher.status || "ACTIVE").trim().toUpperCase();
+    if (status !== "ACTIVE") {
+      return {
+        error: status === "INVITED"
+          ? "Akoonkan weli lama dhaqaajin. Fadlan isticmaal link-gii casuumaadda ee email-kaaga laguugu soo diray si aad u samaysato password."
+          : "Akoonkaaga macallinka ma firfircoona. Fadlan la xiriir maamulka dugsiga."
+      };
     }
+
     teacher.lastLoginAt = new Date().toISOString();
     const userPayload: any = {
       email: cleanEmail,
@@ -472,30 +511,29 @@ function buildAuthResponse(cleanEmail: string, db: any) {
       name: teacher.name,
       teacherId: teacher.id,
       schoolId: teacher.schoolId || cleanEmail,
-      assignedClasses: teacher.assignedClasses || [],
-      assignedSubjects: teacher.assignedSubjects || []
+      assignedClasses: Array.isArray(teacher.assignedClasses) ? teacher.assignedClasses : [],
+      assignedSubjects: Array.isArray(teacher.assignedSubjects) ? teacher.assignedSubjects : []
     };
     const token = createSessionToken(userPayload);
-    return {
-      success: true,
-      token,
-      user: userPayload
-    };
+    return { success: true, token, user: userPayload };
   }
 
-  // Otherwise school administrator
-  const userRecord = (db.users || []).find((u: any) => (u.email || "").toLowerCase() === cleanEmail);
+  const allowedAdminRoles = new Set(["admin", "school admin", "super admin", "principal"]);
+  if (!allowedAdminRoles.has(rawRole)) {
+    return { error: "Doorka akoonkan lama taageero. Fadlan la xiriir maamulka dugsiga." };
+  }
+
+  const schoolId = String(userRecord.school_id || "").trim();
+  if (!schoolId) {
+    return { error: "Akoonka dugsiga si sax ah looma diyaarin. Fadlan la xiriir taageerada." };
+  }
   const userPayload: any = {
     email: cleanEmail,
-    role: userRecord?.role || "admin",
-    schoolId: userRecord?.school_id || cleanEmail
+    role: rawRole === "admin" ? "admin" : userRecord.role,
+    schoolId
   };
   const token = createSessionToken(userPayload);
-  return {
-    success: true,
-    token,
-    user: userPayload
-  };
+  return { success: true, token, user: userPayload };
 }
 
 async function testSupabaseTable(tableName: string, checkColumn?: string): Promise<boolean> {
@@ -1984,7 +2022,8 @@ async function getStudentDependencyIds(studentIds: string[], schoolId: string): 
 const PUBLIC_API_PATHS = [
   /^\/auth\/signup$/,
   /^\/auth\/login$/,
-  /^\/auth\/verify$/,
+  /^\/auth\/forgot-password$/,
+  /^\/auth\/reset-password$/,
   /^\/teachers\/verify-invitation\/[^/]+$/,
   /^\/teachers\/activate-account$/
 ];
