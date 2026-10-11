@@ -189,6 +189,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
                     id="auth-email"
                     type="email"
                     required
+                    maxLength={254}
                     autoComplete="email"
                     aria-invalid={Boolean(authError)}
                     aria-describedby={authError ? 'auth-error-banner' : undefined}
@@ -222,6 +223,8 @@ export const AuthView: React.FC<AuthViewProps> = ({
                     id="auth-password"
                     type="password"
                     required
+                    minLength={authView === 'signup' ? 10 : undefined}
+                    maxLength={128}
                     autoComplete={authView === 'login' ? 'current-password' : 'new-password'}
                     aria-invalid={Boolean(authError)}
                     aria-describedby={authError ? 'auth-error-banner' : undefined}
