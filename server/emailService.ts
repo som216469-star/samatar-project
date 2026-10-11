@@ -230,3 +230,69 @@ export async function sendPasswordResetEmail({
     return { success: false, error: error?.message || "Email sending failed." };
   }
 }
+
+
+interface SendAccountVerificationEmailParams {
+  toEmail: string;
+  verificationLink: string;
+  expiresInHours?: number;
+}
+
+/**
+ * Sends a one-time verification link. The raw token must never be logged or
+ * returned by the API; only its hash is stored in the database.
+ */
+export async function sendAccountVerificationEmail({
+  toEmail,
+  verificationLink,
+  expiresInHours = 24
+}: SendAccountVerificationEmailParams): Promise<{ success: boolean; error?: string }> {
+  const fromEmail = process.env.SMTP_FROM || process.env.SMTP_USER || "no-reply@dugsigapro.edu";
+  const cleanEmail = toEmail.trim().toLowerCase();
+  const safeEmail = escapeEmailHtml(cleanEmail);
+  const safeLink = escapeEmailHtml(verificationLink);
+  const transporter = getEmailTransporter();
+
+  if (!transporter) {
+    return { success: false, error: "SMTP is not configured." };
+  }
+
+  const html = `
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Verify your DUGSI PRO email</title></head>
+<body style="margin:0;padding:24px;background:#f8fafc;color:#0f172a;font-family:Arial,sans-serif">
+  <main style="max-width:560px;margin:0 auto;padding:28px;background:#fff;border:1px solid #e2e8f0;border-radius:14px">
+    <p style="font-size:12px;font-weight:700;letter-spacing:.1em;color:#6d28d9">DUGSI PRO 2026</p>
+    <h1 style="font-size:24px;line-height:1.3">Verify your school administrator email</h1>
+    <p style="font-size:14px;line-height:1.7;color:#475569">Confirm that you control ${safeEmail} before signing in to your DUGSI PRO school workspace.</p>
+    <p style="margin:28px 0"><a href="${safeLink}" style="display:inline-block;padding:13px 20px;border-radius:8px;background:#6d28d9;color:#fff;text-decoration:none;font-weight:700">Verify email address</a></p>
+    <p style="font-size:12px;line-height:1.6;color:#64748b">This one-time link expires in ${expiresInHours} hours. If you did not create this account, ignore this email.</p>
+    <p style="font-size:11px;line-height:1.6;color:#94a3b8;word-break:break-all">If the button does not work, copy this link into your browser: ${safeLink}</p>
+  </main>
+</body>
+</html>`;
+  const text = [
+    "DUGSI PRO 2026 — Verify your email",
+    "",
+    "Confirm control of " + cleanEmail + " before signing in:",
+    verificationLink,
+    "",
+    "This one-time link expires in " + expiresInHours + " hours.",
+    "If you did not create this account, ignore this email."
+  ].join("\n");
+
+  try {
+    await transporter.sendMail({
+      from: `"DUGSI PRO 2026" <${fromEmail}>`,
+      to: cleanEmail,
+      subject: "DUGSI PRO 2026 — Verify your email",
+      text,
+      html
+    });
+    return { success: true };
+  } catch (error: any) {
+    console.error("[Email Verification] Delivery failed:", error?.message || error);
+    return { success: false, error: error?.message || "Email sending failed." };
+  }
+}
