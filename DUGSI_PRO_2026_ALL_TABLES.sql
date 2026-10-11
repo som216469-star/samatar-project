@@ -18,6 +18,9 @@ CREATE TABLE IF NOT EXISTS dugsiga_users (
   password_reset_token_hash TEXT,
   password_reset_expires_at TIMESTAMPTZ,
   password_changed_at TIMESTAMPTZ,
+  email_verification_token_hash TEXT,
+  email_verification_expires_at TIMESTAMPTZ,
+  email_verified_at TIMESTAMPTZ,
   role TEXT DEFAULT 'admin',
   school_id TEXT,
   teacher_id TEXT,
@@ -27,7 +30,10 @@ CREATE TABLE IF NOT EXISTS dugsiga_users (
 ALTER TABLE public.dugsiga_users
   ADD COLUMN IF NOT EXISTS password_reset_token_hash TEXT,
   ADD COLUMN IF NOT EXISTS password_reset_expires_at TIMESTAMPTZ,
-  ADD COLUMN IF NOT EXISTS password_changed_at TIMESTAMPTZ;
+  ADD COLUMN IF NOT EXISTS password_changed_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS email_verification_token_hash TEXT,
+  ADD COLUMN IF NOT EXISTS email_verification_expires_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS email_verified_at TIMESTAMPTZ;
 
 CREATE INDEX IF NOT EXISTS idx_dugsiga_users_password_reset_expiry
   ON public.dugsiga_users (password_reset_expires_at)
