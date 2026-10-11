@@ -2636,6 +2636,246 @@ app.post("/api/auth/login", async (req, res) => {
 });
 
 
+app.post("/api/auth/forgot-password", async (req, res) => {
+  const emailInput = req.body?.email;
+  if (!isValidEmailAddress(emailInput)) {
+    return res.status(400).json({ error: "Fadlan geli email sax ah." });
+  }
+  if (!(await ensureProductionAuthBackend(res))) return;
+
+  const smtpUser = process.env.SMTP_USER || process.env.EMAIL_USER;
+  const smtpPassword = process.env.SMTP_PASS || process.env.EMAIL_PASS;
+  if (!smtpUser || !smtpPassword) {
+    return res.status(503).json({
+      error: "Adeegga email recovery lama diyaarin. Fadlan la xiriir maamulka system-ka."
+    });
+  }
+
+  const appOrigin = getTrustedAppOrigin(req);
+  if (!appOrigin) {
+    return res.status(503).json({
+      error: "APP_URL HTTPS ah lama diyaarin. Fadlan la xiriir maamulka system-ka."
+    });
+  }
+
+  const cleanEmail = emailInput.trim().toLowerCase();
+  const genericResponse = {
+    success: true,
+    message: "Haddii email-ku ku xiran yahay akoon jira, link dib-u-dejin ayaa loo soo diray."
+  };
+  const token = generateSecureToken();
+  const tokenHash = crypto.createHash("sha256").update(token, "utf8").digest("hex");
+  const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+  let eligibleAccount = false;
+
+  if (!useLocalFallback && supabase) {
+    const { data: account, error: lookupError } = await supabase
+      .from("dugsiga_users")
+      .select("email,role,school_id,teacher_id")
+      .eq("email", cleanEmail)
+      .maybeSingle();
+
+    if (lookupError) {
+      console.warn("Password reset account lookup failed:", lookupError.message);
+      return res.status(503).json({
+        error: "Adeegga recovery-ga si ku-meel-gaar ah uma shaqaynayo. Fadlan mar kale isku day."
+      });
+    }
+
+    if (account) {
+      const role = String(account.role || "").trim().toLowerCase();
+      const adminRoles = new Set(["admin", "school admin", "super admin", "principal"]);
+      if (adminRoles.has(role)) {
+        eligibleAccount = true;
+      } else if (role === "teacher" && account.teacher_id) {
+        const { data: teacher, error: teacherError } = await supabase
+          .from("dugsiga_teachers")
+          .select("status")
+          .eq("id", account.teacher_id)
+          .eq("school_id", account.school_id || cleanEmail)
+          .maybeSingle();
+
+        if (teacherError) {
+          console.warn("Password reset teacher lookup failed:", teacherError.message);
+          return res.status(503).json({
+            error: "Adeegga recovery-ga si ku-meel-gaar ah uma shaqaynayo."
+          });
+        }
+        eligibleAccount = Boolean(teacher) &&
+          String(teacher?.status || "ACTIVE").trim().toUpperCase() === "ACTIVE";
+      }
+    }
+
+    if (eligibleAccount) {
+      const { data: updated, error: updateError } = await supabase
+        .from("dugsiga_users")
+        .update({
+          password_reset_token_hash: tokenHash,
+          password_reset_expires_at: expiresAt
+        })
+        .eq("email", cleanEmail)
+        .select("email")
+        .maybeSingle();
+
+      if (updateError || !updated) {
+        console.warn("Password reset token could not be stored:", updateError?.message || "account no longer exists");
+        return res.status(503).json({
+          error: "Recovery-ga lama diyaarin karin hadda. Fadlan mar kale isku day."
+        });
+      }
+    }
+  } else {
+    const db = loadLocalDB();
+    const localUser = db.users.find(
+      (item: any) => String(item.email || "").trim().toLowerCase() === cleanEmail
+    );
+    if (localUser) {
+      const role = String(localUser.role || "").trim().toLowerCase();
+      const adminRoles = new Set(["admin", "school admin", "super admin", "principal"]);
+      const isActiveTeacher = role !== "teacher" || (db.teachers || []).some((teacher: any) =>
+        String(teacher.email || "").trim().toLowerCase() === cleanEmail &&
+        String(teacher.status || "ACTIVE").trim().toUpperCase() === "ACTIVE"
+      );
+      eligibleAccount = (adminRoles.has(role) || role === "teacher") && isActiveTeacher;
+      if (eligibleAccount) {
+        localUser.password_reset_token_hash = tokenHash;
+        localUser.password_reset_expires_at = expiresAt;
+        saveLocalDB(db);
+      }
+    }
+  }
+
+  // Identical response whether or not an eligible account exists, to prevent
+  // email enumeration. Recovery tokens are stored only as hashes.
+  if (!eligibleAccount) return res.json(genericResponse);
+
+  const resetLink = `${appOrigin}/reset-password?token=${encodeURIComponent(token)}`;
+  const delivery = await sendPasswordResetEmail({
+    toEmail: cleanEmail,
+    resetLink,
+    expiresInMinutes: 30
+  });
+
+  if (!delivery.success) {
+    console.warn("Password reset email could not be delivered:", delivery.error || "unknown email error");
+    if (!useLocalFallback && supabase) {
+      await supabase
+        .from("dugsiga_users")
+        .update({ password_reset_token_hash: null, password_reset_expires_at: null })
+        .eq("email", cleanEmail)
+        .eq("password_reset_token_hash", tokenHash);
+    }
+    const db = loadLocalDB();
+    const localUser = db.users.find(
+      (item: any) => String(item.email || "").trim().toLowerCase() === cleanEmail
+    );
+    if (localUser?.password_reset_token_hash === tokenHash) {
+      localUser.password_reset_token_hash = null;
+      localUser.password_reset_expires_at = null;
+      saveLocalDB(db);
+    }
+  }
+
+  return res.json(genericResponse);
+});
+
+app.post("/api/auth/reset-password", async (req, res) => {
+  const { token, password, confirmPassword } = req.body || {};
+  if (typeof token !== "string" || token.length < 32 || token.length > 512) {
+    return res.status(400).json({
+      error: "Link-ga dib-u-dejintu ma saxna ama wuu dhacay. Codso link cusub."
+    });
+  }
+  if (typeof password !== "string" || password !== confirmPassword) {
+    return res.status(400).json({ error: "Labada password isma laha. Fadlan hubi." });
+  }
+  const passwordValidation = validatePassword(password);
+  if (!passwordValidation.valid) {
+    return res.status(400).json({ error: passwordValidation.error });
+  }
+  if (!(await ensureProductionAuthBackend(res))) return;
+
+  const tokenHash = crypto.createHash("sha256").update(token, "utf8").digest("hex");
+  const nowIso = new Date().toISOString();
+  const passwordHash = await hashPassword(password);
+
+  if (!useLocalFallback && supabase) {
+    // Conditional update clears the token atomically, making the link one-time.
+    const { data: updated, error } = await supabase
+      .from("dugsiga_users")
+      .update({
+        password: passwordHash,
+        verified: true,
+        password_changed_at: nowIso,
+        password_reset_token_hash: null,
+        password_reset_expires_at: null
+      })
+      .eq("password_reset_token_hash", tokenHash)
+      .gt("password_reset_expires_at", nowIso)
+      .select("email,role,school_id,teacher_id")
+      .maybeSingle();
+
+    if (error) {
+      console.warn("Password reset update failed:", error.message);
+      return res.status(503).json({
+        error: "Password-ka lama beddeli karin hadda. Fadlan mar kale isku day."
+      });
+    }
+    if (!updated) {
+      return res.status(400).json({
+        error: "Link-gu ma shaqaynayo ama wuu dhacay. Codso recovery link cusub."
+      });
+    }
+
+    const db = loadLocalDB();
+    const localIndex = db.users.findIndex(
+      (item: any) => String(item.email || "").trim().toLowerCase() === String(updated.email || "").toLowerCase()
+    );
+    const localRecord = {
+      email: String(updated.email || "").toLowerCase(),
+      password_hash: passwordHash,
+      verified: true,
+      role: updated.role,
+      school_id: updated.school_id,
+      teacher_id: updated.teacher_id,
+      password_changed_at: nowIso,
+      password_reset_token_hash: null,
+      password_reset_expires_at: null
+    };
+    if (localIndex >= 0) db.users[localIndex] = { ...db.users[localIndex], ...localRecord };
+    else db.users.push(localRecord);
+    saveLocalDB(db);
+    return res.json({
+      success: true,
+      message: "Password-kaaga waa la beddelay. Fadlan mar kale login samee."
+    });
+  }
+
+  const db = loadLocalDB();
+  const localIndex = db.users.findIndex((item: any) =>
+    String(item.password_reset_token_hash || "") === tokenHash &&
+    typeof item.password_reset_expires_at === "string" &&
+    item.password_reset_expires_at > nowIso
+  );
+  if (localIndex < 0) {
+    return res.status(400).json({
+      error: "Link-gu ma shaqaynayo ama wuu dhacay. Codso recovery link cusub."
+    });
+  }
+
+  const localUser = db.users[localIndex];
+  localUser.password_hash = passwordHash;
+  localUser.verified = true;
+  localUser.password_changed_at = nowIso;
+  localUser.password_reset_token_hash = null;
+  localUser.password_reset_expires_at = null;
+  saveLocalDB(db);
+  return res.json({
+    success: true,
+    message: "Password-kaaga waa la beddelay. Fadlan mar kale login samee."
+  });
+});
+
 app.get("/api/students", async (req, res) => {
   const schoolId = getSchoolId(req);
   const authUser = getAuthenticatedUser(req, loadLocalDB);
