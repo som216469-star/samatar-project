@@ -35,7 +35,7 @@ export interface ImportValidatedRow {
 
 export interface BulkActionState {
   isOpen: boolean;
-  action: 'change_class' | 'change_status' | 'archive' | 'delete' | null;
+  action: 'change_class' | 'change_status' | 'archive' | 'restore' | 'delete' | null;
   targetValue?: string;
 }
 
@@ -550,6 +550,8 @@ export const StudentsActionModals: React.FC<StudentsActionModalsProps> = ({
             ? 'Beddel Status-ka Ardayda'
             : bulkActionModal?.action === 'archive'
             ? 'Kaydi Ardayda (Archive)'
+            : bulkActionModal?.action === 'restore'
+            ? 'Soo Celi Ardayda (Restore Active)'
             : 'Tirtir Ardayda (Delete)'
         }
         footer={
@@ -638,6 +640,12 @@ export const StudentsActionModals: React.FC<StudentsActionModalsProps> = ({
             <div className="p-3 bg-[var(--color-surface-muted)] border border-[var(--color-border)] rounded-lg text-[var(--color-text-secondary)]">
               Ardayda la kaydiyo kama muuqan doonaan liisaska firfircoon laakiin taariikhdooda
               imtixaanaadka iyo lacagaha waa la dhowri doonaa.
+            </div>
+          )}
+
+          {bulkActionModal?.action === 'restore' && (
+            <div className="p-3 bg-[var(--color-success-soft)] border border-[var(--color-success-border)] rounded-lg text-[var(--color-success)]">
+              Ardayda la soo celiyo waxaa laga dhigi doonaa Active (firfircoon) waxaana dib loogu soo celin doonaa fasalladooda.
             </div>
           )}
 

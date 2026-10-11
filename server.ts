@@ -2425,6 +2425,80 @@ app.get("/api/students", async (req, res) => {
   );
 });
 
+app.get("/api/students/:id", async (req, res) => {
+  const schoolId = getSchoolId(req);
+  const authUser = getAuthenticatedUser(req, loadLocalDB);
+  if (!schoolId || !authUser) return res.status(401).json({ error: "Session-ka lama xaqiijin." });
+
+  const id = typeof req.params.id === "string" ? req.params.id.trim() : "";
+  if (!isSafeStudentId(id)) return res.status(400).json({ error: "Student ID-ga ma saxna." });
+
+  const isTeacher = authUser.role === "teacher";
+  const teacherClasses = Array.isArray(authUser.assignedClasses)
+    ? authUser.assignedClasses.map((c) => String(c).trim()).filter(Boolean)
+    : [];
+
+  if (!useLocalFallback) {
+    try {
+      const { data, error } = await supabase
+        .from("dugsiga_students")
+        .select("*")
+        .eq("school_id", schoolId)
+        .eq("id", id)
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!data) return res.status(404).json({ error: "Ardayga lama helin." });
+
+      if (isTeacher) {
+        if (!teacherClasses.includes(String(data.class || "").trim())) {
+          return res.status(403).json({ error: "Ardaygan fasax uma lihid inaad aragto." });
+        }
+      }
+
+      return res.json(formatStudentRow(data, authUser));
+    } catch (e: any) {
+      return handleSupabaseError(res, e, "Soo qaadista xogta ardayga");
+    }
+  }
+
+  const db = loadLocalDB();
+  const found = (db.students || []).find((s: any) => s.id === id && s.schoolId === schoolId);
+  if (!found) return res.status(404).json({ error: "Ardayga lama helin." });
+
+  if (isTeacher) {
+    if (!teacherClasses.includes(String(found.class || "").trim())) {
+      return res.status(403).json({ error: "Ardaygan fasax uma lihid inaad aragto." });
+    }
+  }
+
+  const base = {
+    id: found.id,
+    fullName: found.fullName,
+    class: found.class,
+    gender: found.gender,
+    guardianPhone: found.guardianPhone || "",
+    status: found.status || "active",
+    createdAt: found.createdAt || "",
+    updatedAt: found.updatedAt || found.createdAt || "",
+    photo: found.photo || "",
+    dateOfBirth: found.dateOfBirth || "",
+    address: found.address || "",
+    guardianName: found.guardianName || "",
+    guardianRelationship: found.guardianRelationship || "",
+    guardianPhoneAlt: found.guardianPhoneAlt || "",
+    emergencyContact: found.emergencyContact || "",
+    section: found.section || "",
+    rollNumber: found.rollNumber || "",
+    nationalId: canViewSensitiveStudentData(authUser) ? (found.nationalId || "") : "",
+    previousSchool: found.previousSchool || "",
+    bloodGroup: canViewSensitiveStudentData(authUser) ? (found.bloodGroup || "") : "",
+    medicalNotes: canViewSensitiveStudentData(authUser) ? (found.medicalNotes || "") : ""
+  };
+
+  return res.json(base);
+});
+
 app.post("/api/students/check-duplicate", async (req, res) => {
   const schoolId = getSchoolId(req);
   if (!schoolId) return res.status(401).json({ error: "Session-ka lama xaqiijin." });
@@ -2539,11 +2613,13 @@ app.post("/api/students/import", async (req, res) => {
       normalizedRows.push({ row: index + 1, student: validation.value });
     }
 
-    if (errors.length > 0) {
+    if (normalizedRows.length === 0) {
       return res.status(400).json({
         error: "Import-ka waxaa ku jira xog aan sax ahayn.",
         imported: 0,
+        importedCount: 0,
         failed: errors.length,
+        skippedCount: errors.length,
         errors: errors.slice(0, 100)
       });
     }
@@ -2729,17 +2805,15 @@ app.post("/api/students/import", async (req, res) => {
       }
     }
 
-    if (errors.length > 0) {
-      return res.status(409).json({
-        error: "Import-ka waxaa ku jira duplicates ama fasallo aan jirin.",
+    if (!insertRows.length) {
+      return res.status(400).json({
+        error: "Ma jiraan arday sax ah oo la gelin karo.",
         imported: 0,
+        importedCount: 0,
         failed: errors.length,
+        skippedCount: errors.length,
         errors: errors.slice(0, 100)
       });
-    }
-
-    if (!insertRows.length) {
-      return res.status(400).json({ error: "Ma jiraan arday sax ah oo la gelin karo." });
     }
 
     if (!useLocalFallback) {
@@ -2753,7 +2827,10 @@ app.post("/api/students/import", async (req, res) => {
           return res.status(409).json({
             error: "Import-ku wuxuu la kulmay duplicate Student ID, Roll Number, ama National ID.",
             imported: 0,
-            failed: insertRows.length
+            importedCount: 0,
+            failed: insertRows.length + errors.length,
+            skippedCount: insertRows.length + errors.length,
+            errors: errors.slice(0, 100)
           });
         }
         throw error;
@@ -2790,7 +2867,10 @@ app.post("/api/students/import", async (req, res) => {
       return res.status(201).json({
         success: true,
         imported: inserted.length,
-        failed: 0,
+        importedCount: inserted.length,
+        failed: errors.length,
+        skippedCount: errors.length,
+        errors: errors.slice(0, 100),
         students: inserted.map((row: any) => formatStudentRow(row, authUser))
       });
     }
@@ -2834,7 +2914,15 @@ app.post("/api/students/import", async (req, res) => {
       );
     }
     saveLocalDB(db);
-    return res.status(201).json({ success: true, imported: insertRows.length, failed: 0 });
+    return res.status(201).json({
+      success: true,
+      imported: insertRows.length,
+      importedCount: insertRows.length,
+      failed: errors.length,
+      skippedCount: errors.length,
+      errors: errors.slice(0, 100),
+      students: insertRows.map((row: any) => formatStudentRow(row, authUser))
+    });
   } catch (e: any) {
     return handleStudentSupabaseError(res, e, "Bulk Import-ka Ardayda");
   }
@@ -2856,7 +2944,7 @@ app.post("/api/students/bulk", async (req, res) => {
 
   if (!studentIds.length) return res.status(400).json({ error: "studentIds waa qasab." });
   if (studentIds.length > STUDENT_MAX_BULK) return res.status(400).json({ error: `Hal mar kama badnaan karaan ${STUDENT_MAX_BULK} arday.` });
-  if (!["change_status", "change_class", "archive", "delete"].includes(action)) {
+  if (!["change_status", "change_class", "archive", "restore", "delete"].includes(action)) {
     return res.status(400).json({ error: "Action-ka bulk-ga ma saxna." });
   }
 
@@ -2961,10 +3049,10 @@ app.post("/api/students/bulk", async (req, res) => {
             recordStudentAudit(req, schoolId, row.id, "deleted", ["student"], row, null)
           )
         );
-        return res.json({ success: true, count: deletedIds.length });
+        return res.json({ success: true, count: deletedIds.length, processedCount: deletedIds.length });
       }
 
-      const nextStatus = action === "archive" ? "archived" : action === "change_status" ? targetStatus : undefined;
+      const nextStatus = action === "archive" ? "archived" : action === "restore" ? "active" : action === "change_status" ? targetStatus : undefined;
       const updateObj: any = { updated_at: new Date().toISOString() };
       if (action === "change_class") {
         updateObj.class = targetClass;
@@ -2999,7 +3087,7 @@ app.post("/api/students/bulk", async (req, res) => {
           )
         )
       );
-      return res.json({ success: true, count: updatedRows.length });
+      return res.json({ success: true, count: updatedRows.length, processedCount: updatedRows.length });
     } catch (e: any) {
       return handleStudentSupabaseError(res, e, "Hawsha guud ee ardayda (Bulk Students Operation)");
     }
@@ -3098,9 +3186,10 @@ app.post("/api/students/bulk", async (req, res) => {
         return updatedStudent;
       }
 
+      const nextStatus = action === "archive" ? "archived" : action === "restore" ? "active" : action === "change_status" ? targetStatus : undefined;
       const updatedStudent = {
         ...s,
-        status: action === "archive" ? "archived" : targetStatus,
+        status: nextStatus || s.status,
         updatedAt: new Date().toISOString()
       };
       const oldStatus = String(s.status || "active").toLowerCase();
@@ -3117,7 +3206,7 @@ app.post("/api/students/bulk", async (req, res) => {
   }
 
   saveLocalDB(db);
-  return res.json({ success: true, count: studentIds.length });
+  return res.json({ success: true, count: studentIds.length, processedCount: studentIds.length });
 });
 
 app.post("/api/students", async (req, res) => {
@@ -3195,6 +3284,9 @@ app.post("/api/students", async (req, res) => {
     }
 
     const db = loadLocalDB();
+    const idConflict = (db.students || []).some((s: any) => s.id === studentId);
+    if (idConflict) return res.status(409).json({ error: "Student ID-gan horey ayaa loo isticmaalay." });
+
     const conflict = (db.students || []).some((s: any) =>
       s.schoolId === schoolId &&
       s.id !== studentId &&

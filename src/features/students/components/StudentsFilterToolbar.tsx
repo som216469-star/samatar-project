@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   Search,
+  Filter,
   X,
   PhoneCall,
   List,
@@ -9,8 +10,7 @@ import {
   Activity,
   Archive,
   Trash2,
-  Download,
-  Filter
+  Download
 } from 'lucide-react';
 import { SchoolClass } from '../../../types';
 import { StudentSubSection } from '../../../app/navigationConfig';
