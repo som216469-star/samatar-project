@@ -2207,85 +2207,106 @@ app.get("/api/supabase-server-test", expressWithSupabase({ auth: "none" }, async
 }));
 
 app.post("/api/auth/signup", async (req, res) => {
-  const { email, password } = req.body;
-  if (!email || !password || !email.includes("@")) {
-    return res.status(400).json({ error: "Email sax ah iyo password fadlan geli." });
+  const { email, password } = req.body || {};
+  if (!isValidEmailAddress(email) || typeof password !== "string" || !password) {
+    return res.status(400).json({ error: "Fadlan geli email sax ah iyo password." });
   }
   const cleanEmail = email.trim().toLowerCase();
   const passwordValidation = validatePassword(password);
   if (!passwordValidation.valid) {
     return res.status(400).json({ error: passwordValidation.error });
   }
+  if (!(await ensureProductionAuthBackend(res))) return;
+
   const passwordHash = await hashPassword(password);
+  let cloudAccountCreated = false;
 
-  const db = loadLocalDB();
-  const existingLocalUser = db.users.find(u => u.email.toLowerCase() === cleanEmail);
-  if (existingLocalUser) {
-    return res.status(400).json({ error: "Email-kan horey ayaa loo diiwaangeliyey. Fadlan 'Sign In' ku gal." });
-  }
-
-  // If Supabase is connected, attempt check & sync to Supabase
   if (!useLocalFallback && supabase) {
-    try {
-      const { data: existingUser, error: selectErr } = await supabase
-        .from("dugsiga_users")
-        .select("email")
-        .ilike("email", cleanEmail)
-        .maybeSingle();
+    const { data: existingUser, error: selectError } = await supabase
+      .from("dugsiga_users")
+      .select("email")
+      .eq("email", cleanEmail)
+      .maybeSingle();
 
-      if (selectErr) {
-        if (selectErr.message?.includes("fetch failed") || selectErr.message?.includes("ENOTFOUND")) {
-          useLocalFallback = true;
-          customSupabaseActive = false;
-        }
-      } else if (existingUser) {
-        return res.status(400).json({ error: "Email-kan horey ayaa loo diiwaangeliyey. Fadlan 'Sign In' ku gal." });
+    if (selectError) {
+      console.warn("Signup account lookup failed:", selectError.message);
+      if (process.env.NODE_ENV === "production") {
+        return res.status(503).json({ error: "Adeegga diiwaangelintu si ku-meel-gaar ah uma shaqaynayo." });
       }
-
-      if (!useLocalFallback) {
-        const { error: insertError } = await supabase.from("dugsiga_users").insert([{
-          email: cleanEmail, password: passwordHash, verified: true, role: "admin", school_id: cleanEmail
-        }]);
-
-        if (insertError) {
-          if (insertError.code === "23505") {
-            return res.status(400).json({ error: "Email-kan horey ayaa loo diiwaangeliyey. Fadlan 'Sign In' ku gal." });
-          }
-          if (insertError.message?.includes("fetch failed") || insertError.message?.includes("ENOTFOUND")) {
-            useLocalFallback = true;
-            customSupabaseActive = false;
-          } else {
-            console.log("Supabase auth insert notice:", insertError.message);
-          }
-        }
-      }
-    } catch (sbErr: any) {
-      if (sbErr?.message?.includes("fetch failed") || sbErr?.message?.includes("ENOTFOUND")) {
+      if (selectError.message?.includes("fetch failed") || selectError.message?.includes("ENOTFOUND")) {
         useLocalFallback = true;
         customSupabaseActive = false;
       } else {
-        console.log("Supabase auth notice:", sbErr?.message || sbErr);
+        return res.status(503).json({ error: "Akoonka lama xaqiijin karin. Fadlan mar kale isku day." });
+      }
+    } else if (existingUser) {
+      return res.status(409).json({ error: "Email-kan horey ayaa loo diiwaangeliyey. Fadlan 'Sign In' ku gal." });
+    } else {
+      const { error: insertError } = await supabase.from("dugsiga_users").insert([{
+        email: cleanEmail,
+        password: passwordHash,
+        verified: true,
+        role: "admin",
+        school_id: cleanEmail
+      }]);
+
+      if (insertError) {
+        if (insertError.code === "23505") {
+          return res.status(409).json({ error: "Email-kan horey ayaa loo diiwaangeliyey. Fadlan 'Sign In' ku gal." });
+        }
+        console.warn("Signup account creation failed:", insertError.message);
+        if (process.env.NODE_ENV === "production") {
+          return res.status(503).json({ error: "Akoonka lama abuuri karin hadda. Fadlan mar kale isku day." });
+        }
+        if (insertError.message?.includes("fetch failed") || insertError.message?.includes("ENOTFOUND")) {
+          useLocalFallback = true;
+          customSupabaseActive = false;
+        } else {
+          return res.status(503).json({ error: "Akoonka lama abuuri karin hadda. Fadlan mar kale isku day." });
+        }
+      } else {
+        cloudAccountCreated = true;
       }
     }
   }
 
-  // Always ensure user is saved in local database for seamless offline resilience
-  if (!db.users.some(u => u.email.toLowerCase() === cleanEmail)) {
-    db.users.push({
-      email: cleanEmail,
-      password_hash: passwordHash,
-      verified: true,
-      role: "admin",
-      school_id: cleanEmail
+  if (process.env.NODE_ENV === "production" && !cloudAccountCreated) {
+    return res.status(503).json({
+      error: "Diiwaangelinta ammaan ahaan lama dhammaystiri karin. Fadlan mar kale isku day."
     });
-    saveLocalDB(db);
   }
 
-  res.json({
+  const db = loadLocalDB();
+  const localIndex = db.users.findIndex(
+    (u: any) => String(u.email || "").trim().toLowerCase() === cleanEmail
+  );
+  const userRecord = {
+    email: cleanEmail,
+    password_hash: passwordHash,
+    verified: true,
+    role: "admin",
+    school_id: cleanEmail,
+    password_changed_at: new Date().toISOString(),
+    password_reset_token_hash: null,
+    password_reset_expires_at: null
+  };
+  if (localIndex >= 0) {
+    db.users[localIndex] = { ...db.users[localIndex], ...userRecord };
+  } else {
+    db.users.push(userRecord);
+  }
+  saveLocalDB(db);
+
+  // Signup creates the same secure HttpOnly session as login; the UI must not
+  // enter an authenticated workspace without a server-issued cookie.
+  const userPayload = { email: cleanEmail, role: "admin", schoolId: cleanEmail };
+  const sessionToken = createSessionToken(userPayload);
+  setSessionCookie(req, res, sessionToken);
+
+  return res.status(201).json({
     success: true,
-    message: "Diiwaangelintu way guuleysatay! Hadda geli kartaa.",
-    emailSent: false,
-    user: { email: cleanEmail }
+    message: "Diiwaangelintu way guuleysatay. Akoonkaaga waa la furay.",
+    user: userPayload
   });
 });
 
