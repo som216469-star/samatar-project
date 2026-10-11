@@ -1,0 +1,47 @@
+name: Phase 1 Database Source-of-Truth Validation
+
+on:
+  push:
+    branches:
+      - "phase-1/**"
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate database persistence changes
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Type-check
+        run: npm run lint
+
+      - name: Student contract
+        run: npm run test:students-contract
+
+      - name: Attendance contract
+        run: npm run test:attendance-contract
+
+      - name: Database source-of-truth contract
+        run: npm run test:db-source-contract
+
+      - name: Production build
+        run: npm run build
+
+      - name: Production server smoke test
+        run: node scripts/server-smoke.mjs
