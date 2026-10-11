@@ -345,3 +345,83 @@ $function$;
 
 REVOKE ALL ON FUNCTION public.dugsiga_mark_payroll_paid(text, text) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.dugsiga_mark_payroll_paid(text, text) TO service_role;
+
+
+-- Activate one-time teacher invitation and create the login record atomically.
+CREATE OR REPLACE FUNCTION public.dugsiga_activate_teacher_invitation(
+  p_invitation_token text,
+  p_password_hash text
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $function$
+DECLARE
+  v_teacher public.dugsiga_teachers%ROWTYPE;
+  v_user public.dugsiga_users%ROWTYPE;
+  v_now timestamptz := now();
+BEGIN
+  IF p_invitation_token IS NULL OR length(p_invitation_token) < 16
+     OR p_password_hash IS NULL OR btrim(p_password_hash) = '' THEN
+    RAISE EXCEPTION 'Invitation token and password are required' USING ERRCODE = '22023';
+  END IF;
+
+  SELECT * INTO v_teacher
+  FROM public.dugsiga_teachers
+  WHERE invitation_token = p_invitation_token
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Invitation not found or already used' USING ERRCODE = 'P0002';
+  END IF;
+
+  IF v_teacher.status IS DISTINCT FROM 'INVITED' THEN
+    RAISE EXCEPTION 'Invitation is not active' USING ERRCODE = 'P0002';
+  END IF;
+
+  IF NULLIF(v_teacher.invitation_expires_at, '') IS NOT NULL
+     AND v_teacher.invitation_expires_at::timestamptz < v_now THEN
+    RAISE EXCEPTION 'Invitation has expired' USING ERRCODE = '22023';
+  END IF;
+
+  IF COALESCE(btrim(v_teacher.email), '') = '' OR COALESCE(btrim(v_teacher.school_id), '') = '' THEN
+    RAISE EXCEPTION 'Invited teacher has no email or school assignment' USING ERRCODE = '22023';
+  END IF;
+
+  UPDATE public.dugsiga_teachers
+  SET status = 'ACTIVE', invitation_token = NULL, activated_at = v_now::text
+  WHERE id = v_teacher.id AND school_id = v_teacher.school_id
+  RETURNING * INTO v_teacher;
+
+  INSERT INTO public.dugsiga_users (
+    email, password, verified, role, school_id, teacher_id, created_at
+  )
+  VALUES (
+    lower(btrim(v_teacher.email)), p_password_hash, true, 'teacher',
+    v_teacher.school_id, v_teacher.id, v_now
+  )
+  ON CONFLICT (email) DO UPDATE SET
+    password = EXCLUDED.password,
+    verified = true,
+    role = 'teacher',
+    school_id = EXCLUDED.school_id,
+    teacher_id = EXCLUDED.teacher_id
+  WHERE public.dugsiga_users.school_id = EXCLUDED.school_id
+  RETURNING * INTO v_user;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Teacher email is already attached to a different school' USING ERRCODE = '42501';
+  END IF;
+
+  RETURN jsonb_build_object(
+    'email', v_user.email,
+    'school_id', v_user.school_id,
+    'teacher_id', v_user.teacher_id,
+    'status', v_teacher.status
+  );
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.dugsiga_activate_teacher_invitation(text, text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.dugsiga_activate_teacher_invitation(text, text) TO service_role;
