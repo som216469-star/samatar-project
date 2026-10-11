@@ -498,14 +498,34 @@ function buildAuthResponse(cleanEmail: string, db: any) {
   };
 }
 
+const supabaseTableCheckErrors: Record<string, { code: string; message: string }> = {};
+
 async function testSupabaseTable(tableName: string, checkColumn?: string): Promise<boolean> {
-  if (!supabaseActiveKey || !supabase) return false;
+  if (!supabaseActiveKey || !supabase) {
+    supabaseTableCheckErrors[tableName] = {
+      code: "CLIENT_NOT_CONFIGURED",
+      message: "Supabase client or key is unavailable"
+    };
+    return false;
+  }
   try {
     const selectStr = checkColumn ? checkColumn : "*";
     const { error } = await supabase.from(tableName).select(selectStr).limit(1);
-    if (error) return false;
+    if (error) {
+      supabaseTableCheckErrors[tableName] = {
+        code: String(error.code || "UNKNOWN"),
+        message: String(error.message || "Unknown Supabase Data API error").slice(0, 220)
+      };
+      return false;
+    }
+    delete supabaseTableCheckErrors[tableName];
     return true;
-  } catch {
+  } catch (caught: unknown) {
+    const error = caught as { code?: unknown; message?: unknown };
+    supabaseTableCheckErrors[tableName] = {
+      code: String(error.code || "EXCEPTION"),
+      message: String(error.message || "Supabase Data API request failed").slice(0, 220)
+    };
     return false;
   }
 }
@@ -626,8 +646,18 @@ async function checkSupabaseStatus() {
           : (process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY
               ? "publishable_or_anon_key"
               : "missing");
+      const failedTableErrors = Object.fromEntries(
+        failedTableChecks.map((tableName) => [
+          tableName,
+          supabaseTableCheckErrors[tableName] || {
+            code: "NO_ERROR_DETAILS",
+            message: "The table check failed without a reported error"
+          }
+        ])
+      );
       console.error("Supabase Data API checks failed; cloud persistence is disabled.", {
         failedTableChecks,
+        failedTableErrors,
         activeKeyKind,
         supabaseUrlConfigured: Boolean(supabaseUrl)
       });
