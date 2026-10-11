@@ -730,46 +730,58 @@ function getSchoolId(req: express.Request): string {
 }
 
 function buildAuthResponse(cleanEmail: string, db: any) {
-  // Check if user is a teacher
-  const teacher = (db.teachers || []).find((t: any) => (t.email || "").toLowerCase() === cleanEmail);
-  if (teacher) {
-    if (teacher.status === "DEACTIVATED") {
+  const userRecord = (db.users || []).find((u: any) =>
+    String(u.email || "").trim().toLowerCase() === cleanEmail
+  );
+  if (!userRecord) {
+    return { error: "Akoonka lama helin ama role-kiisa lama xaqiijin karo." };
+  }
+
+  const normalizedRole = normalizeRole(userRecord.role);
+  if (!normalizedRole) {
+    return { error: "Akoonkan wuxuu leeyahay role aan la taageerin. Fadlan la xiriir maamulka." };
+  }
+
+  if (normalizedRole === "teacher") {
+    const teacher = (db.teachers || []).find((t: any) => {
+      if (String(t.email || "").trim().toLowerCase() !== cleanEmail) return false;
+      const teacherSchoolId = String(t.schoolId || t.school_id || "").trim();
+      const userSchoolId = String(userRecord.school_id || userRecord.schoolId || "").trim();
+      return !userSchoolId || !teacherSchoolId || teacherSchoolId === userSchoolId;
+    });
+    if (!teacher) {
+      return { error: "Akoonka macallinka lama helin ama lama xiriirin karo." };
+    }
+
+    const status = String(teacher.status || "").trim().toUpperCase();
+    if (status === "DEACTIVATED" || status === "INACTIVE") {
       return { error: "Akoonkaaga macallinka waa la hakiyey (Account deactivated). Fadlan la xiriir maamulka iskuulka." };
     }
-    if (teacher.status === "INVITED") {
+    if (status === "INVITED") {
       return { error: "Akoonkan weli lama dhaqaajin. Fadlan isticmaal link-gii casuumaadda ee email-kaaga laguugu soo diray si aad u samaysato password." };
     }
+
     teacher.lastLoginAt = new Date().toISOString();
     const userPayload: any = {
       email: cleanEmail,
       role: "teacher",
       name: teacher.name,
       teacherId: teacher.id,
-      schoolId: teacher.schoolId || cleanEmail,
-      assignedClasses: teacher.assignedClasses || [],
-      assignedSubjects: teacher.assignedSubjects || []
+      schoolId: teacher.schoolId || teacher.school_id || userRecord.school_id || cleanEmail,
+      assignedClasses: Array.isArray(teacher.assignedClasses) ? teacher.assignedClasses : Array.isArray(teacher.assigned_classes) ? teacher.assigned_classes : [],
+      assignedSubjects: Array.isArray(teacher.assignedSubjects) ? teacher.assignedSubjects : Array.isArray(teacher.assigned_subjects) ? teacher.assigned_subjects : []
     };
     const token = createSessionToken(userPayload);
-    return {
-      success: true,
-      token,
-      user: userPayload
-    };
+    return { success: true, token, user: userPayload };
   }
 
-  // Otherwise school administrator
-  const userRecord = (db.users || []).find((u: any) => (u.email || "").toLowerCase() === cleanEmail);
   const userPayload: any = {
     email: cleanEmail,
-    role: userRecord?.role || "admin",
-    schoolId: userRecord?.school_id || cleanEmail
+    role: "admin",
+    schoolId: userRecord.school_id || userRecord.schoolId || cleanEmail
   };
   const token = createSessionToken(userPayload);
-  return {
-    success: true,
-    token,
-    user: userPayload
-  };
+  return { success: true, token, user: userPayload };
 }
 
 async function testSupabaseTable(tableName: string, checkColumn?: string): Promise<boolean> {
@@ -1510,50 +1522,33 @@ BEGIN
 END $dugsi$;
 `;
 
-// RBAC Permissions Mapping
+// Only two internal roles are supported. Legacy administrator labels are normalized
+// to "admin"; every other role intentionally receives no permissions.
 const ROLE_PERMISSIONS: Record<string, string[]> = {
-  'Super Admin': ['*'],
-  'School Admin': ['*'],
-  'Principal': [
-    'students.*', 'teachers.*', 'staff.*', 'guardians.*',
-    'attendance.*', 'exams.*', 'classes.*', 'subjects.*',
-    'timetable.*', 'admissions.*', 'announcements.*', 'reports.*',
-    'communication.*', 'library.*', 'inventory.*', 'finance.view'
-  ],
-  'Teacher': [
-    'students.view', 'attendance.view', 'attendance.manage',
-    'exams.view', 'exams.manage', 'classes.view', 'subjects.view',
-    'timetable.view', 'reports.view', 'announcements.view'
-  ],
-  'Accountant': [
-    'finance.*', 'students.view', 'reports.view', 'inventory.view', 'announcements.view'
-  ],
-  'Receptionist': [
-    'students.view', 'students.create', 'students.update',
-    'admissions.*', 'attendance.view', 'announcements.view', 'communication.*'
-  ],
-  'Librarian': [
-    'library.*', 'students.view', 'staff.view', 'announcements.view'
-  ],
-  'Staff': [
-    'timetable.view', 'announcements.view', 'attendance.view'
+  admin: ["*"],
+  teacher: [
+    "students.view",
+    "attendance.view",
+    "attendance.manage",
+    "exams.view",
+    "exams.manage",
+    "classes.view",
+    "subjects.view",
+    "timetable.view",
+    "reports.view",
+    "announcements.view"
   ]
 };
 
 function normalizeRole(role: string): string {
-  const normalized = String(role || "").trim().toLowerCase();
-  const aliases: Record<string, string> = {
-    "admin": "School Admin",
-    "school admin": "School Admin",
-    "super admin": "Super Admin",
-    "teacher": "Teacher",
-    "staff": "Staff",
-    "accountant": "Accountant",
-    "receptionist": "Receptionist",
-    "librarian": "Librarian",
-    "principal": "Principal"
-  };
-  return aliases[normalized] || role.trim();
+  const normalized = String(role || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[_-]+/g, " ")
+    .replace(/\\s+/g, " ");
+  if (["admin", "administrator", "school admin", "super admin"].includes(normalized)) return "admin";
+  if (normalized === "teacher") return "teacher";
+  return "";
 }
 
 function hasPermission(role: string, requiredPermission: string): boolean {
@@ -1574,7 +1569,7 @@ function requiredPermissionForRequest(req: express.Request): string | null {
   if (pathName === "/reset") return "system.reset";
   if (pathName === "/db/status" || pathName === "/supabase-server-test") return "system.admin";
   if (pathName === "/documentation-pdf" || pathName.startsWith("/docs/download/")) return "reports.view";
-  if (pathName === "/user/profile") return null;
+  if (pathName === "/user/profile" || pathName === "/auth/logout") return null;
 
   const read = req.method === "GET";
   const mutationPermission = (domain: string) => `${domain}.manage`;
@@ -1615,7 +1610,9 @@ function requiredPermissionForRequest(req: express.Request): string | null {
     return "finance.view";
   }
 
-  return null;
+  // Unknown API routes are administrator-only until explicitly classified.
+  // This avoids silently bypassing RBAC when a new endpoint is added.
+  return "system.admin";
 }
 
 // Password hashing is centralized in server/authSession.ts.
@@ -1911,12 +1908,7 @@ function validateStudentPayload(
 }
 
 function canViewSensitiveStudentData(authUser: ReturnType<typeof getAuthenticatedUser>): boolean {
-  if (!authUser) return false;
-  const normalized = normalizeRole(authUser.role);
-  return normalized === 'Super Admin' ||
-    normalized === 'School Admin' ||
-    normalized === 'Principal' ||
-    normalized === 'Receptionist';
+  return !!authUser && normalizeRole(authUser.role) === "admin";
 }
 
 function formatStudentRow(
@@ -2562,6 +2554,11 @@ app.post("/api/auth/login", async (req, res) => {
           return res.status(400).json({ error: "Email ama password ayaa qalad ah." });
         }
 
+        const normalizedCloudRole = normalizeRole(String(user.role || ""));
+        if (!normalizedCloudRole) {
+          return res.status(403).json({ error: "Akoonkan wuxuu leeyahay role aan la taageerin. Fadlan la xiriir maamulka." });
+        }
+
         let upgradedHash: string | null = null;
         if (cloudCheck.needsRehash || localCheck.needsRehash || !cloudCheck.valid) {
           upgradedHash = await hashPassword(password);
@@ -2576,7 +2573,7 @@ app.post("/api/auth/login", async (req, res) => {
         if (localIdx !== -1) {
           db.users[localIdx].password_hash = canonicalHash;
           db.users[localIdx].verified = true;
-          db.users[localIdx].role = user.role || db.users[localIdx].role || "admin";
+          db.users[localIdx].role = normalizedCloudRole;
           db.users[localIdx].school_id = user.school_id || db.users[localIdx].school_id || cleanEmail;
           db.users[localIdx].teacher_id = user.teacher_id || db.users[localIdx].teacher_id;
         } else {
@@ -2584,14 +2581,14 @@ app.post("/api/auth/login", async (req, res) => {
             email: cleanEmail,
             password_hash: canonicalHash,
             verified: true,
-            role: user.role || "admin",
+            role: normalizedCloudRole,
             school_id: user.school_id || cleanEmail,
             teacher_id: user.teacher_id
           });
         }
         saveLocalDB(db);
 
-        if (String(user.role || "").trim().toLowerCase() === "teacher" && user.teacher_id) {
+        if (normalizedCloudRole === "teacher" && user.teacher_id) {
           const { data: cloudTeacher, error: teacherLookupError } = await supabase
             .from("dugsiga_teachers")
             .select("id, school_id, name, email, status, assigned_classes, assigned_subjects")
