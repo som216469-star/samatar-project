@@ -244,6 +244,16 @@ export default function App() {
       const payload = await res.json();
       if (!res.ok) {
         setAuthError(payload.error || 'Authentication failed');
+      } else if (import.meta.env.MODE === 'mobile' && publicRoute === 'signup') {
+        // Signup creates the account but deliberately does not create a native session.
+        // Ask the user to sign in so the API can issue a device bearer token securely.
+        setPassword('');
+        setPublicRoute('login');
+        window.history.pushState({}, '', '/login');
+        showToast('Akoonka waa la sameeyay. Fadlan hadda gal.', 'success');
+      } else if (import.meta.env.MODE === 'mobile' && !payload.token) {
+        // Never show a logged-in screen in the native app without an API bearer token.
+        setAuthError('Gelitaanku lama dhammaystirin. Xir app-ka oo mar kale isku day; haddii ay sii socoto, la xiriir maamulka.');
       } else {
         const authUser: AuthUser = payload.user || {
           email,
