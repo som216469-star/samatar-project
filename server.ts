@@ -248,6 +248,28 @@ app.use("/api", (req, res, next) => {
     }
   }
 
+  if (req.method === "POST" && pathName === "/auth/forgot-password") {
+    const ip = req.ip || "unknown";
+    const limit = consumeAuthRateLimit(`password-reset:ip:${ip}`, 5, 15 * 60 * 1000);
+    if (!limit.allowed) {
+      res.setHeader("Retry-After", String(limit.retryAfterSeconds));
+      return res.status(429).json({
+        error: "Codsiyo badan ayaa la sameeyay. Fadlan sug ka hor intaadan mar kale isku dayin."
+      });
+    }
+  }
+
+  if (req.method === "POST" && pathName === "/auth/reset-password") {
+    const ip = req.ip || "unknown";
+    const limit = consumeAuthRateLimit(`password-change:ip:${ip}`, 10, 15 * 60 * 1000);
+    if (!limit.allowed) {
+      res.setHeader("Retry-After", String(limit.retryAfterSeconds));
+      return res.status(429).json({
+        error: "Isku-dayo badan ayaa la sameeyay. Fadlan sug ka hor intaadan mar kale isku dayin."
+      });
+    }
+  }
+
   if (req.method === "POST" && pathName === "/teachers/activate-account") {
     const ip = req.ip || "unknown";
     const limit = consumeAuthRateLimit(`activation:ip:${ip}`, 10, 60 * 60 * 1000);
