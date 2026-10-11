@@ -103,18 +103,55 @@ export function registerModernRoutes(app: express.Express, helpers: ModernRouteH
     if (!teacherData.name || !teacherData.name.trim()) {
       return res.status(400).json({ error: "Magaca macallinka waa khasab (Teacher name is required)" });
     }
-    const id = teacherData.id || "tch-" + Math.random().toString(36).substr(2, 9);
-    const teacherId = teacherData.teacherId || "TCH-" + Math.floor(1000 + Math.random() * 9000);
+    if (process.env.NODE_ENV === "production" && (getUseLocalFallback() || !supabase)) {
+      return res.status(503).json({ error: "Adeegga akoonnada macallimiinta lama heli karo hadda." });
+    }
+
+    const suppliedEmail = typeof teacherData.email === "string" ? teacherData.email.trim() : "";
+    const validEmail = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(suppliedEmail) && suppliedEmail.length <= 254;
+    if (suppliedEmail && !validEmail) {
+      return res.status(400).json({ error: "Email-ka macallinka ma saxna." });
+    }
+    const cleanEmail = validEmail ? suppliedEmail.toLowerCase() : "";
+
+    // Email is a global login identity. Never overwrite an existing administrator
+    // or another teacher account by upserting a new invitation over it.
+    if (cleanEmail && !getUseLocalFallback() && supabase) {
+      const { data: existingAccount, error: accountError } = await supabase
+        .from("dugsiga_users")
+        .select("email")
+        .eq("email", cleanEmail)
+        .maybeSingle();
+      if (accountError) {
+        console.warn("Teacher invitation account lookup failed:", accountError.message);
+        return res.status(503).json({ error: "Email-ka macallinka lama xaqiijin karin hadda." });
+      }
+      if (existingAccount) {
+        return res.status(409).json({ error: "Email-kan hore ayuu ugu xiran yahay akoon kale oo DUGSI PRO ah." });
+      }
+    } else if (cleanEmail) {
+      const localDb = loadLocalDB();
+      const alreadyUsed = (localDb.users || []).some(
+        (account: any) => String(account.email || "").trim().toLowerCase() === cleanEmail
+      ) || (localDb.teachers || []).some(
+        (teacher: any) => String(teacher.email || "").trim().toLowerCase() === cleanEmail
+      );
+      if (alreadyUsed) {
+        return res.status(409).json({ error: "Email-kan hore ayuu ugu xiran yahay akoon kale oo DUGSI PRO ah." });
+      }
+    }
+
+    const id = teacherData.id || "tch-" + crypto.randomUUID();
+    const teacherId = teacherData.teacherId || "TCH-" + crypto.randomUUID().slice(0, 8).toUpperCase();
     const createdAt = teacherData.createdAt || new Date().toISOString().split("T")[0];
 
-    // Teacher Invitation Flow (Rules 3, 4, 5)
-    // Admin does NOT create or set a password. Status starts as INVITED if email is present.
-    const hasEmail = teacherData.email && teacherData.email.includes("@");
-    const cleanEmail = hasEmail ? teacherData.email.trim().toLowerCase() : "";
+    // Admin never creates or sets the teacher's password. Email invitations
+    // start pending, and the teacher chooses a password through a one-time link.
+    const hasEmail = Boolean(cleanEmail);
     const invitationToken = hasEmail ? generateSecureToken() : null;
     const invitationExpiresAt = hasEmail ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() : null;
     const invitationSentAt = hasEmail ? new Date().toISOString() : null;
-    const status = teacherData.status || (hasEmail ? "INVITED" : "ACTIVE");
+    const status = hasEmail ? "INVITED" : "ACTIVE";
 
     const fullTeacher = {
       ...teacherData,
@@ -135,45 +172,54 @@ export function registerModernRoutes(app: express.Express, helpers: ModernRouteH
     delete (fullTeacher as any).password_hash;
 
     if (!getUseLocalFallback() && supabase) {
-      try {
-        const { error } = await supabase.from("dugsiga_teachers").insert([{
-          id,
-          school_id: schoolId,
-          teacher_id: teacherId,
-          name: teacherData.name.trim(),
-          photo: teacherData.photo || "",
-          gender: teacherData.gender || "Male",
-          date_of_birth: teacherData.dateOfBirth || "",
-          phone: teacherData.phone || "",
-          email: cleanEmail || teacherData.email || "",
-          address: teacherData.address || "",
-          qualification: teacherData.qualification || "",
-          specialization: teacherData.specialization || "",
-          hire_date: teacherData.hireDate || createdAt,
-          employment_status: teacherData.employmentStatus || "Full-Time",
-          salary: Number(teacherData.salary || 0),
-          emergency_contact: teacherData.emergencyContact || "",
-          notes: teacherData.notes || "",
-          assigned_classes: teacherData.assignedClasses || [],
-          assigned_subjects: teacherData.assignedSubjects || [],
-          status,
-          invitation_token: invitationToken,
-          invitation_expires_at: invitationExpiresAt,
-          invitation_sent_at: invitationSentAt,
-          created_at: createdAt
-        }]);
-        if (!error && cleanEmail) {
-          try {
-            await supabase.from("dugsiga_users").upsert([{
-              email: cleanEmail,
-              verified: false,
-              role: "teacher",
-              school_id: schoolId,
-              teacher_id: id
-            }], { onConflict: "email" });
-          } catch (uErr) {}
+      const { error: teacherInsertError } = await supabase.from("dugsiga_teachers").insert([{
+        id,
+        school_id: schoolId,
+        teacher_id: teacherId,
+        name: teacherData.name.trim(),
+        photo: teacherData.photo || "",
+        gender: teacherData.gender || "Male",
+        date_of_birth: teacherData.dateOfBirth || "",
+        phone: teacherData.phone || "",
+        email: cleanEmail || null,
+        address: teacherData.address || "",
+        qualification: teacherData.qualification || "",
+        specialization: teacherData.specialization || "",
+        hire_date: teacherData.hireDate || createdAt,
+        employment_status: teacherData.employmentStatus || "Full-Time",
+        salary: Number(teacherData.salary || 0),
+        emergency_contact: teacherData.emergencyContact || "",
+        notes: teacherData.notes || "",
+        assigned_classes: teacherData.assignedClasses || [],
+        assigned_subjects: teacherData.assignedSubjects || [],
+        status,
+        invitation_token: invitationToken,
+        invitation_expires_at: invitationExpiresAt,
+        invitation_sent_at: invitationSentAt,
+        created_at: createdAt
+      }]);
+
+      if (teacherInsertError) {
+        console.warn("Teacher invitation could not be stored:", teacherInsertError.message);
+        if (process.env.NODE_ENV === "production") {
+          return res.status(503).json({ error: "Casuumaadda macallinka lama kaydin karin. Fadlan mar kale isku day." });
         }
-      } catch (e: any) {}
+      } else if (cleanEmail) {
+        const { error: userInsertError } = await supabase.from("dugsiga_users").insert([{
+          email: cleanEmail,
+          password: "",
+          verified: false,
+          role: "teacher",
+          school_id: schoolId,
+          teacher_id: id
+        }]);
+
+        if (userInsertError) {
+          console.warn("Teacher login identity could not be created:", userInsertError.message);
+          await supabase.from("dugsiga_teachers").delete().eq("id", id).eq("school_id", schoolId);
+          return res.status(503).json({ error: "Aqoonsiga login-ka macallinka lama diyaarin karin. Fadlan mar kale isku day." });
+        }
+      }
     }
 
     const db = loadLocalDB();
@@ -184,18 +230,18 @@ export function registerModernRoutes(app: express.Express, helpers: ModernRouteH
     if (cleanEmail) {
       if (!db.users) db.users = [];
       const existingUserIdx = db.users.findIndex((u: any) => (u.email || "").toLowerCase() === cleanEmail);
-      if (existingUserIdx === -1) {
-        db.users.push({
-          email: cleanEmail,
-          password_hash: "", // No password until activated by teacher
-          verified: false,
-          role: "teacher",
-          school_id: schoolId,
-          teacher_id: id,
-          invitation_token: invitationToken,
-          invitation_expires_at: invitationExpiresAt
-        });
-      }
+      const invitationUser = {
+        email: cleanEmail,
+        password_hash: "", // No password until activated by teacher
+        verified: false,
+        role: "teacher",
+        school_id: schoolId,
+        teacher_id: id,
+        invitation_token: invitationToken,
+        invitation_expires_at: invitationExpiresAt
+      };
+      if (existingUserIdx === -1) db.users.push(invitationUser);
+      else db.users[existingUserIdx] = { ...db.users[existingUserIdx], ...invitationUser };
     }
     saveLocalDB(db);
 
