@@ -3,37 +3,25 @@
   "name": "DUGSI PRO 2026 - School Management System",
   "short_name": "DugsiPro",
   "description": "Enterprise school management platform for students, teachers, attendance, exams, fees, and operations.",
-  "theme_color": "#0a0a0a",
-  "background_color": "#0a0a0a",
+  "theme_color": "#071827",
+  "background_color": "#071827",
   "display": "standalone",
   "orientation": "portrait-primary",
   "scope": "/",
   "start_url": "/",
   "icons": [
     {
-      "src": "/pwa-192x192.png",
-      "sizes": "192x192",
-      "type": "image/png",
+      "src": "/brand-mark.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
       "purpose": "any"
     },
     {
-      "src": "/pwa-512x512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/pwa-maskable-512x512.png",
-      "sizes": "512x512",
-      "type": "image/png",
+      "src": "/brand-mark.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
       "purpose": "maskable"
-    },
-    {
-      "src": "/apple-touch-icon.png",
-      "sizes": "180x180",
-      "type": "image/png",
-      "purpose": "any"
     }
-  ],
+
   "categories": ["education", "productivity", "management"]
 }
