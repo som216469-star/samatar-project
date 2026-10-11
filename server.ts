@@ -126,6 +126,23 @@ function consumeAuthRateLimit(key: string, maxAttempts: number, windowMs: number
   retryAfterSeconds: number;
 } {
   const now = Date.now();
+
+  // Bound in-memory limiter growth when attackers rotate email values or route keys.
+  if (authRateBuckets.size > 1000) {
+    for (const [bucketKey, bucket] of authRateBuckets) {
+      if (bucket.resetAt <= now) authRateBuckets.delete(bucketKey);
+    }
+    if (authRateBuckets.size > 5000) {
+      const removeCount = authRateBuckets.size - 4000;
+      let removed = 0;
+      for (const bucketKey of authRateBuckets.keys()) {
+        authRateBuckets.delete(bucketKey);
+        removed += 1;
+        if (removed >= removeCount) break;
+      }
+    }
+  }
+
   const current = authRateBuckets.get(key);
 
   if (!current || current.resetAt <= now) {
@@ -154,7 +171,7 @@ function clearAuthRateLimit(keyPrefix: string) {
 }
 
 const SESSION_COOKIE_NAME = "dugsi_session";
-const SESSION_MAX_AGE_SECONDS = 12 * 60 * 60;
+const SESSION_MAX_AGE_SECONDS = 8 * 60 * 60;
 
 function requestIsHttps(req: express.Request): boolean {
   const forwardedProto = String(req.headers["x-forwarded-proto"] || "")
