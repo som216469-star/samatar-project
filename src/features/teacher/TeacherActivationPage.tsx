@@ -77,8 +77,8 @@ export const TeacherActivationPage: React.FC<TeacherActivationViewProps> = ({
     e.preventDefault();
     setSubmitError(null);
 
-    if (password.length < 8) {
-      setSubmitError('Password-ku waa inuu ka koobnaadaa ugu yaraan 8 xaraf.');
+    if (password.length < 10) {
+      setSubmitError('Password-ku waa inuu ka koobnaadaa ugu yaraan 10 xaraf.');
       return;
     }
 
@@ -221,7 +221,7 @@ export const TeacherActivationPage: React.FC<TeacherActivationViewProps> = ({
 
             <div className="space-y-1.5">
               <label className="block text-xs font-semibold text-[var(--color-text-secondary)]">
-                Password Cusub (Ugu yaraan 8 xaraf)
+                Password Cusub (Ugu yaraan 10 xaraf)
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[var(--color-text-muted)]">
@@ -232,7 +232,10 @@ export const TeacherActivationPage: React.FC<TeacherActivationViewProps> = ({
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  placeholder="••••••••"
+                  minLength={10}
+                  maxLength={128}
+                  autoComplete="new-password"
+                  placeholder="Ugu yaraan 10 xaraf"
                   className="w-full ds-input pl-9 pr-10 py-2.5"
                 />
                 <button
