@@ -584,7 +584,7 @@ export function useInstitutionalData({
 
   // Academics CRUD Handlers
   const handleAddClass = async (classData: Omit<SchoolClass, 'id' | 'createdAt'>) => {
-    if (submitting) return;
+    if (submitting) throw new Error('Codsi kale ayaa socda. Fadlan sug.');
     setSubmitting(true);
     try {
       const res = await apiFetch('/api/classes', {
@@ -592,14 +592,27 @@ export function useInstitutionalData({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(classData)
       });
-      if (res.ok) {
-        showToast('Fasalka si guul leh ayaa loo abuuray!', 'success');
-        fetchAllData();
-      } else {
-        showToast('Abuurista fasalka way fashilantay', 'error');
+
+      let payload: any = null;
+      try {
+        payload = await res.json();
+      } catch {
+        payload = null;
       }
-    } catch {
-      showToast('Khalad isku xirka ah', 'error');
+
+      if (!res.ok) {
+        const detail = typeof payload?.error === 'string'
+          ? payload.error
+          : `Server-ku wuxuu diiday abuurista fasalka (HTTP ${res.status}).`;
+        throw new Error(detail);
+      }
+
+      // Treat success only after the server confirms it, then refresh the persisted list.
+      await fetchAllData();
+      showToast('Fasalka si guul leh ayaa loo abuuray!', 'success');
+    } catch (error) {
+      if (error instanceof Error) throw error;
+      throw new Error('Khalad isku xirka ah ayaa dhacay intii fasalka la kaydinayay.');
     } finally {
       setSubmitting(false);
     }
