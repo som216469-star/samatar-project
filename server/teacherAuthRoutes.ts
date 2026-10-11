@@ -126,6 +126,40 @@ export function registerTeacherAuthRoutes(
       return res.status(400).json({ error: passwordValidation.error });
     }
 
+    // Production activation is one atomic Supabase RPC: validate the one-time
+    // token, activate the teacher, and upsert the login record in one transaction.
+    if (!getUseLocalFallback() && supabase) {
+      const passwordHash = await hashPassword(password);
+      try {
+        const { data, error } = await supabase.rpc("dugsiga_activate_teacher_invitation", {
+          p_invitation_token: String(token),
+          p_password_hash: passwordHash
+        });
+        if (error) {
+          console.error("Atomic teacher activation failed:", error.message);
+          if (error.code === "P0002") {
+            return res.status(400).json({ error: "Casuumaad sax ah lama helin, way dhacday, ama horey ayaa loo isticmaalay." });
+          }
+          if (error.code === "22023") {
+            return res.status(400).json({ error: "Casuumaaddu way dhacday ama xogteedu ma saxna." });
+          }
+          return res.status(503).json({ error: "Akoonka macallinka lama dhaqaajin. Fadlan mar kale isku day." });
+        }
+        const cleanEmail = String(data?.email || "").trim().toLowerCase();
+        if (!cleanEmail) {
+          return res.status(503).json({ error: "Natiijada dhaqaajinta akoonka lama xaqiijin karo." });
+        }
+        return res.json({
+          success: true,
+          message: "Hambalyo! Akoonkaaga Macallinka si buuxda ayaa loo dhaqaajiyey. Hadda waad gali kartaa.",
+          email: cleanEmail
+        });
+      } catch (error: any) {
+        console.error("Atomic teacher activation request failed:", error?.message || error);
+        return res.status(503).json({ error: "Adeegga dhaqaajinta akoonka si ku-meel-gaar ah ayuu u xiran yahay." });
+      }
+    }
+
     const db = loadLocalDB();
     const teacherIndex = (db.teachers || []).findIndex((t: any) => t.invitationToken === token);
     let teacher = teacherIndex > -1 ? db.teachers[teacherIndex] : null;
