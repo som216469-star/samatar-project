@@ -33,6 +33,9 @@ jobs:
       - name: Attendance production contract checks
         run: npm run test:attendance-contract
 
+      - name: RBAC security contract checks
+        run: npm run test:rbac-security-contract
+
       - name: Production build
         run: npm run build
 
