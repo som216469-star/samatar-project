@@ -56,5 +56,9 @@ assertContains(migration, 'process.argv.includes("--apply")', "migration default
 assertContains(migration, 'supabase.from(definition.table).insert([item.row])', "migration only inserts missing rows; it doesn't upsert/overwrite");
 assertContains(migration, '.eq("school_id", schoolId)', "migration inspection is tenant-scoped");
 assertNotContains(migration, "unlinkSync", "migration never deletes the source JSON file");
+assertContains(migration, 'const sourceKey = `${result.schoolId}\\u001f${key}`;', "migration duplicate keys are tenant-scoped");
+assertNotContains(migration, '"gender","phone","class"', "migration does not send a student column missing from canonical schema");
+assertContains(server, "const beforeSettings = previous.settings ?? null;", "tenant settings use the existing flat settings shape");
+assertContains(server, "db.settings = data?.value", "tenant settings hydration preserves current route conventions");
 
 console.log("Database source-of-truth contract checks: PASS");
