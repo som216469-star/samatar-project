@@ -13,6 +13,8 @@ const routeConfig = read("../src/app/routeConfig.ts");
 const migration = read("../supabase/migrations/20261011_authentication_recovery.sql");
 const activation = read("../src/features/teacher/TeacherActivationPage.tsx");
 const verificationPage = read("../src/features/auth/EmailVerificationPage.tsx");
+const emailService = read("../server/emailService.ts");
+const canonicalSql = read("../DUGSI_PRO_2026_ALL_TABLES.sql");
 
 assert.ok(server.includes('app.post("/api/auth/forgot-password"'), "forgot-password endpoint exists");
 assert.ok(server.includes('app.post("/api/auth/reset-password"'), "reset-password endpoint exists");
@@ -35,6 +37,11 @@ assert.ok(app.includes("publicRoute === 'forgot-password'"), "forgot-password ro
 assert.ok(app.includes("publicRoute === 'reset-password'"), "reset-password route is wired into the app");
 assert.ok(routeConfig.includes("publicRoute: 'reset-password'"), "reset route parser is explicit");
 assert.ok(migration.includes("ADD COLUMN IF NOT EXISTS password_reset_token_hash"), "idempotent DB migration exists");
+assert.ok(migration.includes("ADD COLUMN IF NOT EXISTS email_verification_token_hash"), "email verification migration exists");
+assert.ok(canonicalSql.includes("email_verification_expires_at TIMESTAMPTZ"), "canonical SQL includes verification expiry field");
+assert.ok(emailService.includes("sendAccountVerificationEmail"), "verification mail sender exists");
+assert.ok(emailService.includes("sendPasswordResetEmail"), "password reset mail sender exists");
+assert.ok(emailService.includes("SMTP is not configured"), "recovery email delivery fails closed without SMTP");
 assert.ok(activation.includes("password.length < 10"), "teacher activation enforces server password policy");
 assert.ok(!server.includes('res.json({ success: true, message: "Verification step is disabled. Automated success." })'), "fake success verification endpoint was removed");
 
