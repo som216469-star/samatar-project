@@ -27,9 +27,10 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Refresh npm lockfile if package metadata has drifted
+      - name: Refresh npm lockfile and apply compatible security fixes
         run: |
           npm install --package-lock-only --ignore-scripts
+          npm audit fix --package-lock-only --ignore-scripts
           if ! git diff --quiet -- package-lock.json; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
