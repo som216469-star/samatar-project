@@ -11,7 +11,8 @@
     "lint": "tsc --noEmit",
     "test:students-contract": "node scripts/student-module-contract.mjs",
     "test:attendance-contract": "node scripts/attendance-module-contract.mjs",
-    "db:migrate-json": "node scripts/migrate-database-json-to-supabase.mjs"
+    "db:migrate-json": "node scripts/migrate-database-json-to-supabase.mjs",
+    "test:db-source-contract": "node scripts/database-source-of-truth-contract.mjs"
   },
   "engines": {
     "node": ">=18.0.0"
