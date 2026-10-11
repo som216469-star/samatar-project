@@ -126,6 +126,24 @@ function consumeAuthRateLimit(key: string, maxAttempts: number, windowMs: number
   retryAfterSeconds: number;
 } {
   const now = Date.now();
+
+  // Bound the lifetime and size of the per-process throttle map. Attackers must
+  // not be able to grow it indefinitely by submitting unique email addresses.
+  if (authRateBuckets.size > 1000) {
+    for (const [bucketKey, bucket] of authRateBuckets) {
+      if (bucket.resetAt <= now) authRateBuckets.delete(bucketKey);
+    }
+    if (authRateBuckets.size > 5000) {
+      const removeCount = authRateBuckets.size - 4000;
+      let removed = 0;
+      for (const bucketKey of authRateBuckets.keys()) {
+        authRateBuckets.delete(bucketKey);
+        removed += 1;
+        if (removed >= removeCount) break;
+      }
+    }
+  }
+
   const current = authRateBuckets.get(key);
 
   if (!current || current.resetAt <= now) {
@@ -2351,8 +2369,10 @@ app.post("/api/auth/signup", async (req, res) => {
   });
 });
 
-app.post("/api/auth/verify", async (req, res) => {
-  res.json({ success: true, message: "Verification step is disabled. Automated success." });
+app.post("/api/auth/verify", async (_req, res) => {
+  return res.status(410).json({
+    error: "Endpoint-kan verification waa la joojiyey. Isticmaal casuumaadda macallinka ama password recovery."
+  });
 });
 
 app.post("/api/auth/logout", (req, res) => {
