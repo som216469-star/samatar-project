@@ -483,46 +483,60 @@ function getSchoolId(req: express.Request): string {
 }
 
 function buildAuthResponse(cleanEmail: string, db: any) {
-  // Check if user is a teacher
-  const teacher = (db.teachers || []).find((t: any) => (t.email || "").toLowerCase() === cleanEmail);
+  const userRecord = (db.users || []).find(
+    (u: any) => String(u.email || "").trim().toLowerCase() === cleanEmail
+  );
+  if (!userRecord) {
+    return { error: "Email ama password ayaa qalad ah." };
+  }
+
+  const teacher = (db.teachers || []).find(
+    (item: any) => String(item.email || "").trim().toLowerCase() === cleanEmail
+  );
   if (teacher) {
-    if (teacher.status === "DEACTIVATED") {
-      return { error: "Akoonkaaga macallinka waa la hakiyey (Account deactivated). Fadlan la xiriir maamulka iskuulka." };
+    const status = String(teacher.status || "ACTIVE").trim().toUpperCase();
+    if (status !== "ACTIVE") {
+      return {
+        error: status === "INVITED"
+          ? "Akoonkan weli lama dhaqaajin. Fadlan isticmaal link-gii casuumaadda ee email-kaaga laguugu soo diray."
+          : "Akoonkaaga macallinka ma firfircoona. Fadlan la xiriir maamulka dugsiga."
+      };
     }
-    if (teacher.status === "INVITED") {
-      return { error: "Akoonkan weli lama dhaqaajin. Fadlan isticmaal link-gii casuumaadda ee email-kaaga laguugu soo diray si aad u samaysato password." };
-    }
+
     teacher.lastLoginAt = new Date().toISOString();
     const userPayload: any = {
       email: cleanEmail,
       role: "teacher",
       name: teacher.name,
       teacherId: teacher.id,
-      schoolId: teacher.schoolId || cleanEmail,
-      assignedClasses: teacher.assignedClasses || [],
-      assignedSubjects: teacher.assignedSubjects || []
+      schoolId: String(teacher.schoolId || userRecord.school_id || "").trim(),
+      assignedClasses: Array.isArray(teacher.assignedClasses) ? teacher.assignedClasses : [],
+      assignedSubjects: Array.isArray(teacher.assignedSubjects) ? teacher.assignedSubjects : []
     };
+    if (!userPayload.schoolId) {
+      return { error: "Aqoonsiga dugsiga ee akoonka lama xaqiijin karin." };
+    }
     const token = createSessionToken(userPayload);
-    return {
-      success: true,
-      token,
-      user: userPayload
-    };
+    return { success: true, token, user: userPayload };
   }
 
-  // Otherwise school administrator
-  const userRecord = (db.users || []).find((u: any) => (u.email || "").toLowerCase() === cleanEmail);
+  const rawRole = String(userRecord.role || "admin").trim().toLowerCase();
+  const allowedAdminRoles = new Set(["admin", "school admin", "super admin", "principal"]);
+  if (!allowedAdminRoles.has(rawRole)) {
+    return { error: "Doorka akoonkan lama taageero. Fadlan la xiriir maamulka dugsiga." };
+  }
+  const schoolId = String(userRecord.school_id || "").trim();
+  if (!schoolId) {
+    return { error: "Aqoonsiga dugsiga ee akoonka lama xaqiijin karin." };
+  }
+
   const userPayload: any = {
     email: cleanEmail,
-    role: userRecord?.role || "admin",
-    schoolId: userRecord?.school_id || cleanEmail
+    role: rawRole === "admin" ? "admin" : userRecord.role,
+    schoolId
   };
   const token = createSessionToken(userPayload);
-  return {
-    success: true,
-    token,
-    user: userPayload
-  };
+  return { success: true, token, user: userPayload };
 }
 
 const supabaseTableCheckErrors: Record<string, { code: string; message: string }> = {};
