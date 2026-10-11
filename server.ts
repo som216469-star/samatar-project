@@ -583,6 +583,15 @@ function scheduleTenantDBSave(data: LocalDB): void {
     if (error) throw error;
   });
 }
+async function flushTenantDBWrites(): Promise<void> {
+  if (localJsonFallbackEnabled) return;
+  const context = tenantDBContext.getStore();
+  if (!context?.schoolId || !context.requireCloud) {
+    throw new Error("A tenant-scoped request is required before persisting school data.");
+  }
+  await context.pending;
+}
+
 function bindTenantPersistenceToResponse(res: any, context: TenantDBContext): void {
   const originalJson = res.json.bind(res);
   res.json = (body: any) => {
@@ -4592,6 +4601,7 @@ registerModernRoutes(app, {
   saveLocalDB,
   supabase,
   getUseLocalFallback: () => useLocalFallback,
+  flushTenantDBWrites,
   hasPermission,
   handleSupabaseError
 });
