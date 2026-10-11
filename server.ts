@@ -4130,79 +4130,152 @@ app.delete("/api/fees/:id", async (req, res) => {
 
 app.get("/api/classes", async (req, res) => {
   const schoolId = getSchoolId(req);
+  if (!schoolId) {
+    return res.status(401).json({ error: "Fadlan mar kale gal akoonkaaga si aad u aragto fasallada." });
+  }
+
   if (!useLocalFallback) {
     try {
-      const { data, error } = await supabase.from("dugsiga_classes").select("*").eq("school_id", schoolId);
+      const { data, error } = await supabase
+        .from("dugsiga_classes")
+        .select("*")
+        .eq("school_id", schoolId)
+        .order("created_at", { ascending: false });
       if (error) throw error;
-      const formatted = data.map(c => ({ id: c.id, className: c.class_name, teacherName: c.teacher_name, roomNumber: c.room_number, description: c.description, createdAt: c.created_at }));
+      const formatted = (data || []).map((c: any) => ({
+        id: c.id,
+        className: c.class_name,
+        teacherName: c.teacher_name || "",
+        roomNumber: c.room_number || "",
+        description: c.description || "",
+        createdAt: c.created_at || ""
+      }));
       return res.json(formatted);
-    } catch (e: any) { return handleSupabaseError(res, e, "Soo qaadista Fasallada (Fetch Classes)"); }
-  } else {
-    const db = loadLocalDB();
-    const list = (db.classes || []).filter((c: any) => c.schoolId === schoolId);
-    res.json(list);
+    } catch (e: any) {
+      return handleSupabaseError(res, e, "Soo qaadista Fasallada (Fetch Classes)");
+    }
   }
+
+  const db = loadLocalDB();
+  return res.json((db.classes || []).filter((c: any) => c.schoolId === schoolId));
 });
 
 app.post("/api/classes", async (req, res) => {
   const schoolId = getSchoolId(req);
-  const { id, className, teacherName, roomNumber, description, createdAt } = req.body;
-  if (!className) return res.status(400).json({ error: "Class name is required" });
+  if (!schoolId) {
+    return res.status(401).json({ error: "Fadhigaaga wuu dhacay. Fadlan mar kale gal akoonkaaga ka hor intaadan fasal abuurin." });
+  }
+
+  const { id, className, teacherName, roomNumber, description, createdAt } = req.body || {};
+  const cleanClassName = typeof className === "string" ? className.trim() : "";
+  if (!cleanClassName) return res.status(400).json({ error: "Magaca fasalka waa khasab." });
+
   if (!useLocalFallback) {
     try {
-      const { data: existing, error: checkError } = await supabase.from("dugsiga_classes").select("id").ilike("class_name", className.trim()).eq("school_id", schoolId).limit(1);
+      const { data: existing, error: checkError } = await supabase
+        .from("dugsiga_classes")
+        .select("id")
+        .eq("school_id", schoolId)
+        .ilike("class_name", cleanClassName)
+        .limit(1);
       if (checkError) throw checkError;
-      if (existing && existing.length > 0) return res.status(400).json({ error: "Fasalkan magacan leh horey ayaa loo diiwaangeliyey. (Duplicate Class)" });
-      const { error } = await supabase.from("dugsiga_classes").insert([{ id: id || 'cls-' + Math.random().toString(36).substr(2, 9), school_id: schoolId, class_name: className.trim(), teacher_name: teacherName || "", room_number: roomNumber || "", description: description || "", created_at: createdAt || new Date().toISOString().split('T')[0] }]);
+      if (existing?.length) {
+        return res.status(409).json({ error: "Fasalkan magacan leh horey ayaa loo diiwaangeliyey." });
+      }
+
+      const { error } = await supabase.from("dugsiga_classes").insert([{
+        id: id || "cls-" + crypto.randomUUID(),
+        school_id: schoolId,
+        class_name: cleanClassName,
+        teacher_name: typeof teacherName === "string" ? teacherName.trim() : "",
+        room_number: typeof roomNumber === "string" ? roomNumber.trim() : "",
+        description: typeof description === "string" ? description.trim() : "",
+        created_at: createdAt || new Date().toISOString().split("T")[0]
+      }]);
       if (error) throw error;
-      return res.json({ success: true });
-    } catch (e: any) { return handleSupabaseError(res, e, "Kaydinta Fasalka (Save Class)"); }
-  } else {
-    const db = loadLocalDB();
-    if (!db.classes) db.classes = [];
-    const isDuplicate = db.classes.some(c => c.schoolId === schoolId && c.className.trim().toLowerCase() === className.trim().toLowerCase());
-    if (isDuplicate) return res.status(400).json({ error: "Fasalkan magacan leh horey ayaa loo diiwaangeliyey. (Duplicate Class)" });
-    db.classes.push({ id: id || 'cls-' + Math.random().toString(36).substr(2, 9), schoolId, className: className.trim(), teacherName: teacherName || "", roomNumber: roomNumber || "", description: description || "", createdAt: createdAt || new Date().toISOString().split('T')[0] });
-    saveLocalDB(db);
-    res.json({ success: true });
+      return res.status(201).json({ success: true });
+    } catch (e: any) {
+      console.error("Class creation failed", {
+        code: String(e?.code || "UNKNOWN"),
+        message: String(e?.message || "Unknown database error").slice(0, 220),
+        schoolIdPresent: Boolean(schoolId),
+        databaseMode: "supabase"
+      });
+      return handleSupabaseError(res, e, "Kaydinta Fasalka (Save Class)");
+    }
   }
+
+  const db = loadLocalDB();
+  if (!db.classes) db.classes = [];
+  const duplicate = db.classes.some((c: any) =>
+    c.schoolId === schoolId &&
+    String(c.className || "").trim().toLowerCase() === cleanClassName.toLowerCase()
+  );
+  if (duplicate) return res.status(409).json({ error: "Fasalkan magacan leh horey ayaa loo diiwaangeliyey." });
+
+  db.classes.push({
+    id: id || "cls-" + crypto.randomUUID(),
+    schoolId,
+    className: cleanClassName,
+    teacherName: typeof teacherName === "string" ? teacherName.trim() : "",
+    roomNumber: typeof roomNumber === "string" ? roomNumber.trim() : "",
+    description: typeof description === "string" ? description.trim() : "",
+    createdAt: createdAt || new Date().toISOString().split("T")[0]
+  });
+  saveLocalDB(db);
+  return res.status(201).json({ success: true });
 });
 
 app.put("/api/classes/:id", async (req, res) => {
   const schoolId = getSchoolId(req);
+  if (!schoolId) return res.status(401).json({ error: "Fadlan mar kale gal akoonkaaga." });
   const { id } = req.params;
-  const { className, teacherName, roomNumber, description } = req.body;
+  const { className, teacherName, roomNumber, description } = req.body || {};
+  const cleanClassName = typeof className === "string" ? className.trim() : "";
+  if (!cleanClassName) return res.status(400).json({ error: "Magaca fasalka waa khasab." });
+
   if (!useLocalFallback) {
     try {
-      const { error } = await supabase.from("dugsiga_classes").update({ class_name: className, teacher_name: teacherName, room_number: roomNumber, description: description }).eq("id", id).eq("school_id", schoolId);
+      const { error } = await supabase.from("dugsiga_classes").update({
+        class_name: cleanClassName,
+        teacher_name: typeof teacherName === "string" ? teacherName.trim() : "",
+        room_number: typeof roomNumber === "string" ? roomNumber.trim() : "",
+        description: typeof description === "string" ? description.trim() : ""
+      }).eq("id", id).eq("school_id", schoolId);
       if (error) throw error;
       return res.json({ success: true });
-    } catch (e: any) { return handleSupabaseError(res, e, "Cusbooneysiinta Fasalka (Update Class)"); }
-  } else {
-    const db = loadLocalDB();
-    if (!db.classes) db.classes = [];
-    const idx = db.classes.findIndex(c => c.id === id && c.schoolId === schoolId);
-    if (idx > -1) { db.classes[idx] = { ...db.classes[idx], className, teacherName, roomNumber, description }; saveLocalDB(db); return res.json({ success: true }); }
-    res.status(404).json({ error: "Class not found" });
+    } catch (e: any) {
+      return handleSupabaseError(res, e, "Cusbooneysiinta Fasalka (Update Class)");
+    }
   }
+
+  const db = loadLocalDB();
+  const idx = (db.classes || []).findIndex((c: any) => c.id === id && c.schoolId === schoolId);
+  if (idx < 0) return res.status(404).json({ error: "Fasalka lama helin." });
+  db.classes[idx] = { ...db.classes[idx], className: cleanClassName, teacherName: teacherName || "", roomNumber: roomNumber || "", description: description || "" };
+  saveLocalDB(db);
+  return res.json({ success: true });
 });
 
 app.delete("/api/classes/:id", async (req, res) => {
   const schoolId = getSchoolId(req);
+  if (!schoolId) return res.status(401).json({ error: "Fadlan mar kale gal akoonkaaga." });
   const { id } = req.params;
+
   if (!useLocalFallback) {
     try {
       const { error } = await supabase.from("dugsiga_classes").delete().eq("id", id).eq("school_id", schoolId);
       if (error) throw error;
       return res.json({ success: true });
-    } catch (e: any) { return handleSupabaseError(res, e, "Tirtirista Fasalka (Delete Class)"); }
-  } else {
-    const db = loadLocalDB();
-    if (!db.classes) db.classes = [];
-    db.classes = db.classes.filter(c => !(c.id === id && c.schoolId === schoolId));
-    saveLocalDB(db);
-    res.json({ success: true });
+    } catch (e: any) {
+      return handleSupabaseError(res, e, "Tirtirista Fasalka (Delete Class)");
+    }
   }
+
+  const db = loadLocalDB();
+  db.classes = (db.classes || []).filter((c: any) => !(c.id === id && c.schoolId === schoolId));
+  saveLocalDB(db);
+  return res.json({ success: true });
 });
 
 app.get("/api/subjects", async (req, res) => {
