@@ -839,6 +839,7 @@ app.use(async (req, res, next) => {
   const publicAuthPath =
     req.path === "/api/auth/signup" ||
     req.path === "/api/auth/login" ||
+    req.path === "/api/auth/verify" ||
     req.path === "/api/auth/logout" ||
     /^\/api\/teachers\/verify-invitation(?:\/|$)/.test(req.path) ||
     req.path === "/api/teachers/activate-account";
@@ -2407,48 +2408,39 @@ app.post("/api/auth/signup", async (req, res) => {
     return res.status(400).json({ error: "Email-kan horey ayaa loo diiwaangeliyey. Fadlan 'Sign In' ku gal." });
   }
 
-  // If Supabase is connected, attempt check & sync to Supabase
-  if (!useLocalFallback && supabase) {
+  // Production signup succeeds only after Supabase confirms the insert.
+  if (!useLocalFallback) {
+    if (!supabase || !customSupabaseActive) {
+      return res.status(503).json({ error: "Adeegga diiwaangelinta ma diyaarsana. Fadlan mar kale isku day." });
+    }
     try {
-      const { data: existingUser, error: selectErr } = await supabase
+      const { data: existingUser, error: selectError } = await supabase
         .from("dugsiga_users")
         .select("email")
         .ilike("email", cleanEmail)
         .maybeSingle();
 
-      if (selectErr) {
-        if (selectErr.message?.includes("fetch failed") || selectErr.message?.includes("ENOTFOUND")) {
-          useLocalFallback = localJsonFallbackEnabled;
-          customSupabaseActive = false;
-        }
-      } else if (existingUser) {
+      if (selectError) {
+        console.error("Supabase signup lookup failed:", selectError.message);
+        return res.status(503).json({ error: "Akoonka lama hubin karin sabab la xiriirta database-ka." });
+      }
+      if (existingUser) {
         return res.status(400).json({ error: "Email-kan horey ayaa loo diiwaangeliyey. Fadlan 'Sign In' ku gal." });
       }
 
-      if (!useLocalFallback) {
-        const { error: insertError } = await supabase.from("dugsiga_users").insert([{
-          email: cleanEmail, password: passwordHash, verified: true, role: "admin", school_id: cleanEmail
-        }]);
-
-        if (insertError) {
-          if (insertError.code === "23505") {
-            return res.status(400).json({ error: "Email-kan horey ayaa loo diiwaangeliyey. Fadlan 'Sign In' ku gal." });
-          }
-          if (insertError.message?.includes("fetch failed") || insertError.message?.includes("ENOTFOUND")) {
-            useLocalFallback = localJsonFallbackEnabled;
-            customSupabaseActive = false;
-          } else {
-            console.log("Supabase auth insert notice:", insertError.message);
-          }
+      const { error: insertError } = await supabase.from("dugsiga_users").insert([{
+        email: cleanEmail, password: passwordHash, verified: true, role: "admin", school_id: cleanEmail
+      }]);
+      if (insertError) {
+        if (insertError.code === "23505") {
+          return res.status(400).json({ error: "Email-kan horey ayaa loo diiwaangeliyey. Fadlan 'Sign In' ku gal." });
         }
+        console.error("Supabase signup insert failed:", insertError.message);
+        return res.status(503).json({ error: "Akoonka lama kaydin. Fadlan mar kale isku day." });
       }
-    } catch (sbErr: any) {
-      if (sbErr?.message?.includes("fetch failed") || sbErr?.message?.includes("ENOTFOUND")) {
-        useLocalFallback = localJsonFallbackEnabled;
-        customSupabaseActive = false;
-      } else {
-        console.log("Supabase auth notice:", sbErr?.message || sbErr);
-      }
+    } catch (error: any) {
+      console.error("Supabase signup request failed:", error?.message || error);
+      return res.status(503).json({ error: "Adeegga diiwaangelinta si ku-meel-gaar ah ayuu u xiran yahay." });
     }
   }
 
@@ -2512,10 +2504,8 @@ app.post("/api/auth/login", async (req, res) => {
         .maybeSingle();
 
       if (error) {
-        if (error.message?.includes("fetch failed") || error.message?.includes("ENOTFOUND")) {
-          useLocalFallback = localJsonFallbackEnabled;
-          customSupabaseActive = false;
-        }
+        console.error("Supabase login lookup failed:", error.message);
+        return res.status(503).json({ error: "Gelitaanka lama xaqiijin karin sabab la xiriirta database-ka." });
       } else if (user) {
         const cloudCheck = await verifyPassword(password, user.password);
         const localCheck = localUser
@@ -2606,12 +2596,8 @@ app.post("/api/auth/login", async (req, res) => {
         return res.json(authRes);
       }
     } catch (e: any) {
-      if (e?.message?.includes("fetch failed") || e?.message?.includes("ENOTFOUND")) {
-        useLocalFallback = localJsonFallbackEnabled;
-        customSupabaseActive = false;
-      } else {
-        console.log("Supabase login check notice:", e?.message || e);
-      }
+      console.error("Supabase login request failed:", e?.message || e);
+      return res.status(503).json({ error: "Gelitaanka si ku-meel-gaar ah ayuu u xiran yahay. Fadlan mar kale isku day." });
     }
   }
 
