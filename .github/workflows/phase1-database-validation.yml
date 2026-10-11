@@ -1,12 +1,13 @@
 name: Phase 1 Database Source-of-Truth Validation
 
 on:
-  push:
-    branches:
-      - "phase-1/**"
   pull_request:
     branches:
       - main
+
+concurrency:
+  group: phase1-database-validation-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: write
