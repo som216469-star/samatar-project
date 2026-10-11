@@ -45,7 +45,7 @@ export default function HowItWorks({ onNavigate, isAuthenticated }: HowItWorksPr
             Transition your school in three structured steps.
           </h2>
           <p className="text-base sm:text-lg text-[#94a3b8] leading-relaxed">
-            Dugsi Pro requires no external IT consultants or local servers. Set up your school structure and begin daily operations the same day.
+            Quantora requires no external IT consultants or local servers. Set up your school structure and begin daily operations the same day.
           </p>
         </div>
 
