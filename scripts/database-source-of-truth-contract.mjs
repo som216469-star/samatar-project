@@ -23,6 +23,10 @@ const migration = read("scripts/migrate-database-json-to-supabase.mjs");
 assertContains(server, 'process.env.NODE_ENV !== "production" && process.env.LOCAL_JSON_FALLBACK === "true"', "local JSON fallback requires explicit development-only flag");
 assertContains(server, "if (!localJsonFallbackEnabled)", "JSON reads and writes are gated");
 assertContains(server, 'supabase.rpc("dugsiga_apply_tenant_changes"', "request changes use incremental tenant RPC persistence");
+assertContains(server, "const changedFields = old", "updates calculate row-level changed fields");
+assertContains(server, "update_columns: updateColumns", "row updates send changed column names to the database");
+assertContains(rpc, "jsonb_array_elements_text(v_change->'update_columns')", "RPC parses the changed-column allowlist");
+assertContains(rpc, "a.attname = ANY(v_update_columns)", "RPC updates only columns changed by this request");
 assertContains(server, '.eq("school_id", schoolId)', "Supabase reads are school-scoped");
 assertNotContains(server, "syncLocalToSupabase", "legacy local-to-cloud startup sync is removed");
 
