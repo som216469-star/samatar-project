@@ -1,19 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import {
-  LayoutDashboard,
-  FileSpreadsheet,
-  CreditCard,
-  TrendingDown,
-  TrendingUp,
-  PieChart,
-  Users,
-  BarChart3,
-  Activity,
-  FileText,
-  Layers,
-  RefreshCw,
-  DollarSign
-} from 'lucide-react';
+import { RefreshCw, DollarSign } from 'lucide-react';
 import type {
   Invoice,
   PaymentTransaction,
@@ -257,23 +243,10 @@ export const FinancePage: React.FC<FinanceViewProps> = ({
     setActiveSubTab('payments');
   };
 
-  const navItems: { id: FinanceSubSection; label: string; icon: any }[] = [
-    { id: 'overview', label: 'Dulmar (Dashboard)', icon: LayoutDashboard },
-    { id: 'invoices', label: 'Biilasha (Invoices)', icon: FileSpreadsheet },
-    { id: 'payments', label: 'Lacag Qabasho (Payments)', icon: CreditCard },
-    { id: 'expenses', label: 'Kharashaad (Expenses)', icon: TrendingDown },
-    { id: 'income', label: 'Dakhli (Income)', icon: TrendingUp },
-    { id: 'fee_structures', label: 'Qaab-dhismeedka Fiiga', icon: Layers },
-    { id: 'budgets', label: 'Miisaaniyad (Budgets)', icon: PieChart },
-    { id: 'payroll', label: 'Mushaar (Payroll)', icon: Users },
-    { id: 'profit_loss', label: 'Faa’iido & Khasaare (P&L)', icon: BarChart3 },
-    { id: 'cash_flow', label: 'Qulqulka Lacagta (Cash Flow)', icon: Activity },
-    { id: 'reports', label: 'Warbixino (Reports)', icon: FileText }
-  ];
-
   return (
     <PageContainer className="space-y-6 pb-12">
       <PageHeader
+        moduleLabel="DUGSI PRO 2026 // FINANCE & ACCOUNTING"
         title="Maamulka Maaliyadda & Xisaabaadka (Finance & Accounting)"
         subtitle="Nidaamka Xisaabaadka Dugsiga — Biilasha, Kharashaadka, Dakhliga, Miisaaniyadda, Mushaarka & Warbixinada"
         badge={<Badge variant="success">Enterprise Accounting Suite</Badge>}
@@ -298,34 +271,6 @@ export const FinancePage: React.FC<FinanceViewProps> = ({
           </div>
         }
       />
-
-      {/* Sub-Navigation Bar */}
-      <Card className="p-2 overflow-x-auto">
-        <div className="flex items-center gap-1.5 min-w-max">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = activeSubTab === item.id;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => {
-                  setActiveSubTab(item.id);
-                  setQuickOpenModal(null);
-                }}
-                className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
-                  isActive
-                    ? 'bg-emerald-600 text-white shadow-sm'
-                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-elevated)]'
-                }`}
-              >
-                <Icon className="w-4 h-4 shrink-0" />
-                <span>{item.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      </Card>
 
       {/* Active Module Area */}
       <div className="min-h-[500px]">

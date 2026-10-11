@@ -47,7 +47,6 @@ import StudentProfileModal from './components/StudentProfileModal';
 import StudentAddView from './components/StudentAddView';
 import StudentImportView from './components/StudentImportView';
 import StudentExportView from './components/StudentExportView';
-import StudentWorkspaceNav from './components/StudentWorkspaceNav';
 import { StudentsRosterTable } from './components/StudentsRosterTable';
 import { StudentFormModal } from './components/StudentFormModal';
 import { StudentsActionModals } from './components/StudentsActionModals';
@@ -646,6 +645,13 @@ export default function StudentsView({
     selectedRegDateFilter,
     pageSize
   ]);
+
+  // Ensure currentPage stays within valid range
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(Math.max(1, totalPages));
+    }
+  }, [currentPage, totalPages]);
 
   // --- Selection Handlers ---
   const isAllSelected = paginatedStudents.length > 0 && paginatedStudents.every(s => selectedStudentIds.includes(s.id));
@@ -1443,6 +1449,7 @@ export default function StudentsView({
     <PageContainer>
       {/* 1. TOP HEADER & ACTION BAR */}
       <PageHeader
+        moduleLabel="DUGSI PRO 2026 // STUDENTS MODULE"
         breadcrumbs={[
           {
             label: 'Students',
@@ -1452,7 +1459,7 @@ export default function StudentsView({
         ]}
         title={subSectionMeta.title}
         description={subSectionMeta.subtitle}
-        badge={<Badge variant="brand" dot={false} className="uppercase tracking-[0.12em]">Student Directory</Badge>}
+        badge={<span className="badge-system">DUGSI PRO 2026</span>}
         actions={
           <div className="flex items-center gap-2 flex-wrap">
             {/* View Toggle */}
@@ -1539,13 +1546,6 @@ export default function StudentsView({
             </Button>}
           </div>
         }
-      />
-
-      <StudentWorkspaceNav
-        active={subSection}
-        role={userRole}
-        counts={{ total: stats.total, active: stats.active, inactive: stats.inactive, archived: stats.archived }}
-        onNavigate={(next) => onNavigateSubSection?.(next)}
       />
 
       {/* CONTEXTUAL SUBSECTION INFO BANNERS */}
@@ -1691,10 +1691,22 @@ export default function StudentsView({
         selectedStudentIds={selectedStudentIds}
         isAllSelected={isAllSelected}
         visibleColumns={visibleColumns}
-        currency={settings.currency}
+        currency={settings.currency || '$'}
         currentPage={currentPage}
         pageSize={pageSize}
         totalPages={totalPages}
+        hasActiveFilters={activeFilterCount > 0 || searchQuery.trim().length > 0}
+        onClearAllFilters={() => {
+          setSearchQuery('');
+          setSelectedClassFilter('all');
+          setSelectedStatusFilter('all');
+          setSelectedGenderFilter('all');
+          setSelectedFeeFilter('all');
+          setSelectedRegDateFilter('all');
+          setMissingGuardianOnly(false);
+          setSortBy('name_asc');
+        }}
+        onOpenAddModal={studentPermissions.canCreate ? handleOpenAddModal : undefined}
         onSetCurrentPage={setCurrentPage}
         onSetPageSize={setPageSize}
         onToggleSelectAll={handleToggleSelectAll}
@@ -1831,10 +1843,18 @@ export default function StudentsView({
           if (success) setDeleteConfirmStudent(null);
         }}
         onConfirmDeleteStudent={async (st) => {
-          const success = await onDeleteStudent(st.id);
-          if (success) {
-            showToast('Ardayga waa la tirtiray', 'success');
-            setDeleteConfirmStudent(null);
+          try {
+            const success = await onDeleteStudent(st.id);
+            if (success) {
+              showToast('Ardayga waa la tirtiray', 'success');
+              setSelectedStudentIds((prev) => prev.filter((id) => id !== st.id));
+              setDeleteConfirmStudent(null);
+              if (onRefreshData) await onRefreshData();
+            } else {
+              showToast('Fashil: Ardayga lama tirtiri karin', 'error');
+            }
+          } catch {
+            showToast('Khalad ayaa dhacay intii lagu jiray tirtiridda ardayga', 'error');
           }
         }}
       />

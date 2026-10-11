@@ -494,15 +494,19 @@ export const StudentsActionModals: React.FC<StudentsActionModalsProps> = ({
                           <td className="px-3 py-2 font-mono text-[var(--color-text-secondary)]">
                             {row.data?.guardianPhone || '—'}
                           </td>
-                          <td className="px-3 py-2">
+                          <td className="px-3 py-2 text-xs sm:text-[13px]">
                             {row.isValid ? (
                               <Badge variant="success">
                                 <CheckCircle2 className="w-3 h-3 mr-1" /> Sax
                               </Badge>
                             ) : (
-                              <span className="text-[var(--color-danger)] font-medium">
-                                {(row.errors || []).join(', ')}
-                              </span>
+                              <ul className="errors-ul list-disc list-inside space-y-1 text-xs sm:text-[13px] text-[var(--color-danger)] font-medium">
+                                {(row.errors || []).map((err, errIdx) => (
+                                  <li key={errIdx} className="leading-snug">
+                                    {err}
+                                  </li>
+                                ))}
+                              </ul>
                             )}
                           </td>
                         </tr>

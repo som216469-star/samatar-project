@@ -121,20 +121,36 @@ export const StudentsRosterTable: React.FC<StudentsRosterTableProps> = ({
       onCopyPhone(phone, id);
       return;
     }
+    const cleanPhone = phone.trim();
+    if (!cleanPhone) return;
     try {
-      navigator.clipboard?.writeText(phone);
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        navigator.clipboard.writeText(cleanPhone)
+          .then(() => {
+            setLocalCopiedId(id);
+            setTimeout(() => setLocalCopiedId(null), 1800);
+          })
+          .catch(() => {
+            setLocalCopiedId(id);
+            setTimeout(() => setLocalCopiedId(null), 1800);
+          });
+      } else {
+        setLocalCopiedId(id);
+        setTimeout(() => setLocalCopiedId(null), 1800);
+      }
+    } catch {
       setLocalCopiedId(id);
       setTimeout(() => setLocalCopiedId(null), 1800);
-    } catch {}
+    }
   };
 
   return (
     <div className="space-y-4">
       {viewMode === 'table' ? (
-        <Card padding="none" className="overflow-hidden rounded-2xl shadow-sm">
+        <div className="table-module shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
-              <thead className="bg-[var(--color-surface-muted)]/70">
+              <thead className="bg-[var(--color-surface-muted)]/70 border-b border-[var(--border)]">
                 <tr className="border-b border-[var(--color-border)]">
                   <th className="px-4 py-3 w-10 text-[10px] uppercase tracking-wider text-[var(--color-text-muted)]">
                     <button
@@ -321,7 +337,7 @@ export const StudentsRosterTable: React.FC<StudentsRosterTableProps> = ({
                               {student.guardianPhone ? (
                                 <div className="flex items-center gap-1.5">
                                   <a
-                                    href={`tel:${student.guardianPhone}`}
+                                    href={`tel:${student.guardianPhone.replace(/\s+/g, '')}`}
                                     className="font-mono text-[11px] text-[var(--color-brand)] hover:underline"
                                   >
                                     {student.guardianPhone}
@@ -357,25 +373,31 @@ export const StudentsRosterTable: React.FC<StudentsRosterTableProps> = ({
                         {columns.fees && (
                           <td className="px-4 py-3">
                             <div className="space-y-0.5">
-                              <Badge
-                                variant={
-                                  feeInfo.status === 'paid'
-                                  ? 'success'
-                                  : feeInfo.status === 'partial'
-                                  ? 'warning'
-                                  : 'danger'
-                              }
-                            >
-                              {feeInfo.status === 'paid'
-                                ? 'La Bixiyey'
-                                : feeInfo.status === 'partial'
-                                ? 'Qayb'
-                                : 'Aan Bixinin'}
-                            </Badge>
-                            {feeInfo.balance > 0 && (
-                              <p className="text-[10px] font-mono tabular-nums text-[var(--color-danger)]">
-                                Baaqi: {currency} {feeInfo.balance}
-                              </p>
+                              {feeInfo.status === 'hidden' ? (
+                                <span className="text-[11px] text-[var(--color-text-muted)] font-mono">—</span>
+                              ) : (
+                                <>
+                                  <Badge
+                                    variant={
+                                      feeInfo.status === 'paid'
+                                        ? 'success'
+                                        : feeInfo.status === 'partial'
+                                        ? 'warning'
+                                        : 'danger'
+                                    }
+                                  >
+                                    {feeInfo.status === 'paid'
+                                      ? 'La Bixiyey'
+                                      : feeInfo.status === 'partial'
+                                      ? 'Qayb'
+                                      : 'Aan Bixinin'}
+                                  </Badge>
+                                  {feeInfo.balance > 0 && (
+                                    <p className="text-[10px] font-mono tabular-nums text-[var(--color-danger)]">
+                                      Baaqi: {currency} {feeInfo.balance}
+                                    </p>
+                                  )}
+                                </>
                               )}
                             </div>
                           </td>
@@ -486,7 +508,7 @@ export const StudentsRosterTable: React.FC<StudentsRosterTableProps> = ({
               </tbody>
             </table>
           </div>
-        </Card>
+        </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {paginatedStudents.map((student) => {
@@ -580,7 +602,7 @@ export const StudentsRosterTable: React.FC<StudentsRosterTableProps> = ({
                     </span>
                     {student.guardianPhone ? (
                       <a
-                        href={`tel:${student.guardianPhone}`}
+                        href={`tel:${student.guardianPhone.replace(/\s+/g, '')}`}
                         className="text-[var(--color-brand)] hover:underline font-mono text-[11px]"
                       >
                         {student.guardianPhone}
@@ -594,17 +616,32 @@ export const StudentsRosterTable: React.FC<StudentsRosterTableProps> = ({
                       <span className="text-[10px] text-[var(--color-text-muted)] block">
                         Biilka Bisha
                       </span>
-                      <Badge
-                        variant={
-                          feeInfo.status === 'paid'
-                            ? 'success'
-                            : feeInfo.status === 'partial'
-                            ? 'warning'
-                            : 'danger'
-                        }
-                      >
-                        {feeInfo.status}
-                      </Badge>
+                      {feeInfo.status === 'hidden' ? (
+                        <span className="text-[11px] text-[var(--color-text-muted)] font-mono">—</span>
+                      ) : (
+                        <div className="space-y-0.5">
+                          <Badge
+                            variant={
+                              feeInfo.status === 'paid'
+                                ? 'success'
+                                : feeInfo.status === 'partial'
+                                ? 'warning'
+                                : 'danger'
+                            }
+                          >
+                            {feeInfo.status === 'paid'
+                              ? 'La Bixiyey'
+                              : feeInfo.status === 'partial'
+                              ? 'Qayb'
+                              : 'Aan Bixinin'}
+                          </Badge>
+                          {feeInfo.balance > 0 && (
+                            <p className="text-[10px] font-mono tabular-nums text-[var(--color-danger)]">
+                              Baaqi: {currency} {feeInfo.balance}
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -620,15 +657,38 @@ export const StudentsRosterTable: React.FC<StudentsRosterTableProps> = ({
 
                   <div className="flex items-center gap-1">
                     {canUpdateStudents && (
-                      <button
-                        type="button"
-                        onClick={() => onOpenEditModal(student)}
-                        aria-label="Edit"
-                        className="p-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-muted)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] cursor-pointer"
-                        title="Edit"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => onOpenEditModal(student)}
+                          aria-label="Edit"
+                          className="p-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-muted)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] cursor-pointer"
+                          title="Edit"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                        {student.status === 'archived' || student.status === 'inactive' ? (
+                          <button
+                            type="button"
+                            onClick={() => onQuickStatusChange(student, 'active')}
+                            aria-label="Ka dhig Active"
+                            className="p-1.5 rounded-md border border-[var(--color-success-border)] bg-[var(--color-success-soft)] text-[var(--color-success)] hover:bg-[var(--color-success-soft)] transition-colors cursor-pointer"
+                            title="Ka dhig Active (Restore to Active)"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => onQuickStatusChange(student, 'archived')}
+                            aria-label="Kaydi Ardayga"
+                            className="p-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-muted)] text-[var(--color-text-secondary)] hover:text-[var(--color-warning)] transition-colors cursor-pointer"
+                            title="Kaydi Ardayga (Archive Student)"
+                          >
+                            <Archive className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </>
                     )}
                     {canDeleteStudents && (
                       <button

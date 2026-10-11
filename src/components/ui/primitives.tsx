@@ -276,10 +276,10 @@ export const StatCard: React.FC<StatCardProps> = ({
   return (
     <Card
       onClick={onClick}
-      className="flex min-h-[132px] flex-col justify-between gap-3 transition-[border-color,box-shadow] hover:border-[var(--color-border-strong)]"
+      className="widget flex min-h-[132px] flex-col justify-between gap-3 transition-[border-color,box-shadow] hover:border-[var(--accent)]"
     >
-      <div className="flex items-start justify-between gap-3">
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
+      <div className="widget-header flex items-start justify-between gap-3">
+        <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-text-muted)]">
           {label}
         </span>
         {resolvedIcon && (
@@ -290,7 +290,7 @@ export const StatCard: React.FC<StatCardProps> = ({
       </div>
 
       <div className="space-y-1">
-        <div className="text-2xl sm:text-3xl font-bold tracking-tight font-mono tabular-nums leading-none text-[var(--color-text-primary)]">
+        <div className="widget-val text-2xl sm:text-3xl font-extrabold tracking-tight font-display tabular-nums leading-none text-[var(--color-text-primary)]">
           {value}
         </div>
         {(resolvedSubtitle || trend) && (

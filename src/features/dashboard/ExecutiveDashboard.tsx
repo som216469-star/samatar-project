@@ -182,6 +182,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
     <PageContainer>
       {/* 1. WELCOME & SCHOOL CONTEXT HEADER */}
       <PageHeader
+        moduleLabel="DUGSI PRO 2026 // EXECUTIVE OVERVIEW"
         title="Executive Overview"
         subtitle={`${settings.schoolName || 'Dugsi Pro'} · Academic Year ${
           settings.academicYear || '2025/2026'
@@ -222,7 +223,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
       />
 
       {/* 2. CORE EXECUTIVE KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="widget-grid widget-grid-4">
         <StatCard
           label="Total Enrollment"
           value={metrics.totalStudents.toLocaleString()}

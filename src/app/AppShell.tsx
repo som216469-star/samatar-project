@@ -541,16 +541,19 @@ export const AppShell: React.FC<AppShellProps> = ({
             }}
             className="flex items-center gap-3 min-w-0 text-left cursor-pointer group"
           >
-            <div className="w-9 h-9 rounded-[var(--radius-md)] bg-[var(--color-brand)] flex items-center justify-center text-white font-bold text-sm shadow-sm shrink-0">
+            <div className="w-9 h-9 rounded-[var(--radius-md)] bg-[var(--accent-dim)] border border-[var(--accent)]/30 flex items-center justify-center text-[var(--accent)] font-extrabold text-sm shadow-sm shrink-0 font-display">
               {settings.schoolName ? settings.schoolName.charAt(0).toUpperCase() : 'D'}
             </div>
             {!collapsed && (
               <div className="min-w-0">
-                <div className="text-sm font-bold text-white truncate tracking-tight">
-                  {settings.schoolName || 'Dugsi Pro 2026'}
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-extrabold text-white truncate tracking-tight font-display">
+                    {settings.schoolName || 'DugsiPro'}
+                  </span>
+                  <span className="badge-system">v2026.04</span>
                 </div>
-                <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-[var(--sidebar-text-muted)]">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-[var(--sidebar-text-muted)] mt-0.5">
+                  <span className="dot" style={{ margin: 0, width: 5, height: 5 }} />
                   <span>{settings.academicYear || '2025/2026'}</span>
                 </div>
               </div>
@@ -907,16 +910,18 @@ export const AppShell: React.FC<AppShellProps> = ({
   };
 
   return (
-    <div className="min-h-screen flex bg-[var(--color-bg)] text-[var(--color-text-primary)]">
+    <div className="h-screen flex bg-[var(--color-bg)] text-[var(--color-text-primary)] relative overflow-hidden">
+      {/* Variation 3 Ambient Glow Orbs */}
+      <div className="orb orb-1 pointer-events-none" aria-hidden="true" />
+      <div className="orb orb-2 pointer-events-none" aria-hidden="true" />
+
       {/* Desktop Sidebar */}
       <aside
-        className={`app-sidebar hidden lg:flex flex-col shrink-0 border-r border-[var(--sidebar-border)] transition-all duration-200 ${
+        className={`app-sidebar hidden lg:flex flex-col shrink-0 h-screen sticky top-0 z-30 border-r border-[var(--sidebar-border)] transition-all duration-200 ${
           sidebarCollapsed ? 'w-16' : 'w-64'
         }`}
       >
-        <div className="sticky top-0 h-screen flex flex-col">
-          {renderSidebarContent(false)}
-        </div>
+        {renderSidebarContent(false)}
       </aside>
 
       {/* Mobile Sidebar Drawer */}
@@ -944,9 +949,9 @@ export const AppShell: React.FC<AppShellProps> = ({
       </AnimatePresence>
 
       {/* Main Content Column */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto overflow-x-hidden">
         {/* Top Navigation Bar */}
-        <header className="app-topbar sticky top-0 z-30 h-16 px-4 sm:px-6 lg:px-8 bg-[var(--color-surface)]/90 backdrop-blur-md border-b border-[var(--color-border)] flex items-center justify-between gap-3">
+        <header className="app-topbar sticky top-0 z-20 shrink-0 h-16 px-4 sm:px-6 lg:px-8 bg-[var(--color-surface)]/90 backdrop-blur-md border-b border-[var(--color-border)] flex items-center justify-between gap-3">
           {/* Left: Mobile Menu Trigger + Breadcrumbs */}
           <div className="flex items-center gap-3 min-w-0">
             <button

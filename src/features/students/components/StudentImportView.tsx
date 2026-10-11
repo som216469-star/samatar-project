@@ -13,7 +13,6 @@ import { StudentSubSection } from '../../../app/navigationConfig';
 import { PageContainer, PageHeader } from '../../../components/layout/PageLayout';
 import { readStudentSpreadsheet, downloadStudentSpreadsheet } from '../../../lib/studentSpreadsheet';
 import { Badge, Button, Card, StatCard } from '../../../components/ui/primitives';
-import StudentWorkspaceNav from './StudentWorkspaceNav';
 
 interface StudentImportViewProps {
   existingStudents: Student[];
@@ -534,12 +533,6 @@ export default function StudentImportView({
         }
       />
 
-      <StudentWorkspaceNav
-        active="import"
-        counts={{ total: existingStudents.length }}
-        onNavigate={(next) => { if (next !== 'import') onNavigateSubSection?.(next); }}
-      />
-
       {/* STEP 1: Upload Step */}
       {step === 'upload' && (
         <div className="space-y-6">
@@ -554,7 +547,7 @@ export default function StudentImportView({
               <p className="text-xs text-[var(--color-text-secondary)] leading-relaxed">
                 Soo degso template-ka rasmiga ah oo ku buuxi magacyada, fasallada, jinsiga, iyo telefoonka waalidka.
               </p>
-              <ul className="text-[11px] text-[var(--color-text-muted)] space-y-1 list-disc list-inside">
+              <ul className="text-xs sm:text-[13px] text-[var(--color-text-secondary)] space-y-1.5 list-disc list-inside font-medium leading-relaxed">
                 <li>Magaca Ardayga (Waa Qasab)</li>
                 <li>Fasalka (Waa Qasab)</li>
                 <li>Telefoonka Waalidka (Waa Qasab)</li>
@@ -760,15 +753,24 @@ export default function StudentImportView({
                         <td className="p-3 font-mono text-[var(--color-text-secondary)]">
                           {r.guardianPhone || '—'}
                         </td>
-                        <td className="p-3 text-[11px]">
+                        <td className="p-3 text-xs sm:text-[13px]">
                           {r.isDuplicate && (
-                            <span className="text-[var(--color-warning)]">{r.duplicateReason}</span>
+                            <div className="flex items-start gap-1.5 text-[var(--color-warning)] font-medium text-xs sm:text-[13px]">
+                              <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                              <span>{r.duplicateReason}</span>
+                            </div>
                           )}
                           {!r.isValid && (
-                            <span className="text-[var(--color-danger)]">{r.errors.join(', ')}</span>
+                            <ul className="errors-ul list-disc list-inside space-y-1 text-xs sm:text-[13px] text-[var(--color-danger)] font-medium">
+                              {r.errors.map((err, errIdx) => (
+                                <li key={errIdx} className="leading-snug">
+                                  {err}
+                                </li>
+                              ))}
+                            </ul>
                           )}
                           {r.isValid && !r.isDuplicate && (
-                            <span className="text-[var(--color-success)]">Xogtu waa sax</span>
+                            <span className="text-[var(--color-success)] font-medium text-xs sm:text-[13px]">Xogtu waa sax</span>
                           )}
                         </td>
                       </tr>

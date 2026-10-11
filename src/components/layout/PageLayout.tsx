@@ -23,6 +23,7 @@ export interface PageHeaderProps {
   title: string;
   subtitle?: string;
   description?: string;
+  moduleLabel?: string;
   breadcrumbs?: BreadcrumbItem[];
   badge?: React.ReactNode;
   actions?: React.ReactNode;
@@ -32,14 +33,18 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   title,
   subtitle,
   description,
+  moduleLabel,
   breadcrumbs,
   badge,
   actions
 }) => {
   const resolvedSubtitle = subtitle || description;
   return (
-    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-[var(--color-border)]">
+    <div className="title-group flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-[var(--color-border)]">
       <div className="space-y-1">
+        {moduleLabel && (
+          <span className="module-label">{moduleLabel}</span>
+        )}
         {breadcrumbs && breadcrumbs.length > 0 && (
           <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-[11px] font-medium text-[var(--color-text-muted)] mb-1">
             {breadcrumbs.map((item, idx) => (
@@ -61,7 +66,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
           </nav>
         )}
         <div className="flex items-center gap-2.5 flex-wrap">
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[var(--color-text-primary)]">
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight font-display text-[var(--color-text-primary)]">
             {title}
           </h1>
           {badge}

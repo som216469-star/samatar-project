@@ -238,6 +238,21 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
           </div>
         )}
 
+        {/* Validation Errors List */}
+        {Object.keys(formErrors).length > 0 && (
+          <div className="error-alert-banner">
+            <div className="error-title">
+              <AlertTriangle className="w-4 h-4 shrink-0" />
+              <span>Fadlan sax khaladaadka xogta ka hor inta aadan gudbin:</span>
+            </div>
+            <ul className="errors-ul list-disc list-inside space-y-1.5 text-xs sm:text-[13px] text-[var(--color-danger)] font-medium leading-relaxed">
+              {Object.entries(formErrors).map(([key, msg]) => (
+                <li key={key}>{msg}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         <form onSubmit={resolvedSave} className="space-y-4 text-xs">
           {formStep === 'identity' && (
             <div className="space-y-4">

@@ -68,9 +68,10 @@ export default function Navbar({
         <button
           type="button"
           onClick={() => handleNavClick('hero')}
-          className="text-left text-lg font-bold tracking-tight text-white hover:text-[#cbd5e1] transition-colors duration-150 cursor-pointer whitespace-nowrap shrink-0 landing-display"
+          className="text-left text-lg font-bold tracking-tight text-white hover:text-[#cbd5e1] transition-colors duration-150 cursor-pointer whitespace-nowrap shrink-0 landing-display flex items-center gap-2.5"
         >
-          DUGSI PRO
+          <span>DugsiPro</span>
+          <span className="badge-system">v2026.04</span>
         </button>
 
         {/* Zone 2: 5 Clean Single-Line Text Navigation Links */}
@@ -83,7 +84,7 @@ export default function Navbar({
               key={item.target}
               type="button"
               onClick={() => handleNavClick(item.target)}
-              className="relative py-1 text-[#94a3b8] hover:text-white transition-colors duration-150 cursor-pointer whitespace-nowrap shrink-0 after:content-[''] after:absolute after:left-0 after:bottom-0 after:w-full after:h-[1.5px] after:bg-[#6366f1] after:origin-left after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:duration-150"
+              className="relative py-1 text-[#94a3b8] hover:text-white transition-colors duration-150 cursor-pointer whitespace-nowrap shrink-0 after:content-[''] after:absolute after:left-0 after:bottom-0 after:w-full after:h-[1.5px] after:bg-[#22d3ee] after:origin-left after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:duration-150"
             >
               {item.label}
             </button>
@@ -96,7 +97,7 @@ export default function Navbar({
             <button
               type="button"
               onClick={() => onNavigate('dashboard')}
-              className="px-4 py-2 rounded-lg bg-[#4f46e5] hover:bg-[#4338ca] text-white font-semibold text-sm transition-colors duration-150 flex items-center gap-2 cursor-pointer whitespace-nowrap shrink-0"
+              className="px-4 py-2 rounded-lg bg-[#22d3ee] hover:bg-[#06b6d4] text-[#09090b] font-bold text-sm transition-colors duration-150 flex items-center gap-2 cursor-pointer whitespace-nowrap shrink-0 shadow-md shadow-[#22d3ee]/20"
             >
               <span>Go to Dashboard</span>
               <ArrowRight className="w-4 h-4" />
@@ -113,7 +114,7 @@ export default function Navbar({
               <button
                 type="button"
                 onClick={() => onNavigate('signup')}
-                className="px-4 py-2 rounded-lg bg-[#4f46e5] hover:bg-[#4338ca] text-white font-semibold text-sm transition-colors duration-150 shadow-sm shadow-indigo-500/20 flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
+                className="px-4 py-2 rounded-lg bg-[#22d3ee] hover:bg-[#06b6d4] text-[#09090b] font-bold text-sm transition-colors duration-150 shadow-sm shadow-[#22d3ee]/20 flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
               >
                 <span>Get Started</span>
                 <ArrowRight className="w-3.5 h-3.5" />

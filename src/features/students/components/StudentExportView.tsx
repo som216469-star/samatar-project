@@ -13,7 +13,6 @@ import { StudentSubSection } from '../../../app/navigationConfig';
 import { PageContainer, PageHeader } from '../../../components/layout/PageLayout';
 import { downloadStudentSpreadsheet, rowsToCsv } from '../../../lib/studentSpreadsheet';
 import { Badge, Button, Card } from '../../../components/ui/primitives';
-import StudentWorkspaceNav from './StudentWorkspaceNav';
 
 interface StudentExportViewProps {
   students: Student[];
@@ -381,12 +380,6 @@ export default function StudentExportView({
             Ka Noqo
           </Button>
         }
-      />
-
-      <StudentWorkspaceNav
-        active="export"
-        counts={{ total: students.length }}
-        onNavigate={(next) => { if (next !== 'export') onNavigateSubSection?.(next); }}
       />
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

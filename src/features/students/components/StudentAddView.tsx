@@ -18,7 +18,6 @@ import { StudentSubSection } from '../../../app/navigationConfig';
 import { apiFetch } from '../../../lib/apiClient';
 import { PageContainer, PageHeader } from '../../../components/layout/PageLayout';
 import { Button, Card } from '../../../components/ui/primitives';
-import StudentWorkspaceNav from './StudentWorkspaceNav';
 
 function getLocalDateString(date = new Date()): string {
   const year = date.getFullYear();
@@ -467,12 +466,6 @@ export default function StudentAddView({
         }
       />
 
-      <StudentWorkspaceNav
-        active="add"
-        counts={{ total: existingStudents.length }}
-        onNavigate={(next) => { if (next !== 'add') onNavigateSubSection?.(next); }}
-      />
-
       {duplicateWarning.found && (
         <div className="p-4 rounded-lg bg-[var(--color-warning-soft)] border border-[var(--color-warning-border)] flex items-start gap-3">
           <AlertTriangle className="w-5 h-5 shrink-0 text-[var(--color-warning)] mt-0.5" />
@@ -492,6 +485,21 @@ export default function StudentAddView({
               </p>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Validation Errors List Banner */}
+      {Object.keys(formErrors).length > 0 && (
+        <div className="error-alert-banner">
+          <div className="error-title">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            <span>Fadlan sax khaladaadka xogta soo socda ka hor inta aadan kaydin:</span>
+          </div>
+          <ul className="errors-ul list-disc list-inside space-y-1.5 text-xs sm:text-[13px] text-[var(--color-danger)] font-medium leading-relaxed">
+            {Object.entries(formErrors).map(([key, msg]) => (
+              <li key={key}>{msg}</li>
+            ))}
+          </ul>
         </div>
       )}
 
