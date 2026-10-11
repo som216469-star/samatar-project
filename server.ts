@@ -2321,6 +2321,7 @@ app.post("/api/auth/signup", async (req, res) => {
   if (!(await ensureProductionAuthBackend(res))) return;
 
   const db = loadLocalDB();
+  const passwordHash = await hashPassword(password);
   let cloudAccountCreated = false;
 
   if (!useLocalFallback && supabase) {
@@ -2349,7 +2350,6 @@ app.post("/api/auth/signup", async (req, res) => {
     }
 
     if (!useLocalFallback) {
-      const passwordHash = await hashPassword(password);
       const { error: insertError } = await supabase.from("dugsiga_users").insert([{
         email: cleanEmail,
         password: passwordHash,
@@ -2395,7 +2395,6 @@ app.post("/api/auth/signup", async (req, res) => {
     });
   }
 
-  const passwordHash = await hashPassword(password);
   const nowIso = new Date().toISOString();
   const userRecord = {
     email: cleanEmail,
