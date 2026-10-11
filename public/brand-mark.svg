@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-labelledby="title desc">
+  <title id="title">DUGSI PRO</title>
+  <desc id="desc">Graduation cap and open book in cyan and white on deep navy.</desc>
+  <defs>
+    <linearGradient id="cyan" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#67e8f9"/>
+      <stop offset=".52" stop-color="#22d3ee"/>
+      <stop offset="1" stop-color="#0ea5b7"/>
+    </linearGradient>
+    <linearGradient id="page" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#d7f8ff"/>
+    </linearGradient>
+    <radialGradient id="halo">
+      <stop offset="0" stop-color="#0e7490" stop-opacity=".48"/>
+      <stop offset="1" stop-color="#071827" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" rx="108" fill="#071827"/>
+  <rect x="8" y="8" width="496" height="496" rx="100" fill="none" stroke="#174054" stroke-width="3"/>
+  <circle cx="256" cy="244" r="190" fill="url(#halo)"/>
+  <circle cx="256" cy="244" r="188" fill="none" stroke="url(#cyan)" stroke-width="10"/>
+  <g transform="translate(0 6)">
+    <path d="M132 182 256 120 380 182 256 244Z" fill="url(#cyan)"/>
+    <path d="M164 200v45q92 40 184 0v-45l-92 46Z" fill="#0ea5b7" opacity=".62"/>
+    <path d="M370 188v73" fill="none" stroke="#22d3ee" stroke-width="7" stroke-linecap="round"/>
+    <path d="M370 260c-14 0-19 10-19 20s8 18 19 18 19-8 19-18-5-20-19-20Z" fill="url(#cyan)"/>
+    <path d="M116 259c50-7 98 6 140 32 42-26 90-39 140-32l-10 28c-46-3-88 11-130 39v65c-44-29-88-44-134-40Z" fill="url(#page)"/>
+    <path d="M104 301c52-9 103 7 152 38v68c-49-32-99-45-142-38Z" fill="url(#cyan)"/>
+    <path d="M408 301c-52-9-103 7-152 38v68c49-32 99-45 142-38Z" fill="url(#cyan)"/>
+    <path d="M256 339v68" fill="none" stroke="#071827" stroke-width="7" stroke-linecap="round" opacity=".92"/>
+  </g>
+  <path d="M256 155 263 175 284 182 263 189 256 210 249 189 228 182 249 175Z" fill="#ffffff" opacity=".95"/>
+</svg>
