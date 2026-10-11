@@ -57,7 +57,7 @@ BEGIN
         USING ERRCODE = '42501';
     END IF;
 
-    IF v_operation NOT IN ('upsert', 'delete') THEN
+    IF v_operation IS NULL OR v_operation NOT IN ('upsert', 'delete') THEN
       RAISE EXCEPTION 'Unsupported operation: %', v_operation USING ERRCODE = '22023';
     END IF;
 
@@ -399,7 +399,7 @@ BEGIN
   )
   VALUES (
     lower(btrim(v_teacher.email)), p_password_hash, true, 'teacher',
-    v_teacher.school_id, v_teacher.id, v_now
+    v_teacher.school_id, v_teacher.id, v_now::timestamp
   )
   ON CONFLICT (email) DO UPDATE SET
     password = EXCLUDED.password,
