@@ -38,6 +38,7 @@ import StaffAttendancePage from './features/people/StaffAttendancePage';
 import { TeacherDashboardPage } from './features/teacher/TeacherDashboardPage';
 import { TeacherActivationPage } from './features/teacher/TeacherActivationPage';
 import PasswordRecoveryPage from './features/auth/PasswordRecoveryPage';
+import EmailVerificationPage from './features/auth/EmailVerificationPage';
 import ClassesPage from './features/academics/ClassesPage';
 import SubjectsPage from './features/academics/SubjectsPage';
 import ExamsPage from './features/academics/ExamsPage';
@@ -242,6 +243,18 @@ export default function App() {
       const payload = await res.json();
       if (!res.ok) {
         setAuthError(payload.error || 'Authentication failed');
+      } else if (publicRoute === 'signup' && payload.requiresEmailVerification) {
+        setUser(null);
+        setEmail(String(payload.user?.email || email).trim().toLowerCase());
+        setPassword('');
+        setPublicRoute('verify-email');
+        window.history.pushState(
+          {},
+          '',
+          `/verify-email?email=${encodeURIComponent(String(payload.user?.email || email).trim().toLowerCase())}`
+        );
+        showToast('Akoonka waa la sameeyay. Fadlan xaqiiji email-kaaga.', 'info');
+        return;
       } else {
         const authUser: AuthUser = payload.user || {
           email,
@@ -281,6 +294,21 @@ export default function App() {
             setPublicRoute(nextRoute);
             window.history.pushState({}, '', `/${nextRoute}`);
           }
+        }}
+      />
+    );
+  }
+
+  if (publicRoute === 'verify-email') {
+    const params = new URLSearchParams(window.location.search);
+    return (
+      <EmailVerificationPage
+        token={params.get('token') || ''}
+        initialEmail={params.get('email') || ''}
+        onBackToLogin={() => {
+          setPublicRoute('login');
+          setAuthError('');
+          window.history.pushState({}, '', '/login');
         }}
       />
     );
