@@ -14,7 +14,7 @@ const batchReadSize = 1000;
 
 const definitions = [
   { collection: "users", table: "dugsiga_users", keys: ["email"], columns: ["email","password","verified","role","school_id","teacher_id","verification_code","created_at"] },
-  { collection: "students", table: "dugsiga_students", keys: ["id"], columns: ["id","school_id","full_name","gender","phone","class","status","photo","date_of_birth","address","guardian_name","guardian_relationship","guardian_phone","guardian_phone_alt","emergency_contact","section","roll_number","national_id","previous_school","blood_group","medical_notes","created_at","updated_at"] },
+  { collection: "students", table: "dugsiga_students", keys: ["id"], columns: ["id","school_id","full_name","gender","class","status","photo","date_of_birth","address","guardian_name","guardian_relationship","guardian_phone","guardian_phone_alt","emergency_contact","section","roll_number","national_id","previous_school","blood_group","medical_notes","created_at","updated_at"] },
   { collection: "attendance", table: "dugsiga_attendance", keys: ["date","student_id","session_type"], columns: ["school_id","date","student_id","status","timestamp","session_type"] },
   { collection: "fees", table: "dugsiga_fees", keys: ["id"], columns: ["id","school_id","student_id","month","year","amount","paid_amount","status","created_at","updated_at","history"] },
   { collection: "classes", table: "dugsiga_classes", keys: ["id"], columns: ["id","school_id","class_name","teacher_name","room_number","description","section","capacity","academic_year","status","created_at"] },
@@ -166,13 +166,14 @@ async function main() {
       }
       const row = result.row;
       const key = keyOf(row, definition.keys);
-      if (sourceKeys.has(key)) {
+      const sourceKey = `${result.schoolId}\u001f${key}`;
+      if (sourceKeys.has(sourceKey)) {
         counts.skipped++;
         report.skipped++;
         console.warn(`SKIP ${definition.table}: duplicate key inside database.json (${key.replaceAll("\u001f", "/")})`);
         continue;
       }
-      sourceKeys.add(key);
+      sourceKeys.add(sourceKey);
       prepared.push({ row, schoolId: result.schoolId, key });
     }
 
@@ -200,7 +201,6 @@ async function main() {
           continue;
         }
         counts.candidates++;
-        report.inserted += applying ? 0 : 0;
         if (!applying) continue;
 
         const { error } = await supabase.from(definition.table).insert([item.row]);
