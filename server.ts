@@ -682,6 +682,30 @@ function isValidEmailAddress(value: unknown): value is string {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
+function getTrustedAppOrigin(req: express.Request): string | null {
+  const configured = String(process.env.APP_URL || "").trim();
+  if (configured) {
+    try {
+      const url = new URL(configured);
+      if (!url.username && !url.password && (
+        url.protocol === "https:" ||
+        (process.env.NODE_ENV !== "production" && url.protocol === "http:")
+      )) {
+        return url.origin;
+      }
+    } catch {
+      return null;
+    }
+    return null;
+  }
+
+  // Never build password-reset links from an untrusted Host header in production.
+  if (process.env.NODE_ENV === "production") return null;
+  const protocol = req.secure || req.headers["x-forwarded-proto"] === "https" ? "https" : "http";
+  const host = req.get("host") || "localhost:3000";
+  return `${protocol}://${host}`;
+}
+
 async function ensureProductionAuthBackend(res: express.Response): Promise<boolean> {
   if (process.env.NODE_ENV !== "production") return true;
 
@@ -2277,6 +2301,11 @@ app.post("/api/auth/signup", async (req, res) => {
   }
 
   const db = loadLocalDB();
+  if (useLocalFallback && db.users.some(
+    (u: any) => String(u.email || "").trim().toLowerCase() === cleanEmail
+  )) {
+    return res.status(409).json({ error: "Email-kan horey ayaa loo diiwaangeliyey. Fadlan 'Sign In' ku gal." });
+  }
   const localIndex = db.users.findIndex(
     (u: any) => String(u.email || "").trim().toLowerCase() === cleanEmail
   );
