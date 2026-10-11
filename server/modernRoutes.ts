@@ -9,6 +9,7 @@ interface ModernRouteHelpers {
   saveLocalDB: (db: any) => void;
   supabase: any;
   getUseLocalFallback: () => boolean;
+  flushTenantDBWrites: () => Promise<void>;
   hasPermission: (role: string, requiredPermission: string) => boolean;
   handleSupabaseError: (res: any, error: any, context: string) => void;
 }
@@ -20,6 +21,7 @@ export function registerModernRoutes(app: express.Express, helpers: ModernRouteH
     saveLocalDB,
     supabase,
     getUseLocalFallback,
+    flushTenantDBWrites,
     hasPermission,
     handleSupabaseError
   } = helpers;
@@ -134,50 +136,17 @@ export function registerModernRoutes(app: express.Express, helpers: ModernRouteH
     delete (fullTeacher as any).password;
     delete (fullTeacher as any).password_hash;
 
-    if (!getUseLocalFallback() && supabase) {
-      try {
-        const { error } = await supabase.from("dugsiga_teachers").insert([{
-          id,
-          school_id: schoolId,
-          teacher_id: teacherId,
-          name: teacherData.name.trim(),
-          photo: teacherData.photo || "",
-          gender: teacherData.gender || "Male",
-          date_of_birth: teacherData.dateOfBirth || "",
-          phone: teacherData.phone || "",
-          email: cleanEmail || teacherData.email || "",
-          address: teacherData.address || "",
-          qualification: teacherData.qualification || "",
-          specialization: teacherData.specialization || "",
-          hire_date: teacherData.hireDate || createdAt,
-          employment_status: teacherData.employmentStatus || "Full-Time",
-          salary: Number(teacherData.salary || 0),
-          emergency_contact: teacherData.emergencyContact || "",
-          notes: teacherData.notes || "",
-          assigned_classes: teacherData.assignedClasses || [],
-          assigned_subjects: teacherData.assignedSubjects || [],
-          status,
-          invitation_token: invitationToken,
-          invitation_expires_at: invitationExpiresAt,
-          invitation_sent_at: invitationSentAt,
-          created_at: createdAt
-        }]);
-        if (!error && cleanEmail) {
-          try {
-            await supabase.from("dugsiga_users").upsert([{
-              email: cleanEmail,
-              verified: false,
-              role: "teacher",
-              school_id: schoolId,
-              teacher_id: id
-            }], { onConflict: "email" });
-          } catch (uErr) {}
-        }
-      } catch (e: any) {}
-    }
-
     const db = loadLocalDB();
     if (!db.teachers) db.teachers = [];
+    if (!db.users) db.users = [];
+
+    if (cleanEmail && (db.users || []).some((user: any) => (user.email || "").trim().toLowerCase() === cleanEmail)) {
+      return res.status(409).json({ error: "Email-kan hore ayaa loogu isticmaalay akoon kale oo dugsigan ah." });
+    }
+    if (cleanEmail && (db.teachers || []).some((teacher: any) => (teacher.email || "").trim().toLowerCase() === cleanEmail)) {
+      return res.status(409).json({ error: "Macallin email-kan wata ayaa hore uga diiwaangashan dugsigan." });
+    }
+
     db.teachers.push(fullTeacher);
 
     // Register pending teacher in users array without password
@@ -198,6 +167,17 @@ export function registerModernRoutes(app: express.Express, helpers: ModernRouteH
       }
     }
     saveLocalDB(db);
+
+    // Commit the teacher and their pending login identity atomically before
+    // sending an invitation, so a failed database write cannot email a dead link.
+    if (!getUseLocalFallback()) {
+      try {
+        await flushTenantDBWrites();
+      } catch (error: any) {
+        console.error("Teacher invitation persistence failed:", error?.message || error);
+        return res.status(503).json({ error: "Macallinka lama kaydin. Casuumaad email ah lama dirin; fadlan mar kale isku day." });
+      }
+    }
 
     // Dispatch invitation email
     let activationLink = "";

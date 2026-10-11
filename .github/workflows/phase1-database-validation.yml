@@ -1,0 +1,62 @@
+name: Phase 1 Database Source-of-Truth Validation
+
+on:
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: phase1-database-validation-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    name: Validate database persistence changes
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Refresh npm lockfile and apply compatible security fixes
+        run: |
+          npm install --package-lock-only --ignore-scripts
+          npm audit fix --package-lock-only --ignore-scripts
+          if ! git diff --quiet -- package-lock.json; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add package-lock.json
+            git commit -m "chore(deps): refresh npm lockfile for clean installs"
+            git push origin HEAD:${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}
+          fi
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Type-check
+        run: npm run lint
+
+      - name: Student contract
+        run: npm run test:students-contract
+
+      - name: Attendance contract
+        run: npm run test:attendance-contract
+
+      - name: Database source-of-truth contract
+        run: npm run test:db-source-contract
+
+      - name: Production build
+        run: npm run build
+
+      - name: Production server smoke test
+        run: node scripts/server-smoke.mjs
