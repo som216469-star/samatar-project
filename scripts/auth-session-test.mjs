@@ -37,6 +37,7 @@ assert.equal((await auth.verifyPassword("wrong password", passwordHash)).valid, 
 assert.equal((await auth.verifyPassword("legacy-password", auth.legacyPasswordHash("legacy-password"))).needsRehash, true);
 
 assert.equal(parseAppLocation("/reset-password", "?token=reset-token").publicRoute, "reset-password");
+assert.equal(parseAppLocation("/verify-email", "?token=verification-token").publicRoute, "verify-email");
 assert.equal(parseAppLocation("/activate-teacher", "?token=invite-token").publicRoute, "activate-teacher");
 
 console.log("Authentication session tests: PASS");
