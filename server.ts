@@ -2151,10 +2151,16 @@ app.use("/api", (req, res, next) => {
 });
 
 app.use("/api", (req, res, next) => {
-  // Do not report success while production writes would be stored only in
-  // ephemeral local files. Keep the status endpoint available for diagnosis.
+  // Keep API reads and health diagnostics available, but fail closed on
+  // production mutations so ephemeral local files never masquerade as cloud saves.
   const isDatabaseStatusRoute = req.path === "/db/status";
-  if (useLocalFallback && process.env.NODE_ENV === "production" && !isDatabaseStatusRoute) {
+  const isMutation = ["POST", "PUT", "PATCH", "DELETE"].includes(req.method);
+  if (
+    isMutation &&
+    !isDatabaseStatusRoute &&
+    useLocalFallback &&
+    process.env.NODE_ENV === "production"
+  ) {
     return res.status(503).json({
       error: "Cloud database-ku diyaar ma aha. Xogta lama kaydin. Fadlan la xiriir maamulka si Supabase connection-ka loo saxo.",
       code: "DATABASE_UNAVAILABLE"
