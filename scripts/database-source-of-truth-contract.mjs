@@ -17,6 +17,7 @@ function assertNotContains(content, needle, label) {
 const server = read("server.ts");
 const finance = read("server/financeRoutes.ts");
 const teacherAuth = read("server/teacherAuthRoutes.ts");
+const modernRoutes = read("server/modernRoutes.ts");
 const rpc = read("supabase/migrations/20261011_phase1_tenant_incremental_persistence.sql");
 const migration = read("scripts/migrate-database-json-to-supabase.mjs");
 
@@ -48,6 +49,8 @@ assertContains(saver, "fs.writeFileSync(PRIMARY_DB_PATH", "local-only JSON savin
 assertContains(finance, 'rpc("dugsiga_record_payment"', "payment and invoice balance use atomic SQL transaction");
 assertContains(finance, 'rpc("dugsiga_mark_payroll_paid"', "payroll paid and linked expense use atomic SQL transaction");
 assertContains(teacherAuth, 'rpc("dugsiga_activate_teacher_invitation"', "teacher activation no longer requires local/cloud dual writes");
+assertContains(modernRoutes, "await flushTenantDBWrites()", "teacher invitation is sent only after the tenant transaction commits");
+assertContains(modernRoutes, "Email-kan hore ayaa loogu isticmaalay akoon kale", "same-school duplicate teacher login emails are rejected");
 assertContains(rpc, "FOR UPDATE", "financial transactions lock the affected row");
 assertContains(rpc, "dugsiga_apply_tenant_changes", "incremental persistence RPC exists");
 assertContains(rpc, "dugsiga_record_payment", "atomic payment RPC exists");
