@@ -57,7 +57,7 @@ export function parseAppLocation(pathname: string, search: string = ''): ParsedA
     attendanceSubSection: 'overview'
   };
 
-  if (cleanPath.startsWith('/activate-teacher') || search.includes('token=')) {
+  if (cleanPath === '/activate-teacher' || cleanPath.startsWith('/activate-teacher/')) {
     return { ...defaults, publicRoute: 'activate-teacher' };
   }
   if (cleanPath === '/login') {
