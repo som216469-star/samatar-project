@@ -51,7 +51,7 @@ import ReportsPage from './features/reports/ReportsPage';
 // Centralized Institutional Data & API Client
 import { useInstitutionalData } from './hooks/useInstitutionalData';
 import { apiFetch } from './lib/apiClient';
-import { saveAuthSession, clearAuthSession } from './lib/authStorage';
+import { saveAuthSession, clearAuthSession, restoreAuthToken } from './lib/authStorage';
 
 export default function App() {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -116,6 +116,9 @@ export default function App() {
 
     const restoreSession = async () => {
       try {
+        // Hydrate a native bearer token from Keychain/Android Keystore before the first API call.
+        await restoreAuthToken();
+        if (cancelled) return;
         const res = await apiFetch('/api/user/profile', { method: 'GET' });
         if (!res.ok) throw new Error('session_invalid');
 
