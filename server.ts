@@ -676,6 +676,28 @@ async function checkSupabaseStatus() {
 
 checkSupabaseStatus();
 
+function isValidEmailAddress(value: unknown): value is string {
+  if (typeof value !== "string" || value.length > 254) return false;
+  const email = value.trim();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+async function ensureProductionAuthBackend(res: express.Response): Promise<boolean> {
+  if (process.env.NODE_ENV !== "production") return true;
+
+  // Production authentication must never silently fall back to ephemeral local files.
+  if (!supabase || useLocalFallback) {
+    await checkSupabaseStatus();
+  }
+  if (!supabase || useLocalFallback) {
+    res.status(503).json({
+      error: "Adeegga xaqiijinta akoonka si ku-meel-gaar ah uma shaqaynayo. Fadlan mar kale isku day."
+    });
+    return false;
+  }
+  return true;
+}
+
 const SQL_SETUP_SCRIPT = `
 -- =========================================================================
 -- DUGSI PRO 2026 — PRODUCTION SAFE NON-DESTRUCTIVE DATABASE SETUP
