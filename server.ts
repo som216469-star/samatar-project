@@ -260,30 +260,30 @@ app.use("/api", (req, res, next) => {
   return next();
 });
 
-// Initialize Supabase Client with resilient key resolution
+// Server-side persistence must use a privileged key; a publishable/anon key
+// is intentionally not accepted as a fallback for this server database client.
+function getSupabaseServerKeyCandidates(): Array<{ source: string; value: string }> {
+  const rawCandidates = [
+    { source: "SUPABASE_SECRET_KEY", value: sanitizeEnvValue(process.env.SUPABASE_SECRET_KEY) },
+    { source: "SUPABASE_SERVICE_ROLE_KEY", value: sanitizeEnvValue(process.env.SUPABASE_SERVICE_ROLE_KEY) }
+  ];
+  const seen = new Set<string>();
+  return rawCandidates.filter((candidate) => {
+    if (!candidate.value || candidate.value.startsWith("sb_publish") || seen.has(candidate.value)) {
+      return false;
+    }
+    seen.add(candidate.value);
+    return true;
+  });
+}
+
 function deriveSupabaseKey(): string {
-  const secretKey = sanitizeEnvValue(
-    process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || ""
-  );
-  const anonKey = sanitizeEnvValue(
-    process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY || ""
-  );
-
-  // Never derive a privileged Supabase key from a JWKS URL.
-  // A JWKS URL is public metadata, not a signing secret.
-  if (secretKey && !secretKey.startsWith("sb_publish")) {
-    return secretKey;
-  }
-
-  return anonKey;
+  return getSupabaseServerKeyCandidates()[0]?.value || "";
 }
 
 const supabaseUrl = parseSupabaseUrl(process.env.SUPABASE_URL || "https://mdvfcqujqjnvfpzowayo.supabase.co");
 const supabaseAnonKey = sanitizeEnvValue(process.env.SUPABASE_ANON_KEY || "");
-const supabaseSecretKey = sanitizeEnvValue(
-  process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || ""
-);
-const supabaseActiveKey = deriveSupabaseKey();
+let supabaseActiveKey = deriveSupabaseKey();
 
 let supabase: any = null;
 try {
@@ -611,41 +611,58 @@ async function checkSupabaseStatus() {
       return;
     }
 
-    const studentsExist = await testSupabaseTable("dugsiga_students", "school_id");
-    const attendanceExists = await testSupabaseTable("dugsiga_attendance", "school_id");
-    const classesExist = await testSupabaseTable("dugsiga_classes", "school_id");
-    const subjectsExist = await testSupabaseTable("dugsiga_subjects", "school_id");
-    const examsExist = await testSupabaseTable("dugsiga_exam_scores", "school_id");
-    const feesExist = await testSupabaseTable("dugsiga_fees", "school_id");
-    const settingsExist = await testSupabaseTable("dugsiga_settings", "school_id");
-    const usersExist = await testSupabaseTable("dugsiga_users", "email");
-    
-    const tableChecks: Record<string, boolean> = {
-      dugsiga_students: studentsExist,
-      dugsiga_attendance: attendanceExists,
-      dugsiga_classes: classesExist,
-      dugsiga_subjects: subjectsExist,
-      dugsiga_exam_scores: examsExist,
-      dugsiga_fees: feesExist,
-      dugsiga_settings: settingsExist,
-      dugsiga_users: usersExist
-    };
-    const failedTableChecks = Object.entries(tableChecks)
-      .filter(([, ok]) => !ok)
-      .map(([tableName]) => tableName);
+    const serverKeyCandidates = getSupabaseServerKeyCandidates();
+    const candidateSourcesTried: string[] = [];
+    let tableChecks: Record<string, boolean> = {};
+    let failedTableChecks: string[] = [];
+
+    for (const candidate of serverKeyCandidates) {
+      candidateSourcesTried.push(candidate.source);
+      supabaseActiveKey = candidate.value;
+      try {
+        supabase = createClient(supabaseUrl, supabaseActiveKey, {
+          auth: {
+            persistSession: false,
+            autoRefreshToken: false
+          }
+        });
+      } catch {
+        supabase = null;
+      }
+
+      for (const tableName of Object.keys(supabaseTableCheckErrors)) {
+        delete supabaseTableCheckErrors[tableName];
+      }
+
+      const studentsExist = await testSupabaseTable("dugsiga_students", "school_id");
+      const attendanceExists = await testSupabaseTable("dugsiga_attendance", "school_id");
+      const classesExist = await testSupabaseTable("dugsiga_classes", "school_id");
+      const subjectsExist = await testSupabaseTable("dugsiga_subjects", "school_id");
+      const examsExist = await testSupabaseTable("dugsiga_exam_scores", "school_id");
+      const feesExist = await testSupabaseTable("dugsiga_fees", "school_id");
+      const settingsExist = await testSupabaseTable("dugsiga_settings", "school_id");
+      const usersExist = await testSupabaseTable("dugsiga_users", "email");
+
+      tableChecks = {
+        dugsiga_students: studentsExist,
+        dugsiga_attendance: attendanceExists,
+        dugsiga_classes: classesExist,
+        dugsiga_subjects: subjectsExist,
+        dugsiga_exam_scores: examsExist,
+        dugsiga_fees: feesExist,
+        dugsiga_settings: settingsExist,
+        dugsiga_users: usersExist
+      };
+      failedTableChecks = Object.entries(tableChecks)
+        .filter(([, ok]) => !ok)
+        .map(([tableName]) => tableName);
+
+      if (failedTableChecks.length === 0) break;
+    }
 
     if (failedTableChecks.length > 0) {
       useLocalFallback = true;
       customSupabaseActive = false;
-      const configuredServerKey = sanitizeEnvValue(
-        process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || ""
-      );
-      const activeKeyKind =
-        configuredServerKey && !configuredServerKey.startsWith("sb_publish")
-          ? (configuredServerKey.startsWith("sb_secret_") ? "secret_api_key" : "legacy_privileged_key")
-          : (process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY
-              ? "publishable_or_anon_key"
-              : "missing");
       const failedTableErrors = Object.fromEntries(
         failedTableChecks.map((tableName) => [
           tableName,
@@ -658,7 +675,8 @@ async function checkSupabaseStatus() {
       console.error("Supabase Data API checks failed; cloud persistence is disabled.", {
         failedTableChecks,
         failedTableErrors,
-        activeKeyKind,
+        candidateSourcesTried,
+        serverKeyCandidatesConfigured: serverKeyCandidates.length,
         supabaseUrlConfigured: Boolean(supabaseUrl)
       });
       return;
