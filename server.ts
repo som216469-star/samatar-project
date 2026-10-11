@@ -2129,6 +2129,8 @@ async function getStudentDependencyIds(studentIds: string[], schoolId: string): 
 const PUBLIC_API_PATHS = [
   /^\/auth\/signup$/,
   /^\/auth\/login$/,
+  /^\/auth\/forgot-password$/,
+  /^\/auth\/reset-password$/,
   /^\/auth\/verify$/,
   /^\/teachers\/verify-invitation\/[^/]+$/,
   /^\/teachers\/activate-account$/
