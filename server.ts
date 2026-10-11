@@ -718,6 +718,49 @@ async function checkSupabaseStatus() {
 
 checkSupabaseStatus();
 
+function isValidEmailAddress(value: unknown): value is string {
+  if (typeof value !== "string" || value.length > 254) return false;
+  return /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(value.trim());
+}
+
+function getTrustedAppOrigin(req: express.Request): string | null {
+  const configured = String(process.env.APP_URL || "").trim();
+  if (configured) {
+    try {
+      const url = new URL(configured);
+      if (url.username || url.password) return null;
+      if (url.protocol === "https:" || (process.env.NODE_ENV !== "production" && url.protocol === "http:")) {
+        return url.origin;
+      }
+    } catch {
+      return null;
+    }
+    return null;
+  }
+
+  // In production, never construct a bearer-token URL from an untrusted Host header.
+  if (process.env.NODE_ENV === "production") return null;
+  const protocol = req.secure || req.headers["x-forwarded-proto"] === "https" ? "https" : "http";
+  const host = req.get("host") || "localhost:3000";
+  return `${protocol}://${host}`;
+}
+
+async function ensureProductionAuthBackend(res: express.Response): Promise<boolean> {
+  if (process.env.NODE_ENV !== "production") return true;
+
+  // Production authentication must never silently fall back to ephemeral JSON files.
+  if (!supabase || useLocalFallback) {
+    await checkSupabaseStatus();
+  }
+  if (!supabase || useLocalFallback) {
+    res.status(503).json({
+      error: "Adeegga xaqiijinta akoonka si ku-meel-gaar ah uma shaqaynayo. Fadlan mar kale isku day."
+    });
+    return false;
+  }
+  return true;
+}
+
 const SQL_SETUP_SCRIPT = `
 -- =========================================================================
 -- DUGSI PRO 2026 — PRODUCTION SAFE NON-DESTRUCTIVE DATABASE SETUP
