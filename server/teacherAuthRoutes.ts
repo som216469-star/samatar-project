@@ -35,72 +35,63 @@ export function registerTeacherAuthRoutes(
    */
   app.get("/api/teachers/verify-invitation/:token", async (req, res) => {
     const { token } = req.params;
-    if (!token || token.length < 16) {
+    if (!token || token.length < 32 || token.length > 512) {
       return res.status(400).json({ valid: false, error: "Link-ga casuumaaddu ma shaqeynayo (Invalid token)." });
+    }
+    if (process.env.NODE_ENV === "production" && (getUseLocalFallback() || !supabase)) {
+      return res.status(503).json({ valid: false, error: "Adeegga xaqiijinta casuumaadda si ku-meel-gaar ah uma shaqaynayo." });
+    }
+
+    if (!getUseLocalFallback() && supabase) {
+      const { data, error } = await supabase
+        .from("dugsiga_teachers")
+        .select("id,school_id,name,email,status,invitation_expires_at")
+        .eq("invitation_token", token)
+        .maybeSingle();
+
+      if (error) {
+        console.warn("Teacher invitation verification failed:", error.message);
+        return res.status(503).json({ valid: false, error: "Casuumaadda lama xaqiijin karin hadda. Fadlan mar kale isku day." });
+      }
+      if (!data) {
+        return res.status(400).json({ valid: false, error: "Casuumaad lama helin ama horey ayaa loo isticmaalay." });
+      }
+      const expiresAt = data.invitation_expires_at ? new Date(data.invitation_expires_at).getTime() : 0;
+      if (!expiresAt || expiresAt <= Date.now()) {
+        return res.status(400).json({ valid: false, error: "Casuumaaddani way dhacday. Fadlan la xiriir maamulka dugsiga." });
+      }
+      if (String(data.status || "").toUpperCase() !== "INVITED") {
+        return res.status(400).json({ valid: false, error: "Akoonkan horey ayaa loo dhaqaajiyey ama la hakiyey." });
+      }
+
+      return res.json({
+        valid: true,
+        teacherName: data.name,
+        email: data.email,
+        schoolId: data.school_id,
+        status: data.status || "INVITED"
+      });
     }
 
     const db = loadLocalDB();
-    const teacher = (db.teachers || []).find((t: any) => t.invitationToken === token);
-
+    const teacher = (db.teachers || []).find((item: any) => item.invitationToken === token);
     if (!teacher) {
-      // Check Supabase if connected
-      if (!getUseLocalFallback() && supabase) {
-        try {
-          const { data, error } = await supabase
-            .from("dugsiga_teachers")
-            .select("*")
-            .eq("invitation_token", token)
-            .maybeSingle();
-
-          if (!error && data) {
-            const isExpired = data.invitation_expires_at && new Date(data.invitation_expires_at) < new Date();
-            if (isExpired) {
-              return res.status(400).json({ valid: false, error: "Casuumaaddani way dhacday. Fadlan la xiriir maamulka iskuulka." });
-            }
-            if (data.status === "ACTIVE") {
-              return res.status(400).json({ valid: false, error: "Akoonkan horey ayaa loo dhaqaajiyey. Fadlan 'Login' ku gal." });
-            }
-            return res.json({
-              valid: true,
-              teacherName: data.name,
-              email: data.email,
-              schoolId: data.school_id,
-              status: data.status || "INVITED"
-            });
-          }
-        } catch (sbErr) {
-          console.warn("Supabase invitation verify notice:", sbErr);
-        }
-      }
-
-      return res.status(400).json({
-        valid: false,
-        error: "Casuumaad lama helin ama horey ayaa loo isticmaalay. Fadlan la xiriir maamulka iskuulka."
-      });
+      return res.status(400).json({ valid: false, error: "Casuumaad lama helin ama horey ayaa loo isticmaalay." });
+    }
+    const expiresAt = teacher.invitationExpiresAt ? new Date(teacher.invitationExpiresAt).getTime() : 0;
+    if (!expiresAt || expiresAt <= Date.now()) {
+      return res.status(400).json({ valid: false, error: "Casuumaaddani way dhacday. Fadlan la xiriir maamulka dugsiga." });
+    }
+    if (String(teacher.status || "").toUpperCase() !== "INVITED") {
+      return res.status(400).json({ valid: false, error: "Akoonkan horey ayaa loo dhaqaajiyey ama la hakiyey." });
     }
 
-    // Check expiration
-    if (teacher.invitationExpiresAt && new Date(teacher.invitationExpiresAt) < new Date()) {
-      return res.status(400).json({
-        valid: false,
-        error: "Casuumaaddani way dhacday (Invitation expired). Fadlan weydiiso maamulka in laguu soo cusboonaysiiyo."
-      });
-    }
-
-    if (teacher.status === "ACTIVE") {
-      return res.status(400).json({
-        valid: false,
-        error: "Akoonkan horey ayaa loo dhaqaajiyey. Fadlan gal adigoo isticmaalaya email-kaaga iyo password-kaaga."
-      });
-    }
-
-    const schoolSettings = db.settings || {};
     return res.json({
       valid: true,
       teacherName: teacher.name,
       email: teacher.email,
       schoolId: teacher.schoolId,
-      schoolName: schoolSettings.schoolName || "Dugsiga Pro 2026",
+      schoolName: (db.settings || {}).schoolName || "Dugsiga Pro 2026",
       status: teacher.status || "INVITED"
     });
   });
@@ -291,6 +282,9 @@ export function registerTeacherAuthRoutes(
    * Admin can resend invitation email to teacher with a fresh, secure one-time token.
    */
   app.post("/api/teachers/:id/resend-invitation", async (req, res) => {
+    if (process.env.NODE_ENV === "production" && (getUseLocalFallback() || !supabase)) {
+      return res.status(503).json({ error: "Adeegga casuumaadda macallimiinta lama heli karo hadda." });
+    }
     const authUser = getAuthenticatedUser(req, loadLocalDB);
     if (authUser && authUser.role === "teacher") {
       return res.status(403).json({ error: "Macallinku awood uma laha dib u diridda casuumaadaha." });
@@ -363,6 +357,9 @@ export function registerTeacherAuthRoutes(
    * Admin can deactivate or reactivate a teacher.
    */
   app.post("/api/teachers/:id/toggle-status", async (req, res) => {
+    if (process.env.NODE_ENV === "production" && (getUseLocalFallback() || !supabase)) {
+      return res.status(503).json({ error: "Adeegga xaaladda akoonnada macallimiinta lama heli karo hadda." });
+    }
     const authUser = getAuthenticatedUser(req, loadLocalDB);
     if (authUser && authUser.role === "teacher") {
       return res.status(403).json({ error: "Macallinku awood uma laha wax ka beddelka xaaladda macallimiinta." });
