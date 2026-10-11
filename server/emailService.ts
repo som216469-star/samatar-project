@@ -149,3 +149,84 @@ Link-gani wuxuu dhacayaa ${expiresInDays} maalmood gudahood.
     return { success: false, error: err?.message || "Email sending failed" };
   }
 }
+
+
+interface SendPasswordResetEmailParams {
+  toEmail: string;
+  resetLink: string;
+  expiresInMinutes?: number;
+}
+
+function escapeEmailHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (character) => {
+    const entities: Record<string, string> = {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;"
+    };
+    return entities[character] || character;
+  });
+}
+
+/**
+ * Password-reset tokens are bearer secrets: never log them or return them from
+ * the API. Delivery is reported as failed when SMTP is not configured.
+ */
+export async function sendPasswordResetEmail({
+  toEmail,
+  resetLink,
+  expiresInMinutes = 30
+}: SendPasswordResetEmailParams): Promise<{ success: boolean; error?: string }> {
+  const fromEmail = process.env.SMTP_FROM || process.env.SMTP_USER || "no-reply@dugsigapro.edu";
+  const cleanEmail = toEmail.trim().toLowerCase();
+  const safeLink = escapeEmailHtml(resetLink);
+  const safeRecipient = escapeEmailHtml(cleanEmail);
+  const transporter = getEmailTransporter();
+
+  if (!transporter) {
+    return { success: false, error: "SMTP is not configured." };
+  }
+
+  const html = `
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>DUGSI PRO password reset</title></head>
+<body style="margin:0;padding:24px;background:#f8fafc;color:#0f172a;font-family:Arial,sans-serif">
+  <main style="max-width:560px;margin:0 auto;padding:28px;background:#fff;border:1px solid #e2e8f0;border-radius:14px">
+    <p style="font-size:12px;font-weight:700;letter-spacing:.1em;color:#6d28d9">DUGSI PRO 2026</p>
+    <h1 style="font-size:24px;line-height:1.3">Reset your password</h1>
+    <p style="font-size:14px;line-height:1.7;color:#475569">A request was made to reset the password for ${safeRecipient}. Use the secure link below to choose a new password.</p>
+    <p style="margin:28px 0"><a href="${safeLink}" style="display:inline-block;padding:13px 20px;border-radius:8px;background:#6d28d9;color:#fff;text-decoration:none;font-weight:700">Reset password</a></p>
+    <p style="font-size:12px;line-height:1.6;color:#64748b">This one-time link expires in ${expiresInMinutes} minutes. If you did not request a reset, you can ignore this message; your password will not change.</p>
+    <p style="font-size:11px;line-height:1.6;color:#94a3b8;word-break:break-all">If the button does not work, copy this link into your browser: ${safeLink}</p>
+  </main>
+</body>
+</html>`;
+
+  const textContent = [
+    "DUGSI PRO 2026 — Password reset",
+    "",
+    "A request was made to reset the password for " + cleanEmail + ".",
+    "Use this one-time link to choose a new password:",
+    resetLink,
+    "",
+    "The link expires in " + expiresInMinutes + " minutes.",
+    "If you did not request this, ignore this message."
+  ].join("\n");
+
+  try {
+    await transporter.sendMail({
+      from: `"DUGSI PRO 2026" <${fromEmail}>`,
+      to: cleanEmail,
+      subject: "DUGSI PRO 2026 — Reset your password",
+      text: textContent,
+      html
+    });
+    return { success: true };
+  } catch (error: any) {
+    console.error("[Password Reset Email] Delivery failed:", error?.message || error);
+    return { success: false, error: error?.message || "Email sending failed." };
+  }
+}
