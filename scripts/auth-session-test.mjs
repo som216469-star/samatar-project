@@ -20,8 +20,8 @@ assert.equal(typeof token, "string");
 assert.deepEqual(auth.getSession(token), user, "valid signed session returns the expected identity");
 
 const parts = token.split(".");
-parts[1] = parts[1].slice(0, -1) + (parts[1].endsWith("a") ? "b" : "a");
-assert.equal(auth.getSession(parts.join(".")), null, "tampered payload must be rejected");
+parts[2] = (parts[2][0] === "A" ? "B" : "A") + parts[2].slice(1);
+assert.equal(auth.getSession(parts.join(".")), null, "tampered signature must be rejected");
 
 assert.equal(auth.revokeSession(token), true, "valid session can be revoked");
 assert.equal(auth.getSession(token), null, "revoked session must no longer authenticate");
