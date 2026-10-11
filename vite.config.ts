@@ -4,12 +4,15 @@ import path from 'path';
 import {defineConfig} from 'vite';
 import {VitePWA} from 'vite-plugin-pwa';
 
-export default defineConfig(() => {
+export default defineConfig(({ mode }) => {
+  const isMobileBuild = mode === 'mobile';
   return {
+    // Capacitor loads assets from the app bundle, so mobile paths must be relative.
+    base: isMobileBuild ? './' : '/',
     plugins: [
       react(),
       tailwindcss(),
-      VitePWA({
+      ...(!isMobileBuild ? [VitePWA({
         registerType: 'autoUpdate',
         includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'icon.svg'],
         manifest: {
@@ -81,7 +84,7 @@ export default defineConfig(() => {
         devOptions: {
           enabled: false,
         },
-      }),
+      })] : []),
     ],
     resolve: {
       alias: {
@@ -89,7 +92,8 @@ export default defineConfig(() => {
       },
     },
     build: {
-      outDir: 'dist',
+      // Keep the native web bundle isolated from dist/server.cjs used by Render.
+      outDir: isMobileBuild ? 'dist-mobile' : 'dist',
       emptyOutDir: true,
       chunkSizeWarningLimit: 2000,
       rollupOptions: {
