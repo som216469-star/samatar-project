@@ -3,7 +3,7 @@
   "configVersion": 0,
   "workspaces": {
     "": {
-      "name": "react-example",
+      "name": "quantora",
       "dependencies": {
         "@aparajita/capacitor-secure-storage": "^8.0.1",
         "@capacitor/core": "^8.5.2",
