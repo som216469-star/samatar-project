@@ -1512,3 +1512,11 @@ body {
   .public-site .public-contact-action { padding-top: 14px; }
   .public-site .public-contact-bottom { align-items: flex-start; padding: 13px; }
 }
+
+/* DUGSI PRO official brand mark */
+.public-site .public-brand-mark { overflow: hidden; background: #071827; }
+.public-site .public-brand-mark img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.public-site .public-demo-side-brand { overflow: hidden; background: #071827; }
+.public-site .public-demo-side-brand img { display: block; width: 100%; height: 100%; object-fit: contain; border-radius: inherit; }
+.public-site .public-final-icon { overflow: hidden; background: #071827; }
+.public-site .public-final-icon img { display: block; width: 100%; height: 100%; object-fit: contain; border-radius: inherit; }

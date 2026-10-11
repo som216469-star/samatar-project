@@ -140,7 +140,7 @@ export default function LandingPage({
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
           >
-            <span className="public-brand-mark" aria-hidden="true"><GraduationCap size={23} strokeWidth={2.2} /></span>
+            <span className="public-brand-mark" aria-hidden="true"><img src="/brand-mark.svg" alt="" /></span>
             <span className="public-brand-copy">
               <strong>DUGSI PRO</strong>
               <small>MAAMULKA DUGSIYADA</small>
@@ -225,7 +225,7 @@ export default function LandingPage({
                 </div>
                 <div className="public-demo-body">
                   <aside className="public-demo-sidebar" aria-label="Tusaale navigation">
-                    <div className="public-demo-side-brand"><span><GraduationCap size={16} /></span></div>
+                    <div className="public-demo-side-brand"><img src="/brand-mark.svg" alt="" /></div>
                     <div className="public-demo-side-item is-active"><LayoutDashboard size={16} /></div>
                     <div className="public-demo-side-item"><Users size={16} /></div>
                     <div className="public-demo-side-item"><CalendarCheck size={16} /></div>
@@ -409,7 +409,7 @@ export default function LandingPage({
         <section className="public-final-cta">
           <div className="public-container public-final-cta-inner">
             <div className="public-final-cta-glow" aria-hidden="true" />
-            <span className="public-final-icon"><GraduationCap size={27} /></span>
+            <span className="public-final-icon"><img src="/brand-mark.svg" alt="" /></span>
             <div className="public-final-copy">
               <div className="public-eyebrow"><span className="public-eyebrow-dot" /> DUGSI PRO 2026</div>
               <h2>Diyaar u ah inaad habayso<br /><span>shaqada dugsigaaga?</span></h2>
@@ -480,7 +480,7 @@ export default function LandingPage({
           <div className="public-footer-main">
             <div className="public-footer-brand">
               <a href="#top" className="public-brand" onClick={(event) => { event.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
-                <span className="public-brand-mark" aria-hidden="true"><GraduationCap size={22} strokeWidth={2.2} /></span>
+                <span className="public-brand-mark" aria-hidden="true"><img src="/brand-mark.svg" alt="" /></span>
                 <span className="public-brand-copy"><strong>DUGSI PRO</strong><small>MAAMULKA DUGSIYADA</small></span>
               </a>
               <p>Qalab mideysan oo loogu talagalay maareynta hawlaha dugsiga.</p>

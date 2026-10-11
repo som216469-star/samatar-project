@@ -541,9 +541,7 @@ export const AppShell: React.FC<AppShellProps> = ({
             }}
             className="flex items-center gap-3 min-w-0 text-left cursor-pointer group"
           >
-            <div className="w-9 h-9 rounded-[var(--radius-md)] bg-[var(--accent-dim)] border border-[var(--accent)]/30 flex items-center justify-center text-[var(--accent)] font-extrabold text-sm shadow-sm shrink-0 font-display">
-              {settings.schoolName ? settings.schoolName.charAt(0).toUpperCase() : 'D'}
-            </div>
+            <img src="/brand-mark.svg" alt="" className="w-9 h-9 rounded-[var(--radius-md)] shrink-0 object-contain shadow-sm" />
             {!collapsed && (
               <div className="min-w-0">
                 <div className="flex items-center gap-2">

@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 340" width="1080" height="340" role="img" aria-labelledby="title desc">
+  <title id="title">DUGSI PRO — School Management System</title>
+  <desc id="desc">DUGSI PRO education technology brand with a graduation cap and open-book symbol.</desc>
+  <defs>
+    <linearGradient id="cyan" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#67e8f9"/>
+      <stop offset=".55" stop-color="#22d3ee"/>
+      <stop offset="1" stop-color="#0891b2"/>
+    </linearGradient>
+  </defs>
+  <rect width="1080" height="340" rx="38" fill="#071827"/>
+  <rect x="3" y="3" width="1074" height="334" rx="35" fill="none" stroke="#16455a" stroke-width="3"/>
+  <g transform="translate(34 24) scale(.57)">
+    <rect width="512" height="512" rx="108" fill="#071827"/>
+    <circle cx="256" cy="244" r="188" fill="none" stroke="url(#cyan)" stroke-width="10"/>
+    <path d="M132 188 256 126 380 188 256 250Z" fill="url(#cyan)"/>
+    <path d="M164 205v42q92 40 184 0v-42l-92 46Z" fill="#0ea5b7" opacity=".65"/>
+    <path d="M370 193v72" fill="none" stroke="#22d3ee" stroke-width="7" stroke-linecap="round"/>
+    <circle cx="370" cy="281" r="17" fill="url(#cyan)"/>
+    <path d="M116 265c50-7 98 6 140 32 42-26 90-39 140-32l-10 28c-46-3-88 11-130 39v65c-44-29-88-44-134-40Z" fill="#ffffff"/>
+    <path d="M104 307c52-9 103 7 152 38v68c-49-32-99-45-142-38Z" fill="url(#cyan)"/>
+    <path d="M408 307c-52-9-103 7-152 38v68c49-32 99-45 142-38Z" fill="url(#cyan)"/>
+  </g>
+  <text x="365" y="145" font-family="Arial, Helvetica, sans-serif" font-size="90" font-weight="900" letter-spacing="2" fill="#f5fbff">DUGSI</text>
+  <text x="678" y="145" font-family="Arial, Helvetica, sans-serif" font-size="90" font-weight="900" letter-spacing="2" fill="url(#cyan)">PRO</text>
+  <rect x="365" y="176" width="590" height="3" rx="2" fill="#22d3ee" opacity=".85"/>
+  <text x="368" y="220" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700" letter-spacing="5" fill="#c4e9f4">SCHOOL MANAGEMENT SYSTEM</text>
+  <text x="368" y="268" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="500" fill="#86aebf">Better Education  •  Brighter Future</text>
+</svg>
