@@ -2510,6 +2510,11 @@ app.post("/api/auth/login", async (req, res) => {
         if (!passwordCheck.valid) {
           return res.status(401).json({ error: "Email ama password ayaa qalad ah." });
         }
+        if (cloudUser.verified === false) {
+          return res.status(403).json({
+            error: "Email-kaaga weli lama xaqiijin. Ka fur link-ga xaqiijinta ee email-kaaga ama codso mid cusub."
+          });
+        }
 
         let canonicalHash = cloudUser.password;
         if (passwordCheck.needsRehash) {
@@ -2630,6 +2635,11 @@ app.post("/api/auth/login", async (req, res) => {
   const localCheck = await verifyPassword(password, localUser.password_hash);
   if (!localCheck.valid) {
     return res.status(401).json({ error: "Email ama password ayaa qalad ah." });
+  }
+  if (localUser.verified === false) {
+    return res.status(403).json({
+      error: "Email-kaaga weli lama xaqiijin. Ka fur link-ga xaqiijinta ee email-kaaga ama codso mid cusub."
+    });
   }
 
   if (localCheck.needsRehash) {
