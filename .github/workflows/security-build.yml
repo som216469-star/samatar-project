@@ -19,25 +19,35 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
 
       - name: Install dependencies
-        run: npm ci
+        run: bun install
 
       - name: Type-check
-        run: npm run lint
+        run: bun run lint
 
       - name: Students production contract checks
-        run: npm run test:students-contract
+        run: bun run test:students-contract
 
       - name: Attendance production contract checks
-        run: npm run test:attendance-contract
+        run: bun run test:attendance-contract
+
+      - name: Authentication contract checks
+        run: bun run test:auth-contract
+
+      - name: Authentication session tests
+        run: bun run test:auth-session
 
       - name: Production build
-        run: npm run build
+        run: bun run build
 
       - name: Runtime smoke test
         run: node scripts/server-smoke.mjs
 
       - name: Audit production dependencies
-        run: npm audit --omit=dev --audit-level=high
+        run: bun audit --omit=dev --audit-level=high
