@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
+    "prebuild": "node scripts/generate-png-icons.cjs",
     "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
     "postinstall": "bun run build",
     "start": "node dist/server.cjs",
@@ -12,6 +13,7 @@
     "lint": "tsc --noEmit",
     "test:students-contract": "node scripts/student-module-contract.mjs",
     "test:attendance-contract": "node scripts/attendance-module-contract.mjs",
+    "prebuild:mobile": "node scripts/generate-png-icons.cjs",
     "build:mobile": "vite build --mode mobile",
     "cap:sync": "npm run build:mobile && cap sync",
     "cap:sync:android": "npm run build:mobile && cap sync android",
