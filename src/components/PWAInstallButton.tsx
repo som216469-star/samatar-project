@@ -68,7 +68,7 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
         >
           <div className="space-y-4">
             <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
-              Raac talaabooyinkan fudud si aad DUGSI PRO 2026 ugu darto shaashadaada
+              Raac talaabooyinkan fudud si aad QUANTORA ugu darto shaashadaada
               taleefanka (Home Screen):
             </p>
 
