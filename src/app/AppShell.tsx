@@ -133,7 +133,8 @@ export const AppShell: React.FC<AppShellProps> = ({
   const commandDialogRef = useRef<HTMLDivElement | null>(null);
   const commandInputRef = useRef<HTMLInputElement | null>(null);
 
-  const effectiveRole = user.systemRole || user.role;
+  // Preserve an explicitly empty/unknown system role so navigation fails closed.
+  const effectiveRole = user.systemRole ?? user.role;
   const authorizedNavItems = useMemo(
     () => getAuthorizedNavItems(effectiveRole),
     [effectiveRole]
@@ -183,16 +184,16 @@ export const AppShell: React.FC<AppShellProps> = ({
     });
   }, []);
 
-  // Auto-expand parent group when activeTab matches
+  // Keep the current module visible in the sidebar after deep links and history navigation.
   useEffect(() => {
-    if (activeTab === 'students') {
-      setExpandedGroups((prev) => ({ ...prev, students: true }));
-    } else if (activeTab === 'attendance') {
-      setExpandedGroups((prev) => ({ ...prev, attendance: true }));
-    } else if (activeTab === 'fees') {
-      setExpandedGroups((prev) => ({ ...prev, finance: true }));
+    const activeGroup =
+      activeTab === 'students' ? 'students' :
+      activeTab === 'attendance' ? 'attendance' :
+      activeTab === 'fees' ? 'finance' : null;
+    if (activeGroup) {
+      setExpandedGroups((prev) => ({ ...prev, [activeGroup]: true }));
     }
-  }, [activeTab]);
+  }, [activeTab, studentSubSection, attendanceSubSection, financeSubSection]);
 
   // Global keyboard shortcut Cmd/Ctrl + K for Command Palette
   useEffect(() => {
@@ -219,6 +220,24 @@ export const AppShell: React.FC<AppShellProps> = ({
     setExpandedGroups((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
+  // Parent navigation and submenu expansion are separate, predictable actions.
+  const navigateNavItem = (item: NavItemConfig, isMobile = false) => {
+    const options = {
+      peopleSubSection: item.peopleSubSection,
+      studentSubSection: item.tab === 'students' ? 'all' as StudentSubSection : undefined,
+      financeSubSection: item.tab === 'fees' ? 'overview' as FinanceSubSection : item.financeSubSection,
+      attendanceSubSection: item.tab === 'attendance' ? 'overview' as AttendanceSubSection : undefined
+    };
+
+    onNavigate(item.tab, options);
+
+    if (item.children?.length) {
+      setExpandedGroups((prev) => ({ ...prev, [item.id]: true }));
+      if (!isMobile && sidebarCollapsed) setSidebarCollapsed(false);
+    }
+    if (isMobile) setMobileMenuOpen(false);
+  };
+
   const isNavItemActive = (item: NavItemConfig): boolean => {
     if (item.tab !== activeTab) return false;
     if (item.tab === 'people' && item.peopleSubSection) {
@@ -229,16 +248,11 @@ export const AppShell: React.FC<AppShellProps> = ({
 
   const isChildActive = (child: NavChildItem): boolean => {
     if (child.tab !== activeTab) return false;
-    if (child.tab === 'students' && child.studentSubSection) {
-      return child.studentSubSection === studentSubSection;
-    }
-    if (child.tab === 'fees' && child.financeSubSection) {
-      return child.financeSubSection === financeSubSection;
-    }
-    if (child.tab === 'attendance' && child.attendanceSubSection) {
-      return child.attendanceSubSection === attendanceSubSection;
-    }
-    return false;
+    if (child.studentSubSection) return child.studentSubSection === studentSubSection;
+    if (child.peopleSubSection) return child.peopleSubSection === peopleSubSection;
+    if (child.financeSubSection) return child.financeSubSection === financeSubSection;
+    if (child.attendanceSubSection) return child.attendanceSubSection === attendanceSubSection;
+    return true;
   };
 
   // Compute current breadcrumb trail
@@ -630,17 +644,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                   <button
                     key={item.id}
                     type="button"
-                    onClick={() => {
-                      if (item.children?.length) {
-                        toggleExpandItem(item.id);
-                      } else {
-                        onNavigate(item.tab, {
-                          peopleSubSection: item.peopleSubSection,
-                          financeSubSection: item.financeSubSection
-                        });
-                        if (isMobile) setMobileMenuOpen(false);
-                      }
-                    }}
+                    onClick={() => navigateNavItem(item, isMobile)}
                     className={'w-full flex items-center gap-2.5 px-2.5 py-2 rounded-[var(--radius-sm)] text-xs cursor-pointer transition-colors ' + (active ? 'bg-[var(--sidebar-active-bg)] text-white font-semibold' : 'text-[var(--sidebar-text)] hover:bg-[var(--sidebar-hover-bg)] hover:text-white')}
                   >
                     <Icon className={'w-4 h-4 shrink-0 ' + (active ? 'text-[var(--color-accent)]' : 'text-[var(--sidebar-text-muted)]')} />
@@ -681,7 +685,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                     return (
                       <div key={item.id} className="space-y-0.5">
                         <div
-                          className={`group flex items-center rounded-[var(--radius-sm)] transition-colors ${
+                          className={`group flex items-center gap-1 rounded-xl p-1 transition-colors ${
                             active
                               ? 'bg-[var(--sidebar-active-bg)] text-white font-semibold'
                               : 'text-[var(--sidebar-text)] hover:bg-[var(--sidebar-hover-bg)] hover:text-white'
@@ -689,37 +693,48 @@ export const AppShell: React.FC<AppShellProps> = ({
                         >
                           <button
                             type="button"
-                            onClick={() => {
-                              if (collapsed) {
-                                setSidebarCollapsed(false);
-                                setExpandedGroups((prev) => ({ ...prev, [item.id]: true }));
-                              } else {
-                                toggleExpandItem(item.id);
-                              }
-                            }}
+                            onClick={() => navigateNavItem(item, isMobile)}
                             title={collapsed ? item.label : undefined}
-                            aria-expanded={isExpanded}
-                            className={`flex-1 flex items-center justify-between gap-2.5 px-2.5 py-2.5 text-xs cursor-pointer min-w-0 text-left rounded-xl transition-all ${active && item.id === 'students' ? 'bg-[var(--sidebar-active-bg)]/90' : ''}`}
+                            aria-label={item.label}
+                            className={`flex-1 flex items-center justify-between gap-2 px-2 py-2 text-xs cursor-pointer min-w-0 text-left rounded-lg transition-colors ${
+                              active ? 'bg-white/[0.045]' : ''
+                            }`}
                           >
-                            <div className="flex items-center gap-2.5 min-w-0">
+                            <span className="flex items-center gap-2.5 min-w-0">
                               <Icon
-                                className={`w-4 h-4 shrink-0 ${active ? 'text-[var(--color-accent)]' : 'text-[var(--sidebar-text-muted)]'}`}
+                                className={`w-4 h-4 shrink-0 ${
+                                  active ? 'text-[var(--color-accent)]' : 'text-[var(--sidebar-text-muted)]'
+                                }`}
                               />
                               {!collapsed && <span className="truncate">{item.label}</span>}
-                            </div>
-                            {!collapsed && (
-                              <div className="flex items-center gap-1.5 shrink-0">
-                                {badgeVal !== undefined && badgeVal > 0 && (
-                                  <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-white/10 text-[var(--sidebar-text)]">
-                                    {badgeVal}
-                                  </span>
-                                )}
-                                <ChevronDown
-                                  className={`w-3.5 h-3.5 text-[var(--sidebar-text-muted)] transition-transform duration-150 ${isExpanded ? 'rotate-180 text-white' : ''}`}
-                                />
-                              </div>
+                            </span>
+                            {!collapsed && badgeVal !== undefined && badgeVal > 0 && (
+                              <span className="ml-auto px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-white/10 text-[var(--sidebar-text)]">
+                                {badgeVal}
+                              </span>
                             )}
                           </button>
+
+                          {!collapsed && (
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                toggleExpandItem(item.id);
+                              }}
+                              aria-expanded={isExpanded}
+                              aria-label={isExpanded ? `Collapse ${item.label} submenu` : `Expand ${item.label} submenu`}
+                              title={isExpanded ? 'Collapse submenu' : 'Expand submenu'}
+                              className="p-1.5 rounded-lg text-[var(--sidebar-text-muted)] hover:text-white hover:bg-white/[0.07] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]"
+                            >
+                              <ChevronDown
+                                className={`w-3.5 h-3.5 transition-transform duration-150 ${
+                                  isExpanded ? 'rotate-180 text-white' : ''
+                                }`}
+                              />
+                            </button>
+                          )}
+
                           {!collapsed && (
                             <button
                               type="button"
@@ -728,8 +743,12 @@ export const AppShell: React.FC<AppShellProps> = ({
                                 toggleFavoriteNav(item.id);
                               }}
                               aria-label={favoriteNavIds.includes(item.id) ? `Unpin ${item.label}` : `Pin ${item.label}`}
-                              title={favoriteNavIds.includes(item.id) ? "Unpin from sidebar" : "Pin to sidebar"}
-                              className={`mr-1.5 p-1.5 rounded-[var(--radius-xs)] cursor-pointer transition-colors ${favoriteNavIds.includes(item.id) ? 'text-[var(--color-accent)] bg-[var(--color-brand-soft)]' : 'text-[var(--sidebar-text-muted)] hover:text-[var(--color-accent)] hover:bg-white/5 opacity-0 group-hover:opacity-100 focus-visible:opacity-100'}`}
+                              title={favoriteNavIds.includes(item.id) ? 'Unpin from sidebar' : 'Pin to sidebar'}
+                              className={`p-1.5 rounded-lg cursor-pointer transition-colors ${
+                                favoriteNavIds.includes(item.id)
+                                  ? 'text-[var(--color-accent)] bg-[var(--color-brand-soft)]'
+                                  : 'text-[var(--sidebar-text-muted)] hover:text-[var(--color-accent)] hover:bg-white/5 opacity-0 group-hover:opacity-100 focus-visible:opacity-100'
+                              }`}
                             >
                               <Star className={`w-3.5 h-3.5 ${favoriteNavIds.includes(item.id) ? 'fill-current' : ''}`} />
                             </button>

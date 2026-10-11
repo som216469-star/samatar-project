@@ -494,17 +494,13 @@ export function normalizeUserRole(role?: string | null): NormalizedRole {
 
 export function getAuthorizedNavItems(role?: string | null): NavItemConfig[] {
   const rawRole = String(role || '').toLowerCase().trim();
+  // DUGSI PRO has two internal account roles. Fail closed for legacy/unknown roles.
   const knownRoles = new Set([
     'admin',
     'school admin',
     'super admin',
     'principal',
-    'teacher',
-    'accountant',
-    'finance',
-    'receptionist',
-    'librarian',
-    'staff'
+    'teacher'
   ]);
   if (!knownRoles.has(rawRole)) return [];
 
@@ -539,34 +535,8 @@ export function getAuthorizedNavItems(role?: string | null): NavItemConfig[] {
       }
     );
   }
-  if (normalized === 'accountant') {
-    const allowedTabs: AppTabId[] = [
-      'overview',
-      'students',
-      'reports',
-      'fees',
-      'announcements'
-    ];
-    return NAVIGATION_CONFIG.filter((item) => allowedTabs.includes(item.tab));
-  }
-  // Receptionist and Librarian map to the frontend "staff" role but retain
-  // their documented Students access. A generic Staff account does not.
-  const allowedTabs: AppTabId[] = [
-    'overview',
-    ...(rawRole === 'staff' ? [] : ['students' as AppTabId]),
-    'attendance',
-    'classes',
-    'subjects',
-    'reports',
-    'people',
-    'staff_attendance',
-    'timetable',
-    'admissions',
-    'library',
-    'inventory',
-    'announcements'
-  ];
-  return NAVIGATION_CONFIG.filter((item) => allowedTabs.includes(item.tab));
+  return [];
+
 }
 
 export interface StudentPermissions {
@@ -606,25 +576,23 @@ export function canRoleAccessStudentSubSection(
   role?: string | null
 ): boolean {
   const rawRole = String(role || '').toLowerCase().trim();
-  const normalized = normalizeUserRole(role);
-  if (rawRole === 'staff') return false;
-  if (normalized === 'admin' || normalized === 'staff') return true;
-  if (normalized === 'teacher') {
+  const isAdmin = ['admin', 'school admin', 'super admin', 'principal'].includes(rawRole);
+  if (isAdmin) return true;
+
+  // Teachers can view the roster and export permitted records, but cannot manage
+  // enrolment, archive, import, or restore students from the sidebar.
+  if (rawRole === 'teacher') {
     return subSection === 'all' || subSection === 'active' || subSection === 'export';
   }
-  if (normalized === 'accountant') {
-    return subSection === 'all' || subSection === 'active' || subSection === 'export';
-  }
-  return true;
+
+  return false;
 }
 
 export function canRoleAccessPeopleSubSection(
   subSection: PeopleSubSection,
   role?: string | null
 ): boolean {
-  const normalized = normalizeUserRole(role);
-  if (normalized === 'admin' || normalized === 'staff') return true;
-  if (normalized === 'teacher') return subSection === 'guardians';
-  return false;
+  const rawRole = String(role || '').toLowerCase().trim();
+  const isAdmin = ['admin', 'school admin', 'super admin', 'principal'].includes(rawRole);
+  return isAdmin && ['teachers', 'staff', 'guardians'].includes(subSection);
 }
-
