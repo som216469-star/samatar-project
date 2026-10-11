@@ -2662,6 +2662,178 @@ app.post("/api/auth/login", async (req, res) => {
 });
 
 
+app.post("/api/auth/verify-email", async (req, res) => {
+  const { token } = req.body || {};
+  if (typeof token !== "string" || token.length < 32 || token.length > 512) {
+    return res.status(400).json({ error: "Link-ga xaqiijintu ma saxna ama wuu dhacay." });
+  }
+  if (!(await ensureProductionAuthBackend(res))) return;
+
+  const tokenHash = crypto.createHash("sha256").update(token, "utf8").digest("hex");
+  const nowIso = new Date().toISOString();
+
+  if (!useLocalFallback && supabase) {
+    const { data: verifiedUser, error } = await supabase
+      .from("dugsiga_users")
+      .update({
+        verified: true,
+        email_verified_at: nowIso,
+        email_verification_token_hash: null,
+        email_verification_expires_at: null
+      })
+      .eq("email_verification_token_hash", tokenHash)
+      .gt("email_verification_expires_at", nowIso)
+      .eq("verified", false)
+      .select("email")
+      .maybeSingle();
+
+    if (error) {
+      console.warn("Email verification failed:", error.message);
+      return res.status(503).json({ error: "Email-ka lama xaqiijin karin hadda. Fadlan mar kale isku day." });
+    }
+    if (!verifiedUser) {
+      return res.status(400).json({ error: "Link-gu ma shaqaynayo, wuu dhacay, ama horey ayaa loo isticmaalay." });
+    }
+
+    const db = loadLocalDB();
+    const index = db.users.findIndex(
+      (user: any) => String(user.email || "").trim().toLowerCase() === String(verifiedUser.email || "").toLowerCase()
+    );
+    if (index >= 0) {
+      db.users[index].verified = true;
+      db.users[index].email_verified_at = nowIso;
+      db.users[index].email_verification_token_hash = null;
+      db.users[index].email_verification_expires_at = null;
+      saveLocalDB(db);
+    }
+    return res.json({ success: true, email: verifiedUser.email, message: "Email-kaaga waa la xaqiijiyey. Hadda login samee." });
+  }
+
+  const db = loadLocalDB();
+  const index = db.users.findIndex((user: any) =>
+    user.verified === false &&
+    String(user.email_verification_token_hash || "") === tokenHash &&
+    typeof user.email_verification_expires_at === "string" &&
+    user.email_verification_expires_at > nowIso
+  );
+  if (index < 0) {
+    return res.status(400).json({ error: "Link-gu ma shaqaynayo, wuu dhacay, ama horey ayaa loo isticmaalay." });
+  }
+  db.users[index].verified = true;
+  db.users[index].email_verified_at = nowIso;
+  db.users[index].email_verification_token_hash = null;
+  db.users[index].email_verification_expires_at = null;
+  saveLocalDB(db);
+  return res.json({ success: true, email: db.users[index].email, message: "Email-kaaga waa la xaqiijiyey. Hadda login samee." });
+});
+
+app.post("/api/auth/resend-verification", async (req, res) => {
+  const { email } = req.body || {};
+  if (!isValidEmailAddress(email)) {
+    return res.status(400).json({ error: "Fadlan geli email sax ah." });
+  }
+  if (!(await ensureProductionAuthBackend(res))) return;
+
+  const cleanEmail = email.trim().toLowerCase();
+  const smtpUser = process.env.SMTP_USER || process.env.EMAIL_USER;
+  const smtpPassword = process.env.SMTP_PASS || process.env.EMAIL_PASS;
+  const appOrigin = getTrustedAppOrigin(req);
+  if (!smtpUser || !smtpPassword || !appOrigin) {
+    if (process.env.NODE_ENV === "production") {
+      return res.status(503).json({ error: "Adeegga email-ka xaqiijinta si ku-meel-gaar ah uma shaqaynayo." });
+    }
+    return res.json({
+      success: true,
+      message: "Haddii akoonku u baahan yahay xaqiijin, link cusub ayaa loo diri doonaa marka email service-ku shaqeeyo."
+    });
+  }
+
+  const genericResponse = {
+    success: true,
+    message: "Haddii email-ku leeyahay akoon aan weli la xaqiijin, link cusub ayaa loo soo diray."
+  };
+  const token = generateSecureToken();
+  const tokenHash = crypto.createHash("sha256").update(token, "utf8").digest("hex");
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+  let eligible = false;
+
+  if (!useLocalFallback && supabase) {
+    const { data: account, error: lookupError } = await supabase
+      .from("dugsiga_users")
+      .select("email,role,verified")
+      .eq("email", cleanEmail)
+      .maybeSingle();
+    if (lookupError) {
+      console.warn("Verification resend lookup failed:", lookupError.message);
+      return res.status(503).json({ error: "Adeegga email-ka xaqiijinta si ku-meel-gaar ah uma shaqaynayo." });
+    }
+
+    const role = String(account?.role || "").trim().toLowerCase();
+    const adminRoles = new Set(["admin", "school admin", "super admin", "principal"]);
+    eligible = Boolean(account) && account.verified === false && adminRoles.has(role);
+    if (eligible) {
+      const { data: updated, error: updateError } = await supabase
+        .from("dugsiga_users")
+        .update({
+          email_verification_token_hash: tokenHash,
+          email_verification_expires_at: expiresAt
+        })
+        .eq("email", cleanEmail)
+        .eq("verified", false)
+        .select("email")
+        .maybeSingle();
+      if (updateError || !updated) {
+        console.warn("Verification resend token could not be stored:", updateError?.message || "account no longer eligible");
+        return res.json(genericResponse);
+      }
+    }
+  } else {
+    const db = loadLocalDB();
+    const index = db.users.findIndex(
+      (user: any) => String(user.email || "").trim().toLowerCase() === cleanEmail
+    );
+    const role = String(index >= 0 ? db.users[index].role || "" : "").trim().toLowerCase();
+    const adminRoles = new Set(["admin", "school admin", "super admin", "principal"]);
+    eligible = index >= 0 && db.users[index].verified === false && adminRoles.has(role);
+    if (eligible) {
+      db.users[index].email_verification_token_hash = tokenHash;
+      db.users[index].email_verification_expires_at = expiresAt;
+      saveLocalDB(db);
+    }
+  }
+
+  if (!eligible) return res.json(genericResponse);
+
+  const verificationLink = `${appOrigin}/verify-email?token=${encodeURIComponent(token)}`;
+  const delivery = await sendAccountVerificationEmail({
+    toEmail: cleanEmail,
+    verificationLink,
+    expiresInHours: 24
+  });
+  if (!delivery.success) {
+    console.warn("Verification resend email could not be delivered:", delivery.error || "unknown email error");
+    if (!useLocalFallback && supabase) {
+      await supabase
+        .from("dugsiga_users")
+        .update({ email_verification_token_hash: null, email_verification_expires_at: null })
+        .eq("email", cleanEmail)
+        .eq("email_verification_token_hash", tokenHash);
+    }
+    const db = loadLocalDB();
+    const index = db.users.findIndex(
+      (user: any) => String(user.email || "").trim().toLowerCase() === cleanEmail &&
+        user.email_verification_token_hash === tokenHash
+    );
+    if (index >= 0) {
+      db.users[index].email_verification_token_hash = null;
+      db.users[index].email_verification_expires_at = null;
+      saveLocalDB(db);
+    }
+  }
+
+  return res.json(genericResponse);
+});
+
 app.post("/api/auth/forgot-password", async (req, res) => {
   const emailInput = req.body?.email;
   if (!isValidEmailAddress(emailInput)) {
