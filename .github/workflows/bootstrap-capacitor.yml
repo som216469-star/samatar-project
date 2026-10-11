@@ -49,8 +49,8 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      # GitHub-hosted Ubuntu runners already provide ANDROID_HOME and sdkmanager.
+      # The third-party setup action currently calls the removed `sdkmanager tools` package.
 
 
       - name: Regenerate npm and Bun lockfiles
