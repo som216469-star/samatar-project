@@ -1,6 +1,7 @@
 import express from "express";
 import path from "path";
 import fs from "fs";
+import { AsyncLocalStorage } from "node:async_hooks";
 import crypto from "crypto";
 import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
@@ -80,6 +81,9 @@ function parseSupabaseUrl(url: string | undefined): string {
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
+
+// Local JSON is intentionally opt-in and never enabled in production.
+const localJsonFallbackEnabled = process.env.NODE_ENV !== "production" && process.env.LOCAL_JSON_FALLBACK === "true";
 
 // Reverse-proxy aware and hardened Express defaults.
 app.disable("x-powered-by");
@@ -352,6 +356,216 @@ const defaultSettings = {
   systemTheme: "light"
 };
 
+
+type TenantDBBinding = { collection: string; table: string; keyColumns: string[]; readOnly?: boolean };
+type TenantDBContext = {
+  schoolId: string; db: LocalDB; lastScheduledDB: LocalDB; loadedCollections: Set<string>;
+  settingsLoaded: boolean; requireCloud: boolean; pending: Promise<void>; responseStarted?: boolean;
+};
+const tenantDBContext = new AsyncLocalStorage<TenantDBContext>();
+const TENANT_DB_BINDINGS: TenantDBBinding[] = [
+  { collection: "users", table: "dugsiga_users", keyColumns: ["email"] },
+  { collection: "students", table: "dugsiga_students", keyColumns: ["id"] },
+  { collection: "attendance", table: "dugsiga_attendance", keyColumns: ["date", "student_id", "session_type"] },
+  { collection: "fees", table: "dugsiga_fees", keyColumns: ["id"] },
+  { collection: "classes", table: "dugsiga_classes", keyColumns: ["id"] },
+  { collection: "subjects", table: "dugsiga_subjects", keyColumns: ["id"] },
+  { collection: "examScores", table: "dugsiga_exam_scores", keyColumns: ["id"] },
+  { collection: "studentAudit", table: "dugsiga_student_audit", keyColumns: ["id"], readOnly: true },
+  { collection: "teachers", table: "dugsiga_teachers", keyColumns: ["id"] },
+  { collection: "staff", table: "dugsiga_staff", keyColumns: ["id"] },
+  { collection: "guardians", table: "dugsiga_guardians", keyColumns: ["id"] },
+  { collection: "staffAttendance", table: "dugsiga_staff_attendance", keyColumns: ["id"] },
+  { collection: "timetable", table: "dugsiga_timetable", keyColumns: ["id"] },
+  { collection: "admissions", table: "dugsiga_admissions", keyColumns: ["id"] },
+  { collection: "announcements", table: "dugsiga_announcements", keyColumns: ["id"] },
+  { collection: "libraryBooks", table: "dugsiga_library_books", keyColumns: ["id"] },
+  { collection: "libraryLoans", table: "dugsiga_library_loans", keyColumns: ["id"] },
+  { collection: "inventory", table: "dugsiga_inventory", keyColumns: ["id"] },
+  { collection: "documents", table: "dugsiga_documents", keyColumns: ["id"] },
+  { collection: "notifications", table: "dugsiga_notifications", keyColumns: ["id"] },
+  { collection: "feeStructures", table: "dugsiga_fee_structures", keyColumns: ["id"] },
+  { collection: "invoices", table: "dugsiga_invoices", keyColumns: ["id"] },
+  { collection: "payments", table: "dugsiga_payments", keyColumns: ["id"] },
+  { collection: "expenses", table: "dugsiga_expenses", keyColumns: ["id"] },
+  { collection: "income", table: "dugsiga_income", keyColumns: ["id"] },
+  { collection: "budgets", table: "dugsiga_budgets", keyColumns: ["id"] },
+  { collection: "payroll", table: "dugsiga_payroll", keyColumns: ["id"] }
+];
+const ALL_TENANT_COLLECTIONS = TENANT_DB_BINDINGS.map((binding) => binding.collection).filter((name) => name !== "studentAudit");
+
+function createEmptyLocalDB(): LocalDB {
+  return {
+    users: [], students: [], attendance: [], fees: [], classes: [], subjects: [], examScores: [], studentAudit: [],
+    settings: {}, teachers: [], staff: [], guardians: [], staffAttendance: [], timetable: [], admissions: [],
+    announcements: [], libraryBooks: [], libraryLoans: [], inventory: [], documents: [], notifications: [],
+    feeStructures: [], invoices: [], payments: [], expenses: [], income: [], budgets: [], payroll: []
+  };
+}
+function snakeToCamel(value: string): string {
+  return value.replace(/_([a-z0-9])/g, (_match, char) => char.toUpperCase());
+}
+function camelToSnake(value: string): string {
+  return value.replace(/[A-Z]/g, (char) => "_" + char.toLowerCase());
+}
+function mapSupabaseRowToLocal(table: string, row: Record<string, any>): Record<string, any> {
+  if (table === "dugsiga_users") {
+    const mapped: Record<string, any> = { ...row, password_hash: row.password };
+    delete mapped.password;
+    return mapped;
+  }
+  const mapped: Record<string, any> = {};
+  for (const [key, value] of Object.entries(row)) mapped[snakeToCamel(key)] = value;
+  return mapped;
+}
+function getRowKey(row: Record<string, any>, binding: TenantDBBinding): string {
+  return binding.keyColumns.map((column) => {
+    const localField = binding.collection === "users" && column === "email" ? "email" : snakeToCamel(column);
+    return String(row[localField] ?? row[column] ?? "");
+  }).join("\u001f");
+}
+function serializeTenantRow(row: Record<string, any>, binding: TenantDBBinding, schoolId: string): Record<string, any> {
+  const rowSchoolId = row.schoolId ?? row.school_id ?? schoolId;
+  if (String(rowSchoolId) !== schoolId) throw new Error("Tenant isolation rejected a row with a mismatched school_id.");
+  const serialized: Record<string, any> = {};
+  for (const [key, value] of Object.entries(row)) {
+    if (value === undefined) continue;
+    if (binding.collection === "users" && key === "password_hash") { serialized.password = value; continue; }
+    if (binding.collection === "users" && key === "school_id") { serialized.school_id = value; continue; }
+    serialized[camelToSnake(key)] = value;
+  }
+  serialized.school_id = schoolId;
+  return serialized;
+}
+function buildTenantChanges(previous: LocalDB, next: LocalDB, context: TenantDBContext):
+  Array<{ table: string; operation: "upsert" | "delete"; row: Record<string, any> }> {
+  const changes: Array<{ table: string; operation: "upsert" | "delete"; row: Record<string, any> }> = [];
+  for (const binding of TENANT_DB_BINDINGS) {
+    if (!context.loadedCollections.has(binding.collection) || binding.readOnly) continue;
+    const previousRows = Array.isArray((previous as any)[binding.collection]) ? (previous as any)[binding.collection] as Array<Record<string, any>> : [];
+    const nextRows = Array.isArray((next as any)[binding.collection]) ? (next as any)[binding.collection] as Array<Record<string, any>> : [];
+    const previousByKey = new Map(previousRows.map((row) => [getRowKey(row, binding), row]));
+    const nextByKey = new Map(nextRows.map((row) => [getRowKey(row, binding), row]));
+    for (const [key, row] of nextByKey) {
+      if (!key || key.split("\u001f").some((part) => !part)) throw new Error("A record is missing its stable key; the change was rejected.");
+      const old = previousByKey.get(key);
+      if (!old || JSON.stringify(old) !== JSON.stringify(row)) {
+        changes.push({ table: binding.table, operation: "upsert", row: serializeTenantRow(row, binding, context.schoolId) });
+      }
+    }
+    for (const [key, row] of previousByKey) {
+      if (key && !nextByKey.has(key)) changes.push({ table: binding.table, operation: "delete", row: serializeTenantRow(row, binding, context.schoolId) });
+    }
+  }
+  if (context.settingsLoaded) {
+    const beforeSettings = (previous.settings || {})[context.schoolId] ?? null;
+    const afterSettings = (next.settings || {})[context.schoolId] ?? null;
+    if (JSON.stringify(beforeSettings) !== JSON.stringify(afterSettings)) {
+      changes.push(afterSettings === null
+        ? { table: "dugsiga_settings", operation: "delete", row: { school_id: context.schoolId, key: "main_settings" } }
+        : { table: "dugsiga_settings", operation: "upsert", row: { school_id: context.schoolId, key: "main_settings", value: afterSettings } });
+    }
+  }
+  if (changes.length > 2000) throw new Error("Change batch is too large; please split this operation into smaller requests.");
+  return changes;
+}
+function selectTenantCollectionsForPath(requestPath: string): Set<string> {
+  const pathname = requestPath.toLowerCase();
+  const all = () => new Set(ALL_TENANT_COLLECTIONS);
+  const finance = new Set(["students","teachers","staff","classes","fees","feeStructures","invoices","payments","expenses","income","budgets","payroll"]);
+  if (/^\/api\/(invoices|payments|expenses|income|budgets|payroll|fee-structures|profit-loss|cash-flow|financial-reports|finance\/)/.test(pathname)) return finance;
+  if (/^\/api\/(analytics|reports|dashboard|export|system\/overview)/.test(pathname)) return all();
+  if (/^\/api\/students?(\/|$)/.test(pathname)) return new Set(["students","classes","attendance","examScores","fees","invoices","payments","studentAudit"]);
+  if (/^\/api\/attendance(\/|$)/.test(pathname)) return new Set(["attendance","students","classes","staffAttendance","teachers","staff"]);
+  if (/^\/api\/classes(\/|$)/.test(pathname)) return new Set(["classes","students","teachers"]);
+  if (/^\/api\/subjects(\/|$)/.test(pathname)) return new Set(["subjects","classes","teachers"]);
+  if (/^\/api\/(exams|exam-scores)(\/|$)/.test(pathname)) return new Set(["examScores","students","subjects","classes"]);
+  if (/^\/api\/settings(\/|$)/.test(pathname)) return new Set(["settings"]);
+  if (/^\/api\/(user\/profile|teachers)(\/|$)/.test(pathname)) return new Set(["teachers","users","settings"]);
+  if (/^\/api\/staff(\/|$)/.test(pathname)) return new Set(["staff","users"]);
+  if (/^\/api\/guardians(\/|$)/.test(pathname)) return new Set(["guardians","students"]);
+  if (/^\/api\/staff-attendance(\/|$)/.test(pathname)) return new Set(["staffAttendance","staff","teachers"]);
+  if (/^\/api\/timetable(\/|$)/.test(pathname)) return new Set(["timetable","teachers","subjects","classes"]);
+  if (/^\/api\/admissions(\/|$)/.test(pathname)) return new Set(["admissions","students"]);
+  if (/^\/api\/announcements(\/|$)/.test(pathname)) return new Set(["announcements","students","classes"]);
+  if (/^\/api\/library(\/|$)/.test(pathname)) return new Set(["libraryBooks","libraryLoans","students","staff","teachers"]);
+  if (/^\/api\/inventory(\/|$)/.test(pathname)) return new Set(["inventory"]);
+  if (/^\/api\/documents(\/|$)/.test(pathname)) return new Set(["documents"]);
+  if (/^\/api\/notifications(\/|$)/.test(pathname)) return new Set(["notifications","guardians","students"]);
+  return all();
+}
+async function fetchAllSchoolRows(table: string, schoolId: string): Promise<Record<string, any>[]> {
+  if (!supabase) throw new Error("Supabase lama diyaarin.");
+  const rows: Record<string, any>[] = [];
+  const pageSize = 1000;
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await supabase.from(table).select("*").eq("school_id", schoolId).range(offset, offset + pageSize - 1);
+    if (error) throw error;
+    rows.push(...(data || []));
+    if (!data || data.length < pageSize) break;
+  }
+  return rows;
+}
+async function loadTenantDB(schoolId: string, requestPath: string): Promise<{ db: LocalDB; loadedCollections: Set<string>; settingsLoaded: boolean }> {
+  if (!supabase || !customSupabaseActive) throw new Error("Supabase is not ready.");
+  const requested = selectTenantCollectionsForPath(requestPath);
+  const db = createEmptyLocalDB();
+  await Promise.all(TENANT_DB_BINDINGS.filter((binding) => requested.has(binding.collection)).map(async (binding) => {
+    const rows = await fetchAllSchoolRows(binding.table, schoolId);
+    (db as any)[binding.collection] = rows.map((row) => mapSupabaseRowToLocal(binding.table, row));
+  }));
+  const settingsLoaded = requested.has("settings");
+  if (settingsLoaded) {
+    const { data, error } = await supabase.from("dugsiga_settings").select("key,value")
+      .eq("school_id", schoolId).eq("key", "main_settings").maybeSingle();
+    if (error) throw error;
+    const schoolName = schoolId.includes("@") ? schoolId.split("@")[0].toUpperCase() : "Dugsiga Pro 2026";
+    (db.settings as any)[schoolId] = data?.value && typeof data.value === "object"
+      ? data.value : { ...defaultSettings, schoolName };
+  }
+  return { db, loadedCollections: requested, settingsLoaded };
+}
+function scheduleTenantDBSave(data: LocalDB): void {
+  const context = tenantDBContext.getStore();
+  if (!context || !context.schoolId || !context.requireCloud) return;
+  let changes: Array<{ table: string; operation: "upsert" | "delete"; row: Record<string, any> }>;
+  let nextSnapshot: LocalDB;
+  try {
+    nextSnapshot = structuredClone(data);
+    changes = buildTenantChanges(context.lastScheduledDB, nextSnapshot, context);
+  } catch (error) {
+    const failure = error instanceof Error ? error : new Error(String(error));
+    context.pending = context.pending.then(() => { throw failure; });
+    return;
+  }
+  context.lastScheduledDB = nextSnapshot;
+  if (changes.length === 0) return;
+  context.pending = context.pending.then(async () => {
+    if (!supabase || !customSupabaseActive) throw new Error("Supabase ma shaqaynayo; xogta laguma kaydin local ahaan.");
+    const { error } = await supabase.rpc("dugsiga_apply_tenant_changes", { p_school_id: context.schoolId, p_changes: changes });
+    if (error) throw error;
+  });
+}
+function bindTenantPersistenceToResponse(res: any, context: TenantDBContext): void {
+  const originalJson = res.json.bind(res);
+  res.json = (body: any) => {
+    if (context.responseStarted) return res;
+    context.responseStarted = true;
+    void context.pending.then(() => {
+      if (context.requireCloud && !localJsonFallbackEnabled && !customSupabaseActive) {
+        if (!res.headersSent) { res.status(503); originalJson({ error: "Adeegga xogta Supabase-ku ma diyaarsana. Xogta lama kaydin." }); }
+        return;
+      }
+      originalJson(body);
+    }).catch((error: any) => {
+      console.error("Tenant database persistence failed:", error?.message || error);
+      if (!res.headersSent) { res.status(503); originalJson({ error: "Xogta lama kaydin. Fadlan dib u eeg xiriirka database-ka oo mar kale isku day." }); }
+    });
+    return res;
+  };
+}
+
+
 function loadLocalDB(): LocalDB {
   const ensureArrays = (db: any): LocalDB => {
     if (!db.users) db.users = [];
@@ -384,6 +598,15 @@ function loadLocalDB(): LocalDB {
     if (!db.payroll) db.payroll = [];
     return db;
   };
+
+  // Production and normal development use request-scoped Supabase data only.
+  // The JSON file is read only when LOCAL_JSON_FALLBACK=true outside production.
+  if (!localJsonFallbackEnabled) {
+    const context = tenantDBContext.getStore();
+    if (context) return context.db;
+    if (!inMemoryDB) inMemoryDB = ensureArrays({ settings: defaultSettings });
+    return ensureArrays(inMemoryDB);
+  }
 
   const candidatePaths = [PRIMARY_DB_PATH, TMP_DB_PATH];
   for (const dbPath of candidatePaths) {
@@ -435,6 +658,11 @@ function recordLocalStudentAudit(
 }
 
 function saveLocalDB(data: LocalDB) {
+  if (!localJsonFallbackEnabled) {
+    // Outside the explicit local-only mode, never read or rewrite database.json.
+    scheduleTenantDBSave(data);
+    return;
+  }
   inMemoryDB = data;
   try {
     fs.writeFileSync(PRIMARY_DB_PATH, JSON.stringify(data, null, 2));
@@ -510,12 +738,13 @@ async function testSupabaseTable(tableName: string, checkColumn?: string): Promi
   }
 }
 
-let useLocalFallback = true;
+let useLocalFallback = localJsonFallbackEnabled;
 let customSupabaseActive = false;
+let supabaseStatusPromise: Promise<void> = Promise.resolve();
 
 function handleSupabaseError(res: any, error: any, context: string) {
   if (error?.message?.includes("fetch failed") || error?.message?.includes("ENOTFOUND")) {
-    useLocalFallback = true;
+    useLocalFallback = localJsonFallbackEnabled;
     customSupabaseActive = false;
   }
   console.warn(`Backend database notice during "${context}":`, error?.message || error);
@@ -524,56 +753,17 @@ function handleSupabaseError(res: any, error: any, context: string) {
   });
 }
 
-async function syncLocalToSupabase() {
-  if (!supabase || useLocalFallback) return;
-  try {
-    const db = loadLocalDB();
-    // 1. Sync any local users missing from Supabase
-    if (db.users && db.users.length > 0) {
-      const { data: sbUsers } = await supabase.from("dugsiga_users").select("email");
-      const existingEmails = new Set((sbUsers || []).map((u: any) => u.email.toLowerCase()));
-      for (const u of db.users) {
-        if (!existingEmails.has(u.email.toLowerCase())) {
-          console.log("Syncing local user to Supabase:", u.email);
-          await supabase.from("dugsiga_users").insert([{
-            email: u.email.toLowerCase(),
-            password: u.password_hash,
-            verified: true
-          }]);
-        }
-      }
-    }
-
-    // 2. Sync any local classes missing from Supabase
-    if (db.classes && db.classes.length > 0) {
-      const { data: sbClasses } = await supabase.from("dugsiga_classes").select("school_id, class_name");
-      const existingClasses = new Set((sbClasses || []).map((c: any) => `${c.school_id}::${c.class_name.toLowerCase()}`));
-      for (const c of db.classes) {
-        const key = `${c.schoolId || "default-school"}::${c.className.toLowerCase()}`;
-        if (!existingClasses.has(key)) {
-          console.log("Syncing local class to Supabase:", c.className);
-          await supabase.from("dugsiga_classes").insert([{
-            id: c.id || 'cls-' + Math.random().toString(36).substring(2, 11),
-            school_id: c.schoolId || "default-school",
-            class_name: c.className,
-            teacher_name: c.teacherName || "",
-            room_number: c.roomNumber || "",
-            description: c.description || "",
-            created_at: c.createdAt || new Date().toISOString().split("T")[0]
-          }]);
-        }
-      }
-    }
-  } catch (syncErr) {
-    console.warn("Notice during local DB to Supabase sync:", syncErr);
-  }
-}
-
 async function checkSupabaseStatus() {
-  if (!supabaseUrl || !supabaseActiveKey || !supabase) {
-    useLocalFallback = true;
+  if (localJsonFallbackEnabled) {
+    useLocalFallback = localJsonFallbackEnabled;
     customSupabaseActive = false;
-    console.log("Supabase not fully configured. Using local database fallback.");
+    console.log("Local JSON fallback is enabled for development only; Supabase sync is disabled.");
+    return;
+  }
+  if (!supabaseUrl || !supabaseActiveKey || !supabase) {
+    useLocalFallback = false;
+    customSupabaseActive = false;
+    console.error("Supabase configuration is missing. Production APIs will remain unavailable rather than switching to local JSON.");
     return;
   }
   try {
@@ -585,9 +775,9 @@ async function checkSupabaseStatus() {
       clearTimeout(timeout);
     } catch {
       clearTimeout(timeout);
-      useLocalFallback = true;
+      useLocalFallback = localJsonFallbackEnabled;
       customSupabaseActive = false;
-      console.log("Supabase endpoint unreachable. Using local database fallback.");
+      console.error("Supabase endpoint unreachable. Local JSON fallback is disabled.");
       return;
     }
 
@@ -601,9 +791,9 @@ async function checkSupabaseStatus() {
     const usersExist = await testSupabaseTable("dugsiga_users", "email");
     
     if (!studentsExist || !attendanceExists || !classesExist || !subjectsExist || !examsExist || !feesExist || !settingsExist || !usersExist) {
-      useLocalFallback = true;
+      useLocalFallback = localJsonFallbackEnabled;
       customSupabaseActive = false;
-      console.log("Supabase tables missing, outdated, or incomplete. Operating in local database mode.");
+      console.error("Supabase tables are missing or incomplete. Local JSON fallback is disabled.");
       return;
     }
 
@@ -614,9 +804,9 @@ async function checkSupabaseStatus() {
       .upsert({ school_id: "__health_check__", key: pingKey, value: { ping: true } });
 
     if (writeError) {
-      useLocalFallback = true;
+      useLocalFallback = localJsonFallbackEnabled;
       customSupabaseActive = false;
-      console.warn(`Supabase RLS or write permission issue (${writeError.code}: ${writeError.message}). Operating in resilient local database mode.`);
+      console.error(`Supabase write permission check failed (${writeError.code}: ${writeError.message}). Local JSON fallback is disabled.`);
       return;
     }
 
@@ -627,16 +817,70 @@ async function checkSupabaseStatus() {
     customSupabaseActive = true;
     console.log("✅ Supabase si buuxda ayuu ugu xiran yahay (Direct Supabase Cloud Mode Active).");
 
-    // Perform background data sync so no local changes are lost
-    await syncLocalToSupabase();
+    // Local data is never synchronized back automatically. Import is handled
+    // only by the explicit, reviewable one-time migration script.
   } catch (err: any) {
-    useLocalFallback = true;
+    useLocalFallback = localJsonFallbackEnabled;
     customSupabaseActive = false;
-    console.log("Error checking Supabase, operating in resilient local database mode:", err?.message || err);
+    console.error("Supabase health check failed; local JSON fallback is disabled:", err?.message || err);
   }
 }
 
-checkSupabaseStatus();
+supabaseStatusPromise = checkSupabaseStatus();
+
+// Cloud-only request storage. Each authenticated request receives a tenant-filtered
+// snapshot and flushes row-level diffs through one atomic Supabase RPC before replying.
+app.use(async (req, res, next) => {
+  if (!req.path.startsWith("/api/")) return next();
+  if (req.path === "/api/db/status" || req.path === "/api/supabase-server-test") return next();
+  if (localJsonFallbackEnabled) return next();
+
+  const authUser = getAuthenticatedUser(req, loadLocalDB);
+  const publicAuthPath =
+    req.path === "/api/auth/signup" ||
+    req.path === "/api/auth/login" ||
+    req.path === "/api/auth/logout" ||
+    /^\/api\/teachers\/verify-invitation(?:\/|$)/.test(req.path) ||
+    req.path === "/api/teachers/activate-account";
+
+  if (!authUser) {
+    if (req.path === "/api/user/profile" && req.method === "GET") return next();
+    if (!publicAuthPath) {
+      return res.status(401).json({ error: "Unauthorized. Fadlan marka hore gal akoonkaaga." });
+    }
+    try { await supabaseStatusPromise; } catch {}
+    if (!customSupabaseActive || !supabase) {
+      return res.status(503).json({ error: "Supabase ma diyaarsana. Gelitaanka ama dhaqaajinta akoonka lama dhammeystiri karo hadda." });
+    }
+    const emptyDB = createEmptyLocalDB();
+    const context: TenantDBContext = {
+      schoolId: "", db: emptyDB, lastScheduledDB: structuredClone(emptyDB),
+      loadedCollections: new Set(), settingsLoaded: false, requireCloud: true, pending: Promise.resolve()
+    };
+    bindTenantPersistenceToResponse(res, context);
+    return tenantDBContext.run(context, () => next());
+  }
+
+  const schoolId = String(authUser.schoolId || "").trim();
+  if (!schoolId) return res.status(403).json({ error: "Akoonka kuma xirna school_id sax ah." });
+  try {
+    await supabaseStatusPromise;
+    if (!customSupabaseActive || !supabase) {
+      return res.status(503).json({ error: "Supabase ma diyaarsana. Xogta lama akhrin karo ama lama kaydin karo." });
+    }
+    const loaded = await loadTenantDB(schoolId, req.path);
+    const context: TenantDBContext = {
+      schoolId, db: loaded.db, lastScheduledDB: structuredClone(loaded.db),
+      loadedCollections: loaded.loadedCollections, settingsLoaded: loaded.settingsLoaded,
+      requireCloud: true, pending: Promise.resolve()
+    };
+    bindTenantPersistenceToResponse(res, context);
+    tenantDBContext.run(context, () => next());
+  } catch (error: any) {
+    console.error("Tenant database load failed:", error?.message || error);
+    return res.status(503).json({ error: "Xogta dugsiga lagama soo qaadi karin Supabase. Fallback local ah lama adeegsanayo." });
+  }
+});
 
 const SQL_SETUP_SCRIPT = `
 -- =========================================================================
@@ -2174,7 +2418,7 @@ app.post("/api/auth/signup", async (req, res) => {
 
       if (selectErr) {
         if (selectErr.message?.includes("fetch failed") || selectErr.message?.includes("ENOTFOUND")) {
-          useLocalFallback = true;
+          useLocalFallback = localJsonFallbackEnabled;
           customSupabaseActive = false;
         }
       } else if (existingUser) {
@@ -2191,7 +2435,7 @@ app.post("/api/auth/signup", async (req, res) => {
             return res.status(400).json({ error: "Email-kan horey ayaa loo diiwaangeliyey. Fadlan 'Sign In' ku gal." });
           }
           if (insertError.message?.includes("fetch failed") || insertError.message?.includes("ENOTFOUND")) {
-            useLocalFallback = true;
+            useLocalFallback = localJsonFallbackEnabled;
             customSupabaseActive = false;
           } else {
             console.log("Supabase auth insert notice:", insertError.message);
@@ -2200,7 +2444,7 @@ app.post("/api/auth/signup", async (req, res) => {
       }
     } catch (sbErr: any) {
       if (sbErr?.message?.includes("fetch failed") || sbErr?.message?.includes("ENOTFOUND")) {
-        useLocalFallback = true;
+        useLocalFallback = localJsonFallbackEnabled;
         customSupabaseActive = false;
       } else {
         console.log("Supabase auth notice:", sbErr?.message || sbErr);
@@ -2269,7 +2513,7 @@ app.post("/api/auth/login", async (req, res) => {
 
       if (error) {
         if (error.message?.includes("fetch failed") || error.message?.includes("ENOTFOUND")) {
-          useLocalFallback = true;
+          useLocalFallback = localJsonFallbackEnabled;
           customSupabaseActive = false;
         }
       } else if (user) {
@@ -2363,7 +2607,7 @@ app.post("/api/auth/login", async (req, res) => {
       }
     } catch (e: any) {
       if (e?.message?.includes("fetch failed") || e?.message?.includes("ENOTFOUND")) {
-        useLocalFallback = true;
+        useLocalFallback = localJsonFallbackEnabled;
         customSupabaseActive = false;
       } else {
         console.log("Supabase login check notice:", e?.message || e);
