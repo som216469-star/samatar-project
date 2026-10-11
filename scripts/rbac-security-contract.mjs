@@ -38,7 +38,8 @@ if (routePolicyStart < 0 || routePolicyEnd <= routePolicyStart) {
   throw new Error("RBAC security contract failed: API route policy boundaries not found");
 }
 const routePolicy = server.slice(routePolicyStart, routePolicyEnd).trim();
-if (!/return "system\\.admin";\\s*}\\s*$/.test(routePolicy)) {
+const routeTail = routePolicy.split(/\r?\n/).map((line) => line.trim()).filter(Boolean).slice(-2);
+if (routeTail[0] !== 'return "system.admin";' || routeTail[1] !== "}") {
   throw new Error("RBAC security contract failed: unclassified endpoints must be administrator-only");
 }
 assertContains(server, "if (!hasPermission(authUser.role, requiredPermission))", "central API middleware enforces the permission map");
