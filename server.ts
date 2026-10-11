@@ -2301,7 +2301,27 @@ app.post("/api/auth/signup", async (req, res) => {
   }
   if (!(await ensureProductionAuthBackend(res))) return;
 
+  const smtpUser = process.env.SMTP_USER || process.env.EMAIL_USER;
+  const smtpPassword = process.env.SMTP_PASS || process.env.EMAIL_PASS;
+  const emailVerificationRequired =
+    process.env.NODE_ENV === "production" || Boolean(smtpUser && smtpPassword);
+  const appOrigin = emailVerificationRequired ? getTrustedAppOrigin(req) : null;
+
+  if (emailVerificationRequired && (!appOrigin || !smtpUser || !smtpPassword)) {
+    return res.status(503).json({
+      error: "Diiwaangelintu waxay u baahan tahay APP_URL HTTPS ah iyo SMTP email service oo shaqaynaya."
+    });
+  }
+
   const passwordHash = await hashPassword(password);
+  const verificationToken = emailVerificationRequired ? generateSecureToken() : null;
+  const verificationTokenHash = verificationToken
+    ? crypto.createHash("sha256").update(verificationToken, "utf8").digest("hex")
+    : null;
+  const nowIso = new Date().toISOString();
+  const verificationExpiresAt = verificationToken
+    ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+    : null;
   let cloudAccountCreated = false;
 
   if (!useLocalFallback && supabase) {
@@ -2323,14 +2343,20 @@ app.post("/api/auth/signup", async (req, res) => {
         return res.status(503).json({ error: "Akoonka lama xaqiijin karin. Fadlan mar kale isku day." });
       }
     } else if (existingUser) {
-      return res.status(409).json({ error: "Email-kan horey ayaa loo diiwaangeliyey. Fadlan 'Sign In' ku gal." });
+      return res.status(409).json({
+        error: "Email-kan horey ayaa loo diiwaangeliyey. Haddii aadan xaqiijin email-ka, isticmaal resend verification."
+      });
     } else {
       const { error: insertError } = await supabase.from("dugsiga_users").insert([{
         email: cleanEmail,
         password: passwordHash,
-        verified: true,
+        verified: !emailVerificationRequired,
         role: "admin",
-        school_id: cleanEmail
+        school_id: cleanEmail,
+        email_verification_token_hash: verificationTokenHash,
+        email_verification_expires_at: verificationExpiresAt,
+        email_verified_at: emailVerificationRequired ? null : nowIso,
+        password_changed_at: nowIso
       }]);
 
       if (insertError) {
@@ -2371,26 +2397,44 @@ app.post("/api/auth/signup", async (req, res) => {
   const userRecord = {
     email: cleanEmail,
     password_hash: passwordHash,
-    verified: true,
+    verified: !emailVerificationRequired,
     role: "admin",
     school_id: cleanEmail,
-    password_changed_at: new Date().toISOString(),
+    password_changed_at: nowIso,
     password_reset_token_hash: null,
-    password_reset_expires_at: null
+    password_reset_expires_at: null,
+    email_verification_token_hash: verificationTokenHash,
+    email_verification_expires_at: verificationExpiresAt,
+    email_verified_at: emailVerificationRequired ? null : nowIso
   };
-  if (localIndex >= 0) {
-    db.users[localIndex] = { ...db.users[localIndex], ...userRecord };
-  } else {
-    db.users.push(userRecord);
-  }
+  if (localIndex >= 0) db.users[localIndex] = { ...db.users[localIndex], ...userRecord };
+  else db.users.push(userRecord);
   saveLocalDB(db);
 
-  // Signup creates the same secure HttpOnly session as login; the UI must not
-  // enter an authenticated workspace without a server-issued cookie.
-  const userPayload = { email: cleanEmail, role: "admin", schoolId: cleanEmail };
-  const sessionToken = createSessionToken(userPayload);
-  setSessionCookie(req, res, sessionToken);
+  if (emailVerificationRequired && verificationToken && appOrigin) {
+    const verificationLink = `${appOrigin}/verify-email?token=${encodeURIComponent(verificationToken)}`;
+    const delivery = await sendAccountVerificationEmail({
+      toEmail: cleanEmail,
+      verificationLink,
+      expiresInHours: 24
+    });
+    if (!delivery.success) {
+      // Account remains unverified and cannot sign in. The verification screen
+      // can request a fresh token without disclosing whether the email exists.
+      console.warn("Signup verification email could not be delivered:", delivery.error || "unknown email error");
+    }
+    return res.status(201).json({
+      success: true,
+      requiresEmailVerification: true,
+      message: "Akoonka waa la sameeyay. Xaqiiji email-kaaga ka hor intaadan login samayn.",
+      user: { email: cleanEmail }
+    });
+  }
 
+  // Local development without SMTP can exercise signup. Production always
+  // requires verification and never issues a session before email confirmation.
+  const userPayload = { email: cleanEmail, role: "admin", schoolId: cleanEmail };
+  setSessionCookie(req, res, createSessionToken(userPayload));
   return res.status(201).json({
     success: true,
     message: "Diiwaangelintu way guuleysatay. Akoonkaaga waa la furay.",
