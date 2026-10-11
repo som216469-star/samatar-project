@@ -38,6 +38,13 @@ jobs:
       - name: Attendance production contract checks
         run: npm run test:attendance-contract
 
+      - name: Mobile authentication and configuration regression checks
+        run: npm run test:mobile-contract
+
+      - name: Build isolated mobile bundle
+        run: npm run build:mobile
+
+
       - name: Production build
         run: npm run build
 
