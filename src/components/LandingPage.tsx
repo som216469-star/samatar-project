@@ -9,7 +9,10 @@ import {
   ChevronDown,
   GraduationCap,
   LayoutDashboard,
+  Mail,
   Menu,
+  MessageCircle,
+  Phone,
   ShieldCheck,
   Sparkles,
   Users,
@@ -420,6 +423,56 @@ export default function LandingPage({
             </div>
           </div>
         </section>
+
+        <section className="public-section public-contact" id="contact">
+          <div className="public-container">
+            <div className="public-contact-heading">
+              <div className="public-eyebrow"><span className="public-eyebrow-dot" /> CONTACT US</div>
+              <h2>Su'aal ma qabtaa?<br /><span>Waan kula joognaa.</span></h2>
+              <p>Nala soo xiriir si aad wax uga ogaato DUGSI PRO, una hesho caawimaad ama macluumaad dheeraad ah.</p>
+            </div>
+
+            <div className="public-contact-grid">
+              <a className="public-contact-card public-contact-whatsapp" href="https://wa.me/252636270866" target="_blank" rel="noreferrer" aria-label="Nagala soo xiriir WhatsApp">
+                <span className="public-contact-icon"><MessageCircle size={22} /></span>
+                <span className="public-contact-label">WHATSAPP</span>
+                <strong>+252 63 6270866</strong>
+                <small>Farriin noo soo dir WhatsApp</small>
+                <span className="public-contact-action">WhatsApp kala xiriir <ArrowUpRight size={15} /></span>
+              </a>
+
+              <a className="public-contact-card" href="tel:+252636270866" aria-label="Wac Telesom">
+                <span className="public-contact-icon"><Phone size={22} /></span>
+                <span className="public-contact-label">TELESOM</span>
+                <strong>+252 63 6270866</strong>
+                <small>Telefoonka Telesom</small>
+                <span className="public-contact-action">Hadda wac <ArrowRight size={15} /></span>
+              </a>
+
+              <a className="public-contact-card" href="tel:+252656270866" aria-label="Wac Somtel">
+                <span className="public-contact-icon"><Phone size={22} /></span>
+                <span className="public-contact-label">SOMTEL</span>
+                <strong>+252 65 6270866</strong>
+                <small>Telefoonka Somtel</small>
+                <span className="public-contact-action">Hadda wac <ArrowRight size={15} /></span>
+              </a>
+
+              <a className="public-contact-card public-contact-email" href="mailto:dugsipro1@gmail.com" aria-label="Email u dir DUGSI PRO">
+                <span className="public-contact-icon"><Mail size={22} /></span>
+                <span className="public-contact-label">EMAIL</span>
+                <strong>dugsipro1@gmail.com</strong>
+                <small>Nagu soo dir email</small>
+                <span className="public-contact-action">Email noo dir <ArrowUpRight size={15} /></span>
+              </a>
+            </div>
+
+            <div className="public-contact-bottom">
+              <span className="public-contact-bottom-icon"><ShieldCheck size={18} /></span>
+              <span><strong>Si toos ah noola xiriir.</strong><small>Dooro habka adiga kuugu habboon—WhatsApp, telefoon ama email.</small></span>
+            </div>
+          </div>
+        </section>
+
       </main>
 
       <footer className="public-footer">
@@ -433,7 +486,7 @@ export default function LandingPage({
               <p>Qalab mideysan oo loogu talagalay maareynta hawlaha dugsiga.</p>
             </div>
             <div className="public-footer-col"><b>NIDAAMKA</b><a href="#features" onClick={(event) => { event.preventDefault(); goTo('features'); }}>Astaamaha</a><a href="#how-it-works" onClick={(event) => { event.preventDefault(); goTo('how-it-works'); }}>Sida uu u shaqeeyo</a><a href="#access" onClick={(event) => { event.preventDefault(); goTo('access'); }}>Gelitaanka</a></div>
-            <div className="public-footer-col"><b>AKOONKA</b><button onClick={() => navigate('login')}>Gal akoonka</button><button onClick={() => navigate('signup')}>Bilow dejinta</button><a href="#faq" onClick={(event) => { event.preventDefault(); goTo('faq'); }}>Su'aalaha</a></div>
+            <div className="public-footer-col"><b>AKOONKA</b><a href="#contact" onClick={(event) => { event.preventDefault(); goTo('contact'); }}>Contact Us</a><button onClick={() => navigate('login')}>Gal akoonka</button><button onClick={() => navigate('signup')}>Bilow dejinta</button><a href="#faq" onClick={(event) => { event.preventDefault(); goTo('faq'); }}>Su'aalaha</a></div>
           </div>
           <div className="public-footer-bottom">
             <span>© 2026 DUGSI PRO. Dhammaan xuquuqdu way dhawran tahay.</span>

@@ -1458,3 +1458,57 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .public-site *, .public-site *::before, .public-site *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
+
+
+/* DUGSI PRO contact section */
+.public-site .public-contact {
+  padding-top: 88px;
+  padding-bottom: 96px;
+  border-top: 1px solid rgba(171,199,215,.08);
+  background: linear-gradient(180deg, rgba(9,27,42,.55), rgba(7,18,31,0));
+}
+.public-site .public-contact-heading { max-width: 700px; margin: 0 0 35px; }
+.public-site .public-contact-heading h2 {
+  margin: 18px 0 14px; color: #f1faff; font-family: "Syne", sans-serif;
+  font-size: clamp(32px, 3.6vw, 45px); line-height: 1.16; letter-spacing: -.055em;
+  font-weight: 800; text-transform: none;
+}
+.public-site .public-contact-heading h2 span { color: var(--public-brand); }
+.public-site .public-contact-heading p { max-width: 600px; margin: 0; color: var(--public-muted); font-size: 14px; line-height: 1.85; }
+.public-site .public-contact-grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 13px; }
+.public-site .public-contact-card {
+  min-width: 0; display: flex; flex-direction: column; align-items: flex-start;
+  padding: 22px 18px 19px; border: 1px solid var(--public-line); border-radius: 17px;
+  background: linear-gradient(145deg, rgba(17,39,57,.82), rgba(10,27,42,.78));
+  transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
+}
+.public-site .public-contact-card:hover { transform: translateY(-3px); border-color: var(--public-line-strong); background: linear-gradient(145deg, rgba(20,47,65,.96), rgba(10,27,42,.9)); }
+.public-site .public-contact-card:focus-visible { outline: 2px solid var(--public-brand); outline-offset: 4px; }
+.public-site .public-contact-icon {
+  width: 45px; height: 45px; display: grid; place-items: center; margin-bottom: 19px;
+  border: 1px solid rgba(34,211,238,.19); border-radius: 13px; color: var(--public-brand); background: rgba(34,211,238,.085);
+}
+.public-site .public-contact-whatsapp .public-contact-icon { color: #6ee7b7; border-color: rgba(110,231,183,.2); background: rgba(16,185,129,.1); }
+.public-site .public-contact-label { color: #7492a3; font-size: 9px; font-weight: 800; letter-spacing: .16em; }
+.public-site .public-contact-card strong { display: block; margin-top: 7px; color: #eaf7fc; font-size: 14px; line-height: 1.45; letter-spacing: -.02em; overflow-wrap: anywhere; }
+.public-site .public-contact-card small { display: block; margin-top: 6px; color: #90aab7; font-size: 10px; line-height: 1.7; }
+.public-site .public-contact-action { display: inline-flex; align-items: center; gap: 7px; margin-top: auto; padding-top: 20px; color: var(--public-brand); font-size: 10px; font-weight: 800; }
+.public-site .public-contact-bottom { display: flex; align-items: center; gap: 12px; margin-top: 22px; padding: 16px 18px; border: 1px solid var(--public-line); border-radius: 13px; background: rgba(255,255,255,.018); }
+.public-site .public-contact-bottom-icon { width: 36px; height: 36px; flex: 0 0 36px; display: grid; place-items: center; border-radius: 10px; color: var(--public-brand); background: rgba(34,211,238,.09); }
+.public-site .public-contact-bottom strong { display: block; color: #dcebf1; font-size: 11px; }
+.public-site .public-contact-bottom small { display: block; margin-top: 3px; color: #87a2b0; font-size: 10px; line-height: 1.6; }
+@media (max-width: 860px) {
+  .public-site .public-contact { padding-top: 72px; padding-bottom: 78px; }
+  .public-site .public-contact-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+}
+@media (max-width: 560px) {
+  .public-site .public-contact { padding-top: 62px; padding-bottom: 60px; }
+  .public-site .public-contact-heading { margin-bottom: 25px; }
+  .public-site .public-contact-heading h2 { font-size: clamp(30px, 8.2vw, 38px); }
+  .public-site .public-contact-heading p { font-size: 12px; }
+  .public-site .public-contact-grid { grid-template-columns: 1fr; gap: 10px; }
+  .public-site .public-contact-card { padding: 18px; min-height: 0; }
+  .public-site .public-contact-icon { margin-bottom: 13px; }
+  .public-site .public-contact-action { padding-top: 14px; }
+  .public-site .public-contact-bottom { align-items: flex-start; padding: 13px; }
+}
