@@ -23,6 +23,7 @@ DECLARE
   v_primary_key text;
   v_sql text;
   v_affected integer;
+  v_update_columns text[];
 BEGIN
   IF p_school_id IS NULL OR btrim(p_school_id) = '' THEN
     RAISE EXCEPTION 'A verified school_id is required' USING ERRCODE = '42501';
@@ -121,6 +122,16 @@ BEGIN
       RAISE EXCEPTION 'Settings key is required' USING ERRCODE = '22023';
     END IF;
 
+    -- Insert rows carry the complete record; conflict updates only mutate
+    -- columns changed by this request, avoiding lost updates from stale snapshots.
+    IF v_change ? 'update_columns' THEN
+      SELECT COALESCE(array_agg(value), ARRAY[]::text[])
+      INTO v_update_columns
+      FROM jsonb_array_elements_text(v_change->'update_columns') AS requested(value);
+    ELSE
+      v_update_columns := NULL;
+    END IF;
+
     -- Only actual columns on the selected public table are accepted. Keys and
     -- values are derived from JSON, but identifiers are quoted via format().
     SELECT
@@ -135,6 +146,7 @@ BEGIN
       ) FILTER (
         WHERE NOT (a.attname = ANY(string_to_array(v_primary_key, ',')))
         AND a.attname <> 'school_id'
+        AND (v_update_columns IS NULL OR a.attname = ANY(v_update_columns))
       )
     INTO v_columns, v_select_values, v_updates
     FROM jsonb_object_keys(v_row) WITH ORDINALITY AS k(key, ordinality)
