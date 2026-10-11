@@ -1,54 +1,34 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-labelledby="title desc">
+  <title id="title">DUGSI PRO</title>
+  <desc id="desc">Graduation cap and open book in cyan and white on deep navy.</desc>
   <defs>
-    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#0a0a0c" />
-      <stop offset="50%" stop-color="#181326" />
-      <stop offset="100%" stop-color="#0a0a0c" />
+    <linearGradient id="cyan" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#67e8f9"/>
+      <stop offset=".52" stop-color="#22d3ee"/>
+      <stop offset="1" stop-color="#0ea5b7"/>
     </linearGradient>
-    <linearGradient id="primaryGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#c4b5fd" />
-      <stop offset="50%" stop-color="#8b5cf6" />
-      <stop offset="100%" stop-color="#6d28d9" />
+    <linearGradient id="page" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#d7f8ff"/>
     </linearGradient>
-    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#fbbf24" />
-      <stop offset="100%" stop-color="#d97706" />
-    </linearGradient>
-    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="16" result="blur" />
-      <feComposite in="SourceGraphic" in2="blur" operator="over" />
-    </filter>
+    <radialGradient id="halo">
+      <stop offset="0" stop-color="#0e7490" stop-opacity=".48"/>
+      <stop offset="1" stop-color="#071827" stop-opacity="0"/>
+    </radialGradient>
   </defs>
-
-  <!-- Background with rounded squircle -->
-  <rect width="512" height="512" rx="108" fill="url(#bgGrad)" />
-  <rect width="508" height="508" x="2" y="2" rx="106" fill="none" stroke="#ffffff15" stroke-width="2" />
-
-  <!-- Subtle glow backdrop -->
-  <circle cx="256" cy="256" r="140" fill="#7c3aed" opacity="0.25" filter="url(#glow)" />
-
-  <!-- Shield Shape / Emblem -->
-  <g transform="translate(0, -10)">
-    <!-- Graduation Cap / Diamond crest -->
-    <polygon points="256,120 400,192 256,264 112,192" fill="url(#primaryGrad)" />
-    <!-- Tassel -->
-    <path d="M 370,210 L 370,285 A 12,12 0 0,1 364,297 L 364,320" fill="none" stroke="url(#goldGrad)" stroke-width="6" stroke-linecap="round" />
-    <circle cx="364" cy="324" r="7" fill="url(#goldGrad)" />
-    
-    <!-- Open Book / Foundation Base -->
-    <path d="M 148,272 L 256,316 L 364,272 L 364,342 L 256,386 L 148,342 Z" fill="#ffffff" opacity="0.1" />
-    <path d="M 256,316 L 256,386" stroke="#ffffff30" stroke-width="4" stroke-linecap="round" />
-    
-    <!-- Left page curve -->
-    <path d="M 152,284 Q 204,296 252,316 L 252,374 Q 204,354 152,342 Z" fill="url(#primaryGrad)" opacity="0.85" />
-    <!-- Right page curve -->
-    <path d="M 360,284 Q 308,296 260,316 L 260,374 Q 308,354 360,342 Z" fill="url(#primaryGrad)" />
-
-    <!-- Core Star / Sparkle of Excellence -->
-    <polygon points="256,160 262,176 278,182 262,188 256,204 250,188 234,182 250,176" fill="#ffffff" />
+  <rect width="512" height="512" rx="108" fill="#071827"/>
+  <rect x="8" y="8" width="496" height="496" rx="100" fill="none" stroke="#174054" stroke-width="3"/>
+  <circle cx="256" cy="244" r="190" fill="url(#halo)"/>
+  <circle cx="256" cy="244" r="188" fill="none" stroke="url(#cyan)" stroke-width="10"/>
+  <g transform="translate(0 6)">
+    <path d="M132 182 256 120 380 182 256 244Z" fill="url(#cyan)"/>
+    <path d="M164 200v45q92 40 184 0v-45l-92 46Z" fill="#0ea5b7" opacity=".62"/>
+    <path d="M370 188v73" fill="none" stroke="#22d3ee" stroke-width="7" stroke-linecap="round"/>
+    <path d="M370 260c-14 0-19 10-19 20s8 18 19 18 19-8 19-18-5-20-19-20Z" fill="url(#cyan)"/>
+    <path d="M116 259c50-7 98 6 140 32 42-26 90-39 140-32l-10 28c-46-3-88 11-130 39v65c-44-29-88-44-134-40Z" fill="url(#page)"/>
+    <path d="M104 301c52-9 103 7 152 38v68c-49-32-99-45-142-38Z" fill="url(#cyan)"/>
+    <path d="M408 301c-52-9-103 7-152 38v68c49-32 99-45 142-38Z" fill="url(#cyan)"/>
+    <path d="M256 339v68" fill="none" stroke="#071827" stroke-width="7" stroke-linecap="round" opacity=".92"/>
   </g>
-
-  <!-- Typography: DUGSI PRO -->
-  <text x="256" y="440" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="34" font-weight="900" letter-spacing="7" fill="#f5f5f5">DUGSI PRO</text>
-  <text x="256" y="468" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="14" font-weight="600" letter-spacing="6" fill="#a78bfa">2026 EDITION</text>
+  <path d="M256 155 263 175 284 182 263 189 256 210 249 189 228 182 249 175Z" fill="#ffffff" opacity=".95"/>
 </svg>
