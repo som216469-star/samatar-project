@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import type express from "express";
 import { generateSecureToken, getAuthenticatedUser } from "./authSession.ts";
 import { sendTeacherInvitationEmail } from "./emailService.ts";
