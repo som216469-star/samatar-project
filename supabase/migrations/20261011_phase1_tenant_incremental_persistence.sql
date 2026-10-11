@@ -167,7 +167,8 @@ BEGIN
     );
 
     EXECUTE v_sql INTO v_affected USING v_row;
-    IF NOT FOUND THEN
+    GET DIAGNOSTICS v_affected = ROW_COUNT;
+    IF v_affected = 0 THEN
       RAISE EXCEPTION 'Tenant conflict while saving row to %', v_table
         USING ERRCODE = '42501';
     END IF;
