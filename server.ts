@@ -444,8 +444,8 @@ function buildTenantChanges(previous: LocalDB, next: LocalDB, context: TenantDBC
     if (!context.loadedCollections.has(binding.collection) || binding.readOnly) continue;
     const previousRows = Array.isArray((previous as any)[binding.collection]) ? (previous as any)[binding.collection] as Array<Record<string, any>> : [];
     const nextRows = Array.isArray((next as any)[binding.collection]) ? (next as any)[binding.collection] as Array<Record<string, any>> : [];
-    const previousByKey = new Map(previousRows.map((row) => [getRowKey(row, binding), row]));
-    const nextByKey = new Map(nextRows.map((row) => [getRowKey(row, binding), row]));
+    const previousByKey = new Map<string, Record<string, any>>(previousRows.map((row): [string, Record<string, any>] => [getRowKey(row, binding), row]));
+    const nextByKey = new Map<string, Record<string, any>>(nextRows.map((row): [string, Record<string, any>] => [getRowKey(row, binding), row]));
     for (const [key, row] of nextByKey) {
       if (!key || key.split("\u001f").some((part) => !part)) throw new Error("A record is missing its stable key; the change was rejected.");
       const old = previousByKey.get(key);
