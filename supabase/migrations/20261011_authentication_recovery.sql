@@ -4,7 +4,10 @@
 ALTER TABLE public.dugsiga_users
   ADD COLUMN IF NOT EXISTS password_reset_token_hash text,
   ADD COLUMN IF NOT EXISTS password_reset_expires_at timestamptz,
-  ADD COLUMN IF NOT EXISTS password_changed_at timestamptz;
+  ADD COLUMN IF NOT EXISTS password_changed_at timestamptz,
+  ADD COLUMN IF NOT EXISTS email_verification_token_hash text,
+  ADD COLUMN IF NOT EXISTS email_verification_expires_at timestamptz,
+  ADD COLUMN IF NOT EXISTS email_verified_at timestamptz;
 
 -- Reset tokens are stored as SHA-256 hashes only. Index pending tokens for
 -- low-cost, one-time redemption; expired/used tokens are cleared by the API.
