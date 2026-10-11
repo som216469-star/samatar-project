@@ -82,8 +82,8 @@ const extraModules = [
 
 const faqs = [
   {
-    question: 'Yaa loogu talagalay DUGSI PRO?',
-    answer: 'DUGSI PRO waxaa loogu talagalay maamulka dugsiga iyo macallimiinta. Shaqooyinka maalinlaha ah waxaa lagu habeeyaa qaybo isku xiran si kooxda dugsigu ugu shaqeyso si nidaamsan.',
+    question: 'Yaa loogu talagalay QUANTORA?',
+    answer: 'QUANTORA waxaa loogu talagalay maamulka dugsiga iyo macallimiinta. Shaqooyinka maalinlaha ah waxaa lagu habeeyaa qaybo isku xiran si kooxda dugsigu ugu shaqeyso si nidaamsan.',
   },
   {
     question: 'Ardayda ama waalidiintu ma leeyihiin login?',
@@ -134,7 +134,7 @@ export default function LandingPage({
           <a
             href="#top"
             className="public-brand"
-            aria-label="DUGSI PRO — bogga hore"
+            aria-label="QUANTORA — bogga hore"
             onClick={(event) => {
               event.preventDefault();
               window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -142,7 +142,7 @@ export default function LandingPage({
           >
             <span className="public-brand-mark" aria-hidden="true"><img src="/brand-mark.svg" alt="" /></span>
             <span className="public-brand-copy">
-              <strong>DUGSI PRO</strong>
+              <strong>QUANTORA</strong>
               <small>MAAMULKA DUGSIYADA</small>
             </span>
           </a>
@@ -194,7 +194,7 @@ export default function LandingPage({
               <div className="public-eyebrow"><span className="public-eyebrow-dot" /> HAL NIDAAM • SHAQOOYIN ISKU XIRAN</div>
               <h1>Maamul dugsigaaga.<span> Hal meel. Si cad.</span></h1>
               <p className="public-hero-lead">
-                DUGSI PRO wuxuu isku keenaa xogta ardayda, xaadirinta, maaliyadda,
+                QUANTORA wuxuu isku keenaa xogta ardayda, xaadirinta, maaliyadda,
                 waxbarashada iyo shaqaalaha—si hawlaha dugsigaagu u noqdaan kuwo
                 sahlan in la habeeyo lana raaco.
               </p>
@@ -219,7 +219,7 @@ export default function LandingPage({
                 <div className="public-window-top">
                   <div className="public-window-brand">
                     <span className="public-window-icon"><LayoutDashboard size={15} /></span>
-                    <span>DUGSI PRO <small>WORKSPACE</small></span>
+                    <span>QUANTORA <small>WORKSPACE</small></span>
                   </div>
                   <span className="public-demo-pill"><span /> MUUQAAL TUSAALE AH</span>
                 </div>
@@ -387,7 +387,7 @@ export default function LandingPage({
             <div className="public-faq-intro">
               <div className="public-eyebrow"><span className="public-eyebrow-dot" /> SU'AALO BADAN LA IS WEYDIIYO</div>
               <h2>Waxyaabaha aad<br /><span>rabto inaad ogaato.</span></h2>
-              <p>Faahfaahin kooban oo ku saabsan isticmaalka iyo qaybaha DUGSI PRO.</p>
+              <p>Faahfaahin kooban oo ku saabsan isticmaalka iyo qaybaha QUANTORA.</p>
               <div className="public-faq-help"><span><ShieldCheck size={19} /></span><div><b>Gelitaan cad</b><small>Habka koontooyinka waxaa maamula nidaamka gelitaanka.</small></div></div>
             </div>
             <div className="public-faq-list">
@@ -411,7 +411,7 @@ export default function LandingPage({
             <div className="public-final-cta-glow" aria-hidden="true" />
             <span className="public-final-icon"><img src="/brand-mark.svg" alt="" /></span>
             <div className="public-final-copy">
-              <div className="public-eyebrow"><span className="public-eyebrow-dot" /> DUGSI PRO 2026</div>
+              <div className="public-eyebrow"><span className="public-eyebrow-dot" /> QUANTORA</div>
               <h2>Diyaar u ah inaad habayso<br /><span>shaqada dugsigaaga?</span></h2>
               <p>Ka bilow nidaamka, ama gal akoonkaaga haddii dugsigaagu hore u isticmaalo.</p>
             </div>
@@ -429,7 +429,7 @@ export default function LandingPage({
             <div className="public-contact-heading">
               <div className="public-eyebrow"><span className="public-eyebrow-dot" /> CONTACT US</div>
               <h2>Su'aal ma qabtaa?<br /><span>Waan kula joognaa.</span></h2>
-              <p>Nala soo xiriir si aad wax uga ogaato DUGSI PRO, una hesho caawimaad ama macluumaad dheeraad ah.</p>
+              <p>Nala soo xiriir si aad wax uga ogaato QUANTORA, una hesho caawimaad ama macluumaad dheeraad ah.</p>
             </div>
 
             <div className="public-contact-grid">
@@ -457,7 +457,7 @@ export default function LandingPage({
                 <span className="public-contact-action">Hadda wac <ArrowRight size={15} /></span>
               </a>
 
-              <a className="public-contact-card public-contact-email" href="mailto:dugsipro1@gmail.com" aria-label="Email u dir DUGSI PRO">
+              <a className="public-contact-card public-contact-email" href="mailto:dugsipro1@gmail.com" aria-label="Email u dir QUANTORA">
                 <span className="public-contact-icon"><Mail size={22} /></span>
                 <span className="public-contact-label">EMAIL</span>
                 <strong>dugsipro1@gmail.com</strong>
@@ -481,7 +481,7 @@ export default function LandingPage({
             <div className="public-footer-brand">
               <a href="#top" className="public-brand" onClick={(event) => { event.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
                 <span className="public-brand-mark" aria-hidden="true"><img src="/brand-mark.svg" alt="" /></span>
-                <span className="public-brand-copy"><strong>DUGSI PRO</strong><small>MAAMULKA DUGSIYADA</small></span>
+                <span className="public-brand-copy"><strong>QUANTORA</strong><small>MAAMULKA DUGSIYADA</small></span>
               </a>
               <p>Qalab mideysan oo loogu talagalay maareynta hawlaha dugsiga.</p>
             </div>
@@ -489,7 +489,7 @@ export default function LandingPage({
             <div className="public-footer-col"><b>AKOONKA</b><a href="#contact" onClick={(event) => { event.preventDefault(); goTo('contact'); }}>Contact Us</a><button onClick={() => navigate('login')}>Gal akoonka</button><button onClick={() => navigate('signup')}>Bilow dejinta</button><a href="#faq" onClick={(event) => { event.preventDefault(); goTo('faq'); }}>Su'aalaha</a></div>
           </div>
           <div className="public-footer-bottom">
-            <span>© 2026 DUGSI PRO. Dhammaan xuquuqdu way dhawran tahay.</span>
+            <span>© 2026 QUANTORA. Dhammaan xuquuqdu way dhawran tahay.</span>
             <span className="public-footer-status"><span /> Nidaam maamul dugsi</span>
           </div>
         </div>
