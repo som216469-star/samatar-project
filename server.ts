@@ -458,8 +458,8 @@ function buildTenantChanges(previous: LocalDB, next: LocalDB, context: TenantDBC
     }
   }
   if (context.settingsLoaded) {
-    const beforeSettings = (previous.settings || {})[context.schoolId] ?? null;
-    const afterSettings = (next.settings || {})[context.schoolId] ?? null;
+    const beforeSettings = previous.settings ?? null;
+    const afterSettings = next.settings ?? null;
     if (JSON.stringify(beforeSettings) !== JSON.stringify(afterSettings)) {
       changes.push(afterSettings === null
         ? { table: "dugsiga_settings", operation: "delete", row: { school_id: context.schoolId, key: "main_settings" } }
@@ -520,7 +520,7 @@ async function loadTenantDB(schoolId: string, requestPath: string): Promise<{ db
       .eq("school_id", schoolId).eq("key", "main_settings").maybeSingle();
     if (error) throw error;
     const schoolName = schoolId.includes("@") ? schoolId.split("@")[0].toUpperCase() : "Dugsiga Pro 2026";
-    (db.settings as any)[schoolId] = data?.value && typeof data.value === "object"
+    db.settings = data?.value && typeof data.value === "object"
       ? data.value : { ...defaultSettings, schoolName };
   }
   return { db, loadedCollections: requested, settingsLoaded };
