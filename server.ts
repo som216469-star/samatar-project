@@ -600,10 +600,37 @@ async function checkSupabaseStatus() {
     const settingsExist = await testSupabaseTable("dugsiga_settings", "school_id");
     const usersExist = await testSupabaseTable("dugsiga_users", "email");
     
-    if (!studentsExist || !attendanceExists || !classesExist || !subjectsExist || !examsExist || !feesExist || !settingsExist || !usersExist) {
+    const tableChecks: Record<string, boolean> = {
+      dugsiga_students: studentsExist,
+      dugsiga_attendance: attendanceExists,
+      dugsiga_classes: classesExist,
+      dugsiga_subjects: subjectsExist,
+      dugsiga_exam_scores: examsExist,
+      dugsiga_fees: feesExist,
+      dugsiga_settings: settingsExist,
+      dugsiga_users: usersExist
+    };
+    const failedTableChecks = Object.entries(tableChecks)
+      .filter(([, ok]) => !ok)
+      .map(([tableName]) => tableName);
+
+    if (failedTableChecks.length > 0) {
       useLocalFallback = true;
       customSupabaseActive = false;
-      console.log("Supabase tables missing, outdated, or incomplete. Operating in local database mode.");
+      const configuredServerKey = sanitizeEnvValue(
+        process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || ""
+      );
+      const activeKeyKind =
+        configuredServerKey && !configuredServerKey.startsWith("sb_publish")
+          ? (configuredServerKey.startsWith("sb_secret_") ? "secret_api_key" : "legacy_privileged_key")
+          : (process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY
+              ? "publishable_or_anon_key"
+              : "missing");
+      console.error("Supabase Data API checks failed; cloud persistence is disabled.", {
+        failedTableChecks,
+        activeKeyKind,
+        supabaseUrlConfigured: Boolean(supabaseUrl)
+      });
       return;
     }
 
@@ -2076,12 +2103,13 @@ app.use("/api", (req, res, next) => {
 });
 
 app.use("/api", (req, res, next) => {
-  if (!req.path.startsWith("/students")) return next();
-
-  if (useLocalFallback && process.env.NODE_ENV === "production") {
+  // Do not report success while production writes would be stored only in
+  // ephemeral local files. Keep the status endpoint available for diagnosis.
+  const isDatabaseStatusRoute = req.path === "/db/status";
+  if (useLocalFallback && process.env.NODE_ENV === "production" && !isDatabaseStatusRoute) {
     return res.status(503).json({
-      error:
-        "Student cloud service-ku offline fallback ayuu galay. Xogta lama qori doono si looga fogaado data split-brain."
+      error: "Cloud database-ku diyaar ma aha. Xogta lama kaydin. Fadlan la xiriir maamulka si Supabase connection-ka loo saxo.",
+      code: "DATABASE_UNAVAILABLE"
     });
   }
 
