@@ -12,9 +12,17 @@ const app = read("../src/App.tsx");
 const routeConfig = read("../src/app/routeConfig.ts");
 const migration = read("../supabase/migrations/20261011_authentication_recovery.sql");
 const activation = read("../src/features/teacher/TeacherActivationPage.tsx");
+const verificationPage = read("../src/features/auth/EmailVerificationPage.tsx");
 
 assert.ok(server.includes('app.post("/api/auth/forgot-password"'), "forgot-password endpoint exists");
 assert.ok(server.includes('app.post("/api/auth/reset-password"'), "reset-password endpoint exists");
+assert.ok(server.includes('app.post("/api/auth/verify-email"'), "email verification endpoint exists");
+assert.ok(server.includes('app.post("/api/auth/resend-verification"'), "verification resend endpoint exists");
+assert.ok(verificationPage.includes("/api/auth/verify-email"), "verification page uses server verification endpoint");
+assert.ok(verificationPage.includes("/api/auth/resend-verification"), "verification page supports resend");
+assert.ok(server.includes("if (cloudUser.verified === false)"), "unverified cloud accounts cannot log in");
+assert.ok(server.includes("requiresEmailVerification"), "signup advertises when verification is required");
+assert.ok(app.includes("payload.requiresEmailVerification"), "frontend routes unverified signup to verification UI");
 assert.ok(server.includes("password_reset_token_hash"), "reset tokens are persisted as hashes");
 assert.ok(server.includes("setSessionCookie(req, res, sessionToken)"), "successful signup issues a server session cookie");
 assert.ok(server.includes("if (!cloudUser)"), "cloud login rejects accounts missing from the source of truth");
