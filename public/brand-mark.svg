@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-labelledby="title desc">
-  <title id="title">Quantora</title>
-  <desc id="desc">Quantora's cyan circular Q mark on a deep navy rounded square.</desc>
+  <title id="title">Quantora Q mark</title>
+  <desc id="desc">A single luminous cyan Q symbol on a deep navy rounded square.</desc>
   <defs>
     <linearGradient id="quantora-cyan" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#12f5ef"/>
@@ -16,6 +16,5 @@
   <rect x="2" y="2" width="508" height="508" rx="106" fill="none" stroke="#071a31" stroke-width="3"/>
   <circle cx="256" cy="256" r="208" fill="url(#quantora-halo)"/>
   <circle cx="256" cy="256" r="169" fill="none" stroke="url(#quantora-cyan)" stroke-width="22"/>
-  <circle cx="256" cy="250" r="79" fill="none" stroke="url(#quantora-cyan)" stroke-width="20"/>
   <path d="M237 238 L255 220 L426 391 L408 409 Z" fill="url(#quantora-cyan)"/>
 </svg>
