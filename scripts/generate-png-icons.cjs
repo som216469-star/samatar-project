@@ -58,7 +58,7 @@ function pointInPolygon(x, y, points) {
   return inside;
 }
 
-function createPNG(width, height, fullBleed = true) {
+function createPNG(width, height, fullBleed = true, launcherFrame = false) {
   // 3x3 supersampling makes the circular strokes smooth even for small favicons.
   const samples = 3;
   const rowStride = 1 + width * 4;
@@ -103,6 +103,29 @@ function createPNG(width, height, fullBleed = true) {
           }
 
           if (alpha > 0) {
+            // Launcher/home-screen icon uses the cyan rounded-square frame
+            // around the Q, while brand logo assets remain just the Q symbol.
+            if (launcherFrame) {
+              const inset = width * 0.045;
+              const halfW = cx - inset;
+              const halfH = cy - inset;
+              const corner = width * 0.19;
+              const rx = Math.abs(dx) - (halfW - corner);
+              const ry = Math.abs(dy) - (halfH - corner);
+              const roundedRectDistance =
+                Math.sqrt(Math.max(rx, 0) ** 2 + Math.max(ry, 0) ** 2) +
+                Math.min(Math.max(rx, ry), 0) - corner;
+              const borderDistance = Math.abs(roundedRectDistance);
+              const isFrameOuter = borderDistance <= width * 0.008;
+              const frameGlow = borderDistance <= width * 0.022;
+              if (frameGlow && !isFrameOuter) {
+                r = Math.round(r * 0.74);
+                g = Math.round(g * 0.74);
+                b = Math.round(Math.min(255, b + 13));
+              }
+              if (isFrameOuter) [r, g, b] = quantoraCyan(py, height);
+            }
+
             const outerDistance = Math.abs(distance - outerRadius);
             const innerDx = px - cx;
             const innerDy = py - innerCy;
@@ -199,7 +222,7 @@ for (const icon of iconOutputs) {
   if (icon.file.startsWith('android/') || icon.file.startsWith('ios/')) {
     if (!fs.existsSync(path.dirname(outputPath))) continue;
   }
-  const buffer = createPNG(icon.size, icon.size, icon.fullBleed);
+  const buffer = createPNG(icon.size, icon.size, icon.fullBleed, true);
   fs.writeFileSync(outputPath, buffer);
   console.log('Generated ' + icon.file + ' (' + icon.size + 'x' + icon.size + ', ' + buffer.length + ' bytes)');
 }
