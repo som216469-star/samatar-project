@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="540dp"
+    android:height="1350dp"
+    android:viewportWidth="540"
+    android:viewportHeight="1350">
+    <!-- Full black canvas with the navy center band from the approved splash reference. -->
+    <path android:fillColor="#000000" android:pathData="M0,0h540v1350h-540z"/>
+    <path android:fillColor="#040B1C" android:pathData="M0,315h540v540h-540z"/>
+    <!-- Rounded-square app tile. -->
+    <path android:fillColor="#06182B" android:pathData="M154,383h232a88,88 0,0 1,88 88v228a88,88 0,0 1,-88 88h-232a88,88 0,0 1,-88 -88v-228a88,88 0,0 1,88 -88z"/>
+    <!-- Official Quantora Q mark: outer ring, inner ring and diagonal tail. -->
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M270,455a140,140 0,1 1,0 280a140,140 0,1 1,0 -280z"
+        android:strokeColor="#12D9F2"
+        android:strokeWidth="24"/>
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M270,510a70,70 0,1 1,0 140a70,70 0,1 1,0 -140z"
+        android:strokeColor="#12D9F2"
+        android:strokeWidth="22"/>
+    <path
+        android:fillColor="#12C9F5"
+        android:pathData="M258,582 L290,550 L402,697 L370,697 Z"/>
+</vector>
