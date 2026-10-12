@@ -1628,3 +1628,65 @@ button, [role="button"], a {
     transition-duration: .01ms !important;
   }
 }
+
+
+/* Native Android/iOS startup cover matching the approved Quantora reference. */
+.quantora-launch-cover {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: #000;
+  opacity: 1;
+  transition: opacity 400ms ease;
+  pointer-events: all;
+}
+
+.quantora-launch-cover.is-hiding {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.quantora-launch-band {
+  width: 100%;
+  height: 46vh;
+  min-height: 300px;
+  max-height: 540px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #040b1c;
+}
+
+.quantora-launch-tile {
+  width: min(76vw, 410px);
+  aspect-ratio: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: visible;
+  border-radius: 22%;
+  background: linear-gradient(145deg, #06213a 0%, #06182b 64%, #041225 100%);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, .24), inset 0 1px 1px rgba(25, 194, 239, .045);
+}
+
+.quantora-launch-logo {
+  display: block;
+  width: 106%;
+  max-width: none;
+  height: auto;
+  overflow: visible;
+  filter: drop-shadow(0 0 2px rgba(18, 201, 245, .08));
+}
+
+@media (max-height: 650px) {
+  .quantora-launch-band { height: 58vh; min-height: 240px; }
+  .quantora-launch-tile { width: min(67vw, 320px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .quantora-launch-cover { transition: none; }
+}
