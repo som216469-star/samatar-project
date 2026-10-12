@@ -3,21 +3,19 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Bright cyan rounded-square frame from the approved home-screen icon. Keep inside the adaptive-icon safe area. -->
+    <!-- Inset rounded navy tile; the launcher applies its own icon mask outside it. -->
+    <path
+        android:fillColor="#06182B"
+        android:pathData="M34,10 H74 C87.25,10 98,20.75 98,34 V74 C98,87.25 87.25,98 74,98 H34 C20.75,98 10,87.25 10,74 V34 C10,20.75 20.75,10 34,10 Z"/>
+    <!-- Subtle cool-blue edge like the reference, not a bright cyan outline. -->
     <path
         android:fillColor="#00000000"
-        android:pathData="M37,17 H71 C82.05,17 91,25.95 91,37 V71 C91,82.05 82.05,91 71,91 H37 C25.95,91 17,82.05 17,71 V37 C17,25.95 25.95,17 37,17 Z"
-        android:strokeColor="#087FAF"
-        android:strokeWidth="3.2"/>
+        android:pathData="M34,11 H74 C86.7,11 97,21.3 97,34 V74 C97,86.7 86.7,97 74,97 H34 C21.3,97 11,86.7 11,74 V34 C11,21.3 21.3,11 34,11 Z"
+        android:strokeColor="#0A2943"
+        android:strokeWidth="1.5"/>
     <path
         android:fillColor="#00000000"
-        android:pathData="M37,19 H71 C80.95,19 89,27.05 89,37 V71 C89,80.95 80.95,89 71,89 H37 C27.05,89 19,80.95 19,71 V37 C19,27.05 27.05,19 37,19 Z"
-        android:strokeColor="#12D9F2"
-        android:strokeWidth="1.6"/>
-    <!-- Official Q mark: outer ring, inner ring, and diagonal tail. -->
-    <path
-        android:fillColor="#00000000"
-        android:pathData="M54,24 C70.57,24 84,37.43 84,54 C84,70.57 70.57,84 54,84 C37.43,84 24,70.57 24,54 C24,37.43 37.43,24 54,24 Z"
+        android:pathData="M54,25 C70.02,25 83,37.98 83,54 C83,70.02 70.02,83 54,83 C37.98,83 25,70.02 25,54 C25,37.98 37.98,25 54,25 Z"
         android:strokeColor="#12D9F2"
         android:strokeWidth="4.5"/>
     <path
