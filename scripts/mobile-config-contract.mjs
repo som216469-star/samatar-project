@@ -31,8 +31,11 @@ assert.ok(app.includes("isMobileBuild && publicRoute === 'landing'"), 'Native la
 assert.ok(authView.includes("import.meta.env.MODE !== 'mobile'"), 'Native auth view must hide the marketing homepage button');
 const launcherForeground = fs.readFileSync(new URL('../android/app/src/main/res/drawable-v24/ic_launcher_foreground.xml', import.meta.url), 'utf8');
 const iconGenerator = fs.readFileSync(new URL('../scripts/generate-png-icons.cjs', import.meta.url), 'utf8');
-assert.match(launcherForeground, /M37,17 H71/, 'Android home-screen icon must include the cyan rounded-square frame');
-assert.match(iconGenerator, /launcherFrame/, 'generated PWA and native launcher icons must include the frame');
+assert.match(launcherForeground, /android:fillColor="#06182B"/, 'Android home-screen icon must include the inset navy rounded tile');
+assert.match(launcherForeground, /strokeColor="#0A2943"/, 'launcher tile must use a subtle navy edge, not a cyan outer frame');
+assert.match(iconGenerator, /insideTile/, 'generated app icons must include the inset navy tile');
+assert.match(iconGenerator, /without a bright cyan frame/, 'generated app icons must avoid the old cyan frame');
+assert.doesNotMatch(iconGenerator, /isFrameOuter/, 'old bright cyan outer frame logic must be removed');
 assert.match(styles, /mobile-safe-bottom/);
 assert.match(styles, /prefers-reduced-motion/);
 
