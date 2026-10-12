@@ -29,6 +29,10 @@ assert.ok(app.includes("useState<PublicRouteId>(isMobileBuild ? 'login' : 'landi
 assert.ok(app.includes("if (publicRoute === 'landing' && !isMobileBuild)"), 'Marketing landing page must only render in browser builds');
 assert.ok(app.includes("isMobileBuild && publicRoute === 'landing'"), 'Native landing route must fall through to authentication');
 assert.ok(authView.includes("import.meta.env.MODE !== 'mobile'"), 'Native auth view must hide the marketing homepage button');
+const launcherForeground = fs.readFileSync(new URL('../android/app/src/main/res/drawable-v24/ic_launcher_foreground.xml', import.meta.url), 'utf8');
+const iconGenerator = fs.readFileSync(new URL('../scripts/generate-png-icons.cjs', import.meta.url), 'utf8');
+assert.match(launcherForeground, /M37,17 H71/, 'Android home-screen icon must include the cyan rounded-square frame');
+assert.match(iconGenerator, /launcherFrame/, 'generated PWA and native launcher icons must include the frame');
 assert.match(styles, /mobile-safe-bottom/);
 assert.match(styles, /prefers-reduced-motion/);
 
