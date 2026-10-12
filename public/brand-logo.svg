@@ -16,5 +16,6 @@
   <rect x="2" y="2" width="508" height="508" rx="106" fill="none" stroke="#071a31" stroke-width="3"/>
   <circle cx="256" cy="256" r="208" fill="url(#quantora-halo)"/>
   <circle cx="256" cy="256" r="169" fill="none" stroke="url(#quantora-cyan)" stroke-width="22"/>
+  <circle cx="256" cy="250" r="79" fill="none" stroke="url(#quantora-cyan)" stroke-width="20"/>
   <path d="M237 238 L255 220 L426 391 L408 409 Z" fill="url(#quantora-cyan)"/>
 </svg>
