@@ -68,6 +68,9 @@ function createPNG(width, height, fullBleed = true) {
   const scale = width / 512;
   const outerRadius = 169 * scale;
   const outerStroke = 22 * scale;
+  const innerRadius = 79 * scale;
+  const innerCy = 250 * scale;
+  const innerStroke = 20 * scale;
   const slash = [[237, 238], [255, 220], [426, 391], [408, 409]].map(([x, y]) => [x * scale, y * scale]);
 
   for (let y = 0; y < height; y++) {
@@ -101,11 +104,17 @@ function createPNG(width, height, fullBleed = true) {
 
           if (alpha > 0) {
             const outerDistance = Math.abs(distance - outerRadius);
+            const innerDx = px - cx;
+            const innerDy = py - innerCy;
+            const innerDistance = Math.sqrt(innerDx * innerDx + innerDy * innerDy);
             const isOuter = outerDistance <= outerStroke / 2;
+            const isInner = innerDistance <= innerRadius + innerStroke / 2
+              && innerDistance >= innerRadius - innerStroke / 2;
             const isSlash = pointInPolygon(px, py, slash);
 
-            // Paint a single Q ring and its diagonal tail.
+            // Match the official double-ring Q mark used in the approved icon reference.
             if (isOuter) [r, g, b] = quantoraCyan(py, height);
+            if (isInner) [r, g, b] = quantoraCyan(py, height);
             if (isSlash) [r, g, b] = quantoraCyan(py, height);
           }
 
