@@ -2,6 +2,19 @@ name: Build signed Quantora Android release APK
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - 'public/**'
+      - 'android/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'capacitor.config.*'
+      - 'vite.config.*'
+      - 'index.html'
+      - '.github/workflows/android-release-apk.yml'
 
 permissions:
   contents: read
