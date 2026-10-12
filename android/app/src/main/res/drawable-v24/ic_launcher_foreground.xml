@@ -3,17 +3,18 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+    <!-- Keep the Q entirely inside Android's adaptive-icon safe zone. -->
     <path
         android:fillColor="#00000000"
-        android:pathData="M54,18.5 C73.6,18.5 89.5,34.4 89.5,54 C89.5,73.6 73.6,89.5 54,89.5 C34.4,89.5 18.5,73.6 18.5,54 C18.5,34.4 34.4,18.5 54,18.5 Z"
+        android:pathData="M54,24 C70.57,24 84,37.43 84,54 C84,70.57 70.57,84 54,84 C37.43,84 24,70.57 24,54 C24,37.43 37.43,24 54,24 Z"
         android:strokeColor="#12D9F2"
-        android:strokeWidth="4.7"/>
-    <path
-        android:fillColor="#00000000"
-        android:pathData="M54,36 C63.4,36 71,43.6 71,53 C71,62.4 63.4,70 54,70 C44.6,70 37,62.4 37,53 C37,43.6 44.6,36 54,36 Z"
-        android:strokeColor="#12CFF4"
         android:strokeWidth="4.5"/>
     <path
+        android:fillColor="#00000000"
+        android:pathData="M54,40 C61.73,40 68,46.27 68,54 C68,61.73 61.73,68 54,68 C46.27,68 40,61.73 40,54 C40,46.27 46.27,40 54,40 Z"
+        android:strokeColor="#12CFF4"
+        android:strokeWidth="4.2"/>
+    <path
         android:fillColor="#12BFF7"
-        android:pathData="M49,46 L55,40 L91,76 L85,82 Z"/>
+        android:pathData="M48,47 L54,41 L82,69 L76,75 Z"/>
 </vector>
