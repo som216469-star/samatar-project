@@ -9,11 +9,6 @@
         android:strokeColor="#12D9F2"
         android:strokeWidth="4.7"/>
     <path
-        android:fillColor="#00000000"
-        android:pathData="M54,36 C63.4,36 71,43.6 71,53 C71,62.4 63.4,70 54,70 C44.6,70 37,62.4 37,53 C37,43.6 44.6,36 54,36 Z"
-        android:strokeColor="#12CFF4"
-        android:strokeWidth="4.5"/>
-    <path
         android:fillColor="#12BFF7"
         android:pathData="M49,46 L55,40 L91,76 L85,82 Z"/>
 </vector>
