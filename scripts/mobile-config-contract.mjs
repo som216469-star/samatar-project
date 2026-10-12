@@ -8,6 +8,7 @@ const apiClient = fs.readFileSync(new URL('../src/lib/apiClient.ts', import.meta
 const server = fs.readFileSync(new URL('../server.ts', import.meta.url), 'utf8');
 const env = fs.readFileSync(new URL('../.env.mobile', import.meta.url), 'utf8');
 const app = fs.readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
+const authView = fs.readFileSync(new URL('../src/features/auth/AuthView.tsx', import.meta.url), 'utf8');
 const styles = fs.readFileSync(new URL('../src/index.css', import.meta.url), 'utf8');
 
 assert.equal(capacitor.appId, 'com.dugsipro.app');
@@ -23,6 +24,11 @@ assert.match(server, /https:\/\/localhost/);
 assert.match(server, /isCapacitorClient\(req\)/);
 assert.match(app, /MODE === 'mobile' && publicRoute === 'signup'/, 'native signup must return to login instead of opening a tokenless dashboard');
 assert.match(app, /MODE === 'mobile' && !payload\.token/, 'native login must reject success responses without a bearer token');
+assert.ok(app.includes("const isMobileBuild = import.meta.env.MODE === 'mobile';"), 'App must distinguish native and browser routes');
+assert.ok(app.includes("useState<PublicRouteId>(isMobileBuild ? 'login' : 'landing')"), 'Native app must start at login; browser remains on the public landing page');
+assert.ok(app.includes("if (publicRoute === 'landing' && !isMobileBuild)"), 'Marketing landing page must only render in browser builds');
+assert.ok(app.includes("isMobileBuild && publicRoute === 'landing'"), 'Native landing route must fall through to authentication');
+assert.ok(authView.includes("import.meta.env.MODE !== 'mobile'"), 'Native auth view must hide the marketing homepage button');
 assert.match(styles, /mobile-safe-bottom/);
 assert.match(styles, /prefers-reduced-motion/);
 
