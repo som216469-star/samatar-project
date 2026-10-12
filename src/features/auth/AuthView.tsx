@@ -75,7 +75,13 @@ export const AuthView: React.FC<AuthViewProps> = ({
         {/* Left Institutional Context Column */}
         <div className="lg:col-span-7 p-8 sm:p-14 lg:p-20 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-[var(--color-border)] bg-[var(--color-surface-muted)]">
           <div className="space-y-6 max-w-xl">
-            <img src="/brand-logo.svg" alt="QUANTORA — School Management System" className="block w-60 max-w-full h-auto rounded-xl shadow-sm" />
+            <div className="flex items-center gap-4" aria-label="Quantora brand">
+              <img src="/brand-mark.svg" alt="Quantora Q logo" className="w-16 h-16 shrink-0 rounded-2xl shadow-sm" />
+              <div className="min-w-0">
+                <p className="text-xl sm:text-2xl font-extrabold tracking-tight text-[var(--color-text-primary)]">QUANTORA</p>
+                <p className="mt-1 text-[10px] sm:text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-muted)]">School Management Platform</p>
+              </div>
+            </div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--color-brand-soft)] border border-[var(--color-brand-border)] text-xs font-semibold text-[var(--color-brand)]">
               <ShieldCheck className="w-3.5 h-3.5" />
               <span>Enterprise School Management Platform</span>
