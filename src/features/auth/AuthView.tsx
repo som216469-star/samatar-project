@@ -60,14 +60,16 @@ export const AuthView: React.FC<AuthViewProps> = ({
           </div>
         </button>
 
-        <Button
-          variant="ghost"
-          size="sm"
-          icon={<ArrowLeft className="w-3.5 h-3.5" />}
-          onClick={onBackToLanding}
-        >
-          Back to Homepage
-        </Button>
+        {import.meta.env.MODE !== 'mobile' && (
+          <Button
+            variant="ghost"
+            size="sm"
+            icon={<ArrowLeft className="w-3.5 h-3.5" />}
+            onClick={onBackToLanding}
+          >
+            Back to Homepage
+          </Button>
+        )}
       </header>
 
       {/* Main Split Workspace */}

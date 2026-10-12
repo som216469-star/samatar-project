@@ -53,9 +53,12 @@ import { useInstitutionalData } from './hooks/useInstitutionalData';
 import { apiFetch } from './lib/apiClient';
 import { saveAuthSession, clearAuthSession, restoreAuthToken } from './lib/authStorage';
 
+// The public marketing landing page belongs to the browser website, not the native app.
+const isMobileBuild = import.meta.env.MODE === 'mobile';
+
 export default function App() {
   const [user, setUser] = useState<AuthUser | null>(null);
-  const [publicRoute, setPublicRoute] = useState<PublicRouteId>('landing');
+  const [publicRoute, setPublicRoute] = useState<PublicRouteId>(isMobileBuild ? 'login' : 'landing');
   const [activeTab, setActiveTab] = useState<AppTabId>('overview');
   const [studentSubSection, setStudentSubSection] = useState<StudentSubSection>('all');
   const [peopleSubSection, setPeopleSubSection] = useState<PeopleSubSection>('teachers');
@@ -138,20 +141,29 @@ export default function App() {
         saveAuthSession(restoredUser);
         setUser(restoredUser);
 
-        if (parsed.publicRoute === 'dashboard') {
+        // Native app opens directly into the workspace when its saved session is valid.
+        // A browser opening "/" continues to use the public marketing landing page.
+        if (parsed.publicRoute === 'dashboard' || (isMobileBuild && parsed.publicRoute === 'landing')) {
           setPublicRoute('dashboard');
-          setActiveTab(parsed.activeTab);
-          setStudentSubSection(parsed.studentSubSection);
-          setPeopleSubSection(parsed.peopleSubSection);
-          setFinanceSubSection(parsed.financeSubSection);
-          setAttendanceSubSection(parsed.attendanceSubSection);
+          setActiveTab(parsed.publicRoute === 'dashboard' ? parsed.activeTab : 'overview');
+          if (parsed.publicRoute === 'dashboard') {
+            setStudentSubSection(parsed.studentSubSection);
+            setPeopleSubSection(parsed.peopleSubSection);
+            setFinanceSubSection(parsed.financeSubSection);
+            setAttendanceSubSection(parsed.attendanceSubSection);
+          }
         } else {
           setPublicRoute(parsed.publicRoute);
         }
       } catch {
         clearAuthSession();
         setUser(null);
-        setPublicRoute(parsed.publicRoute === 'dashboard' ? 'login' : parsed.publicRoute);
+        // No-session native launches go to login, never to the marketing landing page.
+        setPublicRoute(
+          parsed.publicRoute === 'dashboard' || (isMobileBuild && parsed.publicRoute === 'landing')
+            ? 'login'
+            : parsed.publicRoute
+        );
       }
     };
 
@@ -165,11 +177,15 @@ export default function App() {
   useEffect(() => {
     const handlePopState = () => {
       const parsed = parseAppLocation(window.location.pathname, window.location.search);
-      if (parsed.publicRoute === 'dashboard' && !user) {
+      const nextRoute = isMobileBuild && parsed.publicRoute === 'landing' ? 'login' : parsed.publicRoute;
+      if (nextRoute === 'dashboard' && !user) {
         setPublicRoute('login');
         return;
       }
-      setPublicRoute(parsed.publicRoute);
+      if (isMobileBuild && parsed.publicRoute === 'landing') {
+        window.history.replaceState({}, '', '/login');
+      }
+      setPublicRoute(nextRoute);
       setActiveTab(parsed.activeTab);
       setStudentSubSection(parsed.studentSubSection);
       setPeopleSubSection(parsed.peopleSubSection);
@@ -183,8 +199,9 @@ export default function App() {
     void apiFetch('/api/auth/logout', { method: 'POST' }).catch(() => undefined);
     clearAuthSession();
     setUser(null);
-    setPublicRoute('landing');
-    window.history.pushState({}, '', '/');
+    const homeRoute = isMobileBuild ? 'login' : 'landing';
+    setPublicRoute(homeRoute);
+    window.history.pushState({}, '', isMobileBuild ? '/login' : '/');
   }, []);
 
   const data = useInstitutionalData({
@@ -280,7 +297,7 @@ export default function App() {
   };
 
   // Public Routes
-  if (publicRoute === 'landing') {
+  if (publicRoute === 'landing' && !isMobileBuild) {
     return (
       <LandingPage
         isAuthenticated={!!user}
@@ -318,7 +335,7 @@ export default function App() {
     );
   }
 
-  if (publicRoute === 'login' || publicRoute === 'signup' || !user) {
+  if (publicRoute === 'login' || publicRoute === 'signup' || !user || (isMobileBuild && publicRoute === 'landing')) {
     return (
       <AuthView
         authView={publicRoute === 'signup' ? 'signup' : 'login'}
@@ -335,8 +352,9 @@ export default function App() {
         authLoading={authLoading}
         onSubmit={handleAuthSubmit}
         onBackToLanding={() => {
-          setPublicRoute('landing');
-          window.history.pushState({}, '', '/');
+          const homeRoute = isMobileBuild ? 'login' : 'landing';
+          setPublicRoute(homeRoute);
+          window.history.pushState({}, '', isMobileBuild ? '/login' : '/');
         }}
         onForgotPassword={() =>
           showToast(
