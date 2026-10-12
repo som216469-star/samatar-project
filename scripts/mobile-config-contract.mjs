@@ -10,8 +10,11 @@ const env = fs.readFileSync(new URL('../.env.mobile', import.meta.url), 'utf8');
 const app = fs.readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
 const authView = fs.readFileSync(new URL('../src/features/auth/AuthView.tsx', import.meta.url), 'utf8');
 const styles = fs.readFileSync(new URL('../src/index.css', import.meta.url), 'utf8');
+const appGradle = fs.readFileSync(new URL('../android/app/build.gradle', import.meta.url), 'utf8');
 
 assert.equal(capacitor.appId, 'com.dugsipro.app');
+assert.match(appGradle, /versionCode 2/, 'launcher artwork update must ship as a higher Android version code');
+assert.match(appGradle, /versionName "1.1.0"/, 'Android release version must change to refresh installed package resources');
 assert.equal(capacitor.webDir, 'dist-mobile');
 assert.match(packageJson.scripts['build:mobile'], /vite build --mode mobile/);
 assert.match(vite, /outDir: isMobileBuild \? 'dist-mobile' : 'dist'/);
