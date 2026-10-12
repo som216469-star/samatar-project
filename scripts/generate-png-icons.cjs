@@ -103,8 +103,8 @@ function createPNG(width, height, fullBleed = true, launcherFrame = false) {
           }
 
           if (alpha > 0) {
-            // Launcher/home-screen icon uses the cyan rounded-square frame
-            // around the Q, while brand logo assets remain just the Q symbol.
+            // Draw a dark navy rounded-square tile inset from the outer dark canvas.
+            // This matches the provided home-screen icon reference without a bright cyan frame.
             if (launcherFrame) {
               const inset = width * 0.045;
               const halfW = cx - inset;
@@ -115,15 +115,13 @@ function createPNG(width, height, fullBleed = true, launcherFrame = false) {
               const roundedRectDistance =
                 Math.sqrt(Math.max(rx, 0) ** 2 + Math.max(ry, 0) ** 2) +
                 Math.min(Math.max(rx, ry), 0) - corner;
-              const borderDistance = Math.abs(roundedRectDistance);
-              const isFrameOuter = borderDistance <= width * 0.008;
-              const frameGlow = borderDistance <= width * 0.022;
-              if (frameGlow && !isFrameOuter) {
-                r = Math.round(r * 0.74);
-                g = Math.round(g * 0.74);
-                b = Math.round(Math.min(255, b + 13));
+              const insideTile = roundedRectDistance <= 0;
+              if (insideTile) {
+                const edgeGlow = clamp(1 - Math.abs(roundedRectDistance) / (width * 0.08));
+                r = Math.round(6 + 2 * edgeGlow);
+                g = Math.round(24 + 7 * edgeGlow);
+                b = Math.round(43 + 9 * edgeGlow);
               }
-              if (isFrameOuter) [r, g, b] = quantoraCyan(py, height);
             }
 
             const outerDistance = Math.abs(distance - outerRadius);
