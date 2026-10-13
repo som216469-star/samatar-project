@@ -66,12 +66,18 @@ function createPNG(width, height, fullBleed = true, launcherFrame = false) {
   const cx = width / 2;
   const cy = height / 2;
   const scale = width / 512;
-  const outerRadius = 169 * scale;
-  const outerStroke = 22 * scale;
-  const innerRadius = 79 * scale;
-  const innerCy = 250 * scale;
-  const innerStroke = 20 * scale;
-  const slash = [[237, 238], [255, 220], [426, 391], [408, 409]].map(([x, y]) => [x * scale, y * scale]);
+  // Give the Q mark extra breathing room inside the rounded navy app tile.
+  // Keep the standalone logo SVG unchanged; only installed-app/PWA icons shrink.
+  const launcherMarkScale = launcherFrame ? 0.82 : 1;
+  const outerRadius = 169 * scale * launcherMarkScale;
+  const outerStroke = 22 * scale * launcherMarkScale;
+  const innerRadius = 79 * scale * launcherMarkScale;
+  const innerCy = (256 + (250 - 256) * launcherMarkScale) * scale;
+  const innerStroke = 20 * scale * launcherMarkScale;
+  const slash = [[237, 238], [255, 220], [426, 391], [408, 409]].map(([x, y]) => [
+    (256 + (x - 256) * launcherMarkScale) * scale,
+    (256 + (y - 256) * launcherMarkScale) * scale
+  ]);
 
   for (let y = 0; y < height; y++) {
     const rowOffset = y * rowStride;
