@@ -13,8 +13,8 @@ const styles = fs.readFileSync(new URL('../src/index.css', import.meta.url), 'ut
 const appGradle = fs.readFileSync(new URL('../android/app/build.gradle', import.meta.url), 'utf8');
 
 assert.equal(capacitor.appId, 'com.dugsipro.app');
-assert.match(appGradle, /versionCode 4/, 'launcher artwork update must ship as a higher Android version code');
-assert.match(appGradle, /versionName "1.1.2"/, 'Android release version must change to refresh installed package resources');
+assert.match(appGradle, /versionCode 5/, 'launcher artwork update must ship as a higher Android version code');
+assert.match(appGradle, /versionName "1.1.3"/, 'Android release version must change to refresh installed package resources');
 assert.equal(capacitor.webDir, 'dist-mobile');
 assert.match(packageJson.scripts['build:mobile'], /vite build --mode mobile/);
 assert.match(vite, /outDir: isMobileBuild \? 'dist-mobile' : 'dist'/);
@@ -37,9 +37,10 @@ const iconGenerator = fs.readFileSync(new URL('../scripts/generate-png-icons.cjs
 assert.match(launcherForeground, /android:fillColor="#06182B"/, 'Android home-screen icon must include the inset navy rounded tile');
 assert.match(launcherForeground, /strokeColor="#0A2943"/, 'launcher tile must use a subtle navy edge, not a cyan outer frame');
 assert.match(iconGenerator, /insideTile/, 'generated app icons must include the inset navy tile');
-assert.match(iconGenerator, /launcherMarkScale = launcherFrame \? 0\.76 : 1/, 'launcher Q mark must be scaled to match the reference tile');
+assert.match(iconGenerator, /launcherMarkScale = launcherFrame \? 0\.82 : 1/, 'launcher Q mark must be reduced 18% with reference proportions');
 assert.match(iconGenerator, /const innerRadius = 96 \* scale \* launcherMarkScale/, 'inner ring must match the official larger proportion');
-assert.match(launcherForeground, /M54,39\.5 C62,39\.5 68\.5,46 68\.5,54/, 'native Q vector must use the larger official inner ring');
+assert.match(launcherForeground, /M54,36\.4 C63\.2,36\.4 70\.6,43\.8 70\.6,53/, 'native Q vector must use the correctly sized inner ring');
+assert.match(launcherForeground, /M50\.7,50\.9 L53\.9,47\.8 L83\.4,77\.4 L80\.3,80\.5/, 'native Q vector must use the full-length official diagonal tail');
 assert.match(iconGenerator, /without a bright cyan frame/, 'generated app icons must avoid the old cyan frame');
 assert.doesNotMatch(iconGenerator, /isFrameOuter/, 'old bright cyan outer frame logic must be removed');
 assert.match(styles, /mobile-safe-bottom/);
