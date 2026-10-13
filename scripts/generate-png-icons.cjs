@@ -68,7 +68,7 @@ function createPNG(width, height, fullBleed = true, launcherFrame = false) {
   const scale = width / 512;
   // Give the Q mark extra breathing room inside the rounded navy app tile.
   // Keep the standalone logo SVG unchanged; only installed-app/PWA icons shrink.
-  const launcherMarkScale = launcherFrame ? 0.76 : 1;
+  const launcherMarkScale = launcherFrame ? 0.82 : 1;
   const outerRadius = 169 * scale * launcherMarkScale;
   const outerStroke = 24 * scale * launcherMarkScale;
   // The reference logo's inner ring is about 57% of the outer ring diameter.

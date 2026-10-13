@@ -3,27 +3,27 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Dark navy rounded tile to match the approved Quantora icon. -->
+    <!-- Navy rounded-square tile matches the supplied Quantora reference icon. -->
     <path
         android:fillColor="#06182B"
-        android:pathData="M34,10 H74 C87.25,10 98,20.75 98,34 V74 C98,87.25 87.25,98 74,98 H34 C20.75,98 10,87.25 10,74 V34 C10,20.75 20.75,10 34,10 Z"/>
+        android:pathData="M31,5 H77 C91.36,5 103,16.64 103,31 V77 C103,91.36 91.36,103 77,103 H31 C16.64,103 5,91.36 5,77 V31 C5,16.64 16.64,5 31,5 Z"/>
     <path
         android:fillColor="#00000000"
-        android:pathData="M34,11 H74 C86.7,11 97,21.3 97,34 V74 C97,86.7 86.7,97 74,97 H34 C21.3,97 11,86.7 11,74 V34 C11,21.3 21.3,11 34,11 Z"
+        android:pathData="M31,6 H77 C90.8,6 102,17.2 102,31 V77 C102,90.8 90.8,102 77,102 H31 C17.2,102 6,90.8 6,77 V31 C6,17.2 17.2,6 31,6 Z"
         android:strokeColor="#0A2943"
         android:strokeWidth="1.5"/>
-    <!-- Official Q proportions: inner ring is 56% of the outer ring diameter. -->
+    <!-- Official Q mark scaled 82%: wider inner ring and long diagonal tail. -->
     <path
         android:fillColor="#00000000"
-        android:pathData="M54,30 C67.25,30 78,40.75 78,54 C78,67.25 67.25,78 54,78 C40.75,78 30,67.25 30,54 C30,40.75 40.75,30 54,30 Z"
+        android:pathData="M54,24.8 C70.1,24.8 83.2,37.9 83.2,54 C83.2,70.1 70.1,83.2 54,83.2 C37.9,83.2 24.8,70.1 24.8,54 C24.8,37.9 37.9,24.8 54,24.8 Z"
         android:strokeColor="#12D9F2"
-        android:strokeWidth="4.8"/>
+        android:strokeWidth="4.9"/>
     <path
         android:fillColor="#00000000"
-        android:pathData="M54,39.5 C62,39.5 68.5,46 68.5,54 C68.5,62 62,68.5 54,68.5 C46,68.5 39.5,62 39.5,54 C39.5,46 46,39.5 54,39.5 Z"
+        android:pathData="M54,36.4 C63.2,36.4 70.6,43.8 70.6,53 C70.6,62.2 63.2,69.6 54,69.6 C44.8,69.6 37.4,62.2 37.4,53 C37.4,43.8 44.8,36.4 54,36.4 Z"
         android:strokeColor="#12CFF4"
-        android:strokeWidth="4.2"/>
+        android:strokeWidth="4.4"/>
     <path
         android:fillColor="#12BFF7"
-        android:pathData="M49.1,48.3 L54,43.3 L77,66.3 L72,71.2 Z"/>
+        android:pathData="M50.7,50.9 L53.9,47.8 L83.4,77.4 L80.3,80.5 Z"/>
 </vector>
