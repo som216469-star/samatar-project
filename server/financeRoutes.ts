@@ -712,6 +712,17 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
       notes: newInvoice.notes,
       created_at: newInvoice.createdAt
     }))) return res.status(503).json({ error: "Kaydinta maaliyadda way fashilantay; xogta lama xaqiijin karo. Fadlan mar kale isku day.", code: "DATABASE_UNAVAILABLE" });
+
+    const linkedFee = (db.fees || []).find((fee: any) => fee.id === invoiceId && fee.schoolId === schoolId);
+    if (linkedFee && !(await syncFinanceTableToSupabase("dugsiga_fees", toSupabaseFinanceRow("fees", linkedFee)))) {
+      return res.status(503).json({ error: "Biilka waa la abuuray, laakiin kaydka biilka hore lama waafajin karin. Fadlan dib u hubi xogta ka hor ku celinta codsiga.", code: "DATABASE_UNAVAILABLE" });
+    }
+    if (paidAmount > 0) {
+      const initialPayment = (db.payments || []).find((payment: any) => payment.invoiceId === invoiceId && payment.schoolId === schoolId);
+      if (initialPayment && !(await syncFinanceTableToSupabase("dugsiga_payments", toSupabaseFinanceRow("payments", initialPayment)))) {
+        return res.status(503).json({ error: "Biilka waa la abuuray, laakiin rasiidhka lacag-bixinta lama xaqiijin karin. Fadlan hubi rasiidhada ka hor ku celinta codsiga.", code: "DATABASE_UNAVAILABLE" });
+      }
+    }
     return res.status(201).json(newInvoice);
   });
 
@@ -812,6 +823,18 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
     }
 
     saveLocalDB(db);
+
+    if (!(await syncFinanceRowsToSupabase(
+      "dugsiga_invoices",
+      createdInvoices.map((invoice: any) => toSupabaseFinanceRow("invoices", invoice))
+    ))) return res.status(503).json({ error: "Biilasha lama wada kaydin karin Supabase. Fadlan dib u hubi liiska biilasha ka hor ku celinta codsiga.", code: "DATABASE_UNAVAILABLE" });
+
+    const createdIds = new Set(createdInvoices.map((invoice: any) => invoice.id));
+    const linkedFees = (db.fees || []).filter((fee: any) => fee.schoolId === schoolId && createdIds.has(fee.id));
+    if (!(await syncFinanceRowsToSupabase(
+      "dugsiga_fees",
+      linkedFees.map((fee: any) => toSupabaseFinanceRow("fees", fee))
+    ))) return res.status(503).json({ error: "Biilasha waa la abuuray, laakiin waafajinta diiwaanka khidmadaha hore way fashilantay.", code: "DATABASE_UNAVAILABLE" });
     return res.json({ 
       success: true, 
       count: createdInvoices.length, 
@@ -892,6 +915,10 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
       created_at: updatedInv.createdAt,
       updated_at: updatedInv.updatedAt
     }))) return res.status(503).json({ error: "Kaydinta maaliyadda way fashilantay; xogta lama xaqiijin karo. Fadlan mar kale isku day.", code: "DATABASE_UNAVAILABLE" });
+
+    if (feeIdx > -1 && !(await syncFinanceTableToSupabase("dugsiga_fees", toSupabaseFinanceRow("fees", db.fees[feeIdx])))) {
+      return res.status(503).json({ error: "Biilka waa la cusboonaysiiyey, laakiin diiwaanka khidmadaha hore lama waafajin karin.", code: "DATABASE_UNAVAILABLE" });
+    }
     return res.json(updatedInv);
   });
 
@@ -906,6 +933,10 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
     db.fees = (db.fees || []).filter((f: any) => !(f.id === id && f.schoolId === schoolId));
     saveLocalDB(db);
     if (!(await deleteFinanceRowFromSupabase("dugsiga_invoices", id, schoolId))) return res.status(503).json({ error: "Kaydinta maaliyadda way fashilantay; xogta lama xaqiijin karo. Fadlan mar kale isku day.", code: "DATABASE_UNAVAILABLE" });
+
+    if (!(await deleteFinanceRowFromSupabase("dugsiga_fees", id, schoolId))) {
+      return res.status(503).json({ error: "Biilka waa la tirtiray, laakiin diiwaanka khidmadaha hore lama tirtiri karin.", code: "DATABASE_UNAVAILABLE" });
+    }
     return res.json({ success: true });
   });
 
