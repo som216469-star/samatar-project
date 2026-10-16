@@ -266,7 +266,7 @@ export const AppShell: React.FC<AppShellProps> = ({
         import: 'Soo Gelin Xogta Ardayda',
         export: 'Dhoofin Xogta Ardayda'
       };
-      trail.push({ label: subLabelMap[studentSubSection] || 'All Students' });
+      trail.push({ label: subLabelMap[studentSubSection] || 'Dhammaan Ardayda' });
     } else if (activeTab === 'attendance') {
       trail.push({
         label: 'Attendance',
@@ -282,7 +282,7 @@ export const AppShell: React.FC<AppShellProps> = ({
         analytics: 'Falanqaynta Xaadirinta',
         reports: 'Warbixinta Xaadirinta'
       };
-      trail.push({ label: aMap[attendanceSubSection] || 'Attendance Overview' });
+      trail.push({ label: aMap[attendanceSubSection] || 'Guudmarka Xaadirinta' });
     } else if (activeTab === 'people') {
       trail.push({ label: 'Shaqaalaha iyo Waalidiinta' });
       const pMap: Record<PeopleSubSection, string> = {
@@ -557,7 +557,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                 </div>
                 <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-[var(--sidebar-text-muted)] mt-0.5">
                   <span className="dot" style={{ margin: 0, width: 5, height: 5 }} />
-                  <span>{settings.academicYear || '2025/2026'}</span>
+                  <span>{settings.academicYear || '2026/2027'}</span>
                 </div>
               </div>
             )}
@@ -598,6 +598,12 @@ export const AppShell: React.FC<AppShellProps> = ({
                 type="search"
                 value={sidebarQuery}
                 onChange={(event) => setSidebarQuery(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Escape' && sidebarQuery) {
+                    event.preventDefault();
+                    setSidebarQuery('');
+                  }
+                }}
                 placeholder="Raadi qaybta aad u baahan tahay..."
                 aria-label="Ka raadi qaybaha nidaamka"
                 className="w-full min-w-0 bg-transparent border-0 outline-none text-sm text-white placeholder:text-[var(--sidebar-text-muted)]"
@@ -637,6 +643,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                       if (item.children?.length) {
                         toggleExpandItem(item.id);
                       } else {
+                        setSidebarQuery('');
                         onNavigate(item.tab, {
                           peopleSubSection: item.peopleSubSection,
                           financeSubSection: item.financeSubSection
@@ -759,6 +766,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                                       key={child.id}
                                       type="button"
                                       onClick={() => {
+                                        setSidebarQuery('');
                                         onNavigate(child.tab, {
                                           studentSubSection: child.studentSubSection,
                                           financeSubSection: child.financeSubSection,
@@ -827,6 +835,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                       <button
                         type="button"
                         onClick={() => {
+                          setSidebarQuery('');
                           onNavigate(item.tab, {
                             peopleSubSection: item.peopleSubSection,
                             financeSubSection: item.financeSubSection
@@ -834,6 +843,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                           if (isMobile) setMobileMenuOpen(false);
                         }}
                         title={collapsed ? getSomaliNavLabel(item.id, item.label) : undefined}
+                        aria-current={active ? 'page' : undefined}
                         className={`flex-1 min-w-0 flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-[13px] transition-all duration-150 cursor-pointer ${
                           active
                             ? 'bg-[var(--sidebar-active-bg)] text-white font-semibold border-l-2 border-[var(--color-accent)] shadow-sm shadow-black/10'
@@ -1031,7 +1041,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                     dbStatus.connected ? 'bg-[var(--color-success)]' : 'bg-[var(--color-warning)]'
                   }`}
                 />
-                <span>{dbStatus.connected ? 'Cloud-ku wuu xiran yahay' : 'Kayd maxalli ah'}</span>
+                <span>{dbStatus.connected ? 'Cloud-ku waa diyaar' : 'Kayd maxalli ah'}</span>
               </div>
             )}
 
