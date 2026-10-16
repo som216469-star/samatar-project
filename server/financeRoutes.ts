@@ -174,22 +174,224 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
   };
 
   // Helper: synchronize local finance collections with Supabase tables (Tables 21-27) when Cloud DB is active
-  const syncFinanceTableToSupabase = async (table: string, row: Record<string, any>) => {
-    if (getUseLocalFallback() || !supabase) return;
+  const syncFinanceTableToSupabase = async (table: string, row: Record<string, any>): Promise<boolean> => {
+    if (getUseLocalFallback()) return true;
+    if (!supabase) return false;
     try {
-      await supabase.from(table).upsert([row], { onConflict: "id" });
-    } catch {
-      // Resilient fallback if table is not yet provisioned
+      const { error } = await supabase.from(table).upsert([row], { onConflict: "id" });
+      if (error) {
+        console.error("Finance write failed:", { table, code: String(error.code || "UNKNOWN") });
+        return false;
+      }
+      return true;
+    } catch (error: any) {
+      console.error("Finance write threw an error:", {
+        table,
+        message: String(error?.message || "unknown").slice(0, 160)
+      });
+      return false;
     }
   };
 
-  const deleteFinanceRowFromSupabase = async (table: string, id: string, schoolId: string) => {
-    if (getUseLocalFallback() || !supabase) return;
+  const deleteFinanceRowFromSupabase = async (table: string, id: string, schoolId: string): Promise<boolean> => {
+    if (getUseLocalFallback()) return true;
+    if (!supabase) return false;
     try {
-      await supabase.from(table).delete().eq("id", id).eq("school_id", schoolId);
-    } catch {
-      // Resilient fallback
+      const { error } = await supabase
+        .from(table)
+        .delete()
+        .eq("id", id)
+        .eq("school_id", schoolId);
+      if (error) {
+        console.error("Finance delete failed:", { table, code: String(error.code || "UNKNOWN") });
+        return false;
+      }
+      return true;
+    } catch (error: any) {
+      console.error("Finance delete threw an error:", {
+        table,
+        message: String(error?.message || "unknown").slice(0, 160)
+      });
+      return false;
     }
+  };
+
+  type FinanceCollection =
+    | "feeStructures"
+    | "invoices"
+    | "payments"
+    | "expenses"
+    | "income"
+    | "payroll"
+    | "budgets"
+    | "fees";
+
+  const financeCollectionDefinitions: Record<FinanceCollection, {
+    table: string;
+    key: string;
+    map: (row: any) => any;
+  }> = {
+    feeStructures: {
+      table: "dugsiga_fee_structures",
+      key: "feeStructures",
+      map: (row) => ({
+        id: row.id, schoolId: row.school_id, name: row.name,
+        category: row.category || "Monthly Tuition", amount: Number(row.amount) || 0,
+        className: row.class_name || "All Classes", academicYear: row.academic_year || "2026-2027",
+        term: row.term || "All Terms", description: row.description || "", createdAt: row.created_at || ""
+      })
+    },
+    invoices: {
+      table: "dugsiga_invoices",
+      key: "invoices",
+      map: (row) => ({
+        id: row.id, schoolId: row.school_id, feeId: row.fee_id || undefined,
+        invoiceNumber: row.invoice_number, studentId: row.student_id,
+        studentName: row.student_name || "", className: row.class_name || "",
+        guardianName: row.guardian_name || "", guardianPhone: row.guardian_phone || "",
+        items: Array.isArray(row.items) ? row.items : [],
+        subtotal: Number(row.subtotal) || 0, discount: Number(row.discount) || 0,
+        total: Number(row.total) || 0, paidAmount: Number(row.paid_amount) || 0,
+        balance: Number(row.balance) || 0, issueDate: row.issue_date || "",
+        dueDate: row.due_date || "", status: row.status || "Unpaid",
+        notes: row.notes || "", createdAt: row.created_at || "", updatedAt: row.updated_at || ""
+      })
+    },
+    payments: {
+      table: "dugsiga_payments",
+      key: "payments",
+      map: (row) => ({
+        id: row.id, schoolId: row.school_id, receiptNumber: row.receipt_number,
+        invoiceId: row.invoice_id || "", invoiceNumber: row.invoice_number || "",
+        studentId: row.student_id || "", studentName: row.student_name || "",
+        className: row.class_name || "", amount: Number(row.amount) || 0,
+        paymentDate: row.payment_date || "", paymentMethod: row.payment_method || "Cash",
+        reference: row.reference || "", remainingBalance: Number(row.remaining_balance) || 0,
+        receivedBy: row.received_by || "", notes: row.notes || "", createdAt: row.created_at || ""
+      })
+    },
+    expenses: {
+      table: "dugsiga_expenses",
+      key: "expenses",
+      map: (row) => ({
+        id: row.id, schoolId: row.school_id, expenseId: row.expense_id || "",
+        category: row.category || "", description: row.description || "",
+        amount: Number(row.amount) || 0, date: row.date || "",
+        paymentMethod: row.payment_method || "Cash", vendorPayee: row.vendor_payee || "",
+        referenceNumber: row.reference_number || "", receiptDocument: row.receipt_document || "",
+        createdBy: row.created_by || "", notes: row.notes || "", status: row.status || "Approved",
+        payrollId: row.payroll_id || undefined, createdAt: row.created_at || "", updatedAt: row.updated_at || ""
+      })
+    },
+    income: {
+      table: "dugsiga_income",
+      key: "income",
+      map: (row) => ({
+        id: row.id, schoolId: row.school_id, incomeId: row.income_id || "",
+        category: row.category || "", description: row.description || "",
+        amount: Number(row.amount) || 0, date: row.date || "",
+        paymentMethod: row.payment_method || "Cash", reference: row.reference || "",
+        payer: row.payer || "", notes: row.notes || "", createdBy: row.created_by || "",
+        paymentId: row.payment_id || undefined, createdAt: row.created_at || ""
+      })
+    },
+    payroll: {
+      table: "dugsiga_payroll",
+      key: "payroll",
+      map: (row) => ({
+        id: row.id, schoolId: row.school_id, employeeType: row.employee_type || "Teacher",
+        employeeId: row.employee_id || "", employeeName: row.employee_name || "",
+        roleOrDepartment: row.role_or_department || "", basicSalary: Number(row.basic_salary) || 0,
+        allowances: Number(row.allowances) || 0, deductions: Number(row.deductions) || 0,
+        grossSalary: Number(row.gross_salary) || 0, netSalary: Number(row.net_salary) || 0,
+        paymentDate: row.payment_date || "", paymentMethod: row.payment_method || "Bank",
+        payrollPeriod: row.payroll_period || "", status: row.status || "Draft",
+        notes: row.notes || "", paidAt: row.paid_at || "", expenseId: row.expense_id || "",
+        createdAt: row.created_at || "", updatedAt: row.updated_at || ""
+      })
+    },
+    budgets: {
+      table: "dugsiga_budgets",
+      key: "budgets",
+      map: (row) => ({
+        id: row.id, schoolId: row.school_id, academicYear: row.academic_year || "2026-2027",
+        period: row.period || "Annual", category: row.category || "", type: row.type || "Expense",
+        plannedAmount: Number(row.planned_amount) || 0, actualAmount: Number(row.actual_amount) || 0,
+        remainingAmount: Number(row.remaining_amount) || 0, variance: Number(row.variance) || 0,
+        notes: row.notes || "", createdAt: row.created_at || ""
+      })
+    },
+    fees: {
+      table: "dugsiga_fees",
+      key: "fees",
+      map: (row) => ({
+        id: row.id, schoolId: row.school_id, studentId: row.student_id,
+        month: row.month, year: Number(row.year) || 0, amount: Number(row.amount) || 0,
+        paidAmount: Number(row.paid_amount) || 0, status: row.status || "unpaid",
+        createdAt: row.created_at || "", updatedAt: row.updated_at || "", history: row.history || []
+      })
+    }
+  };
+
+  // Cloud mode refreshes each school's finance cache from Supabase before reads or writes.
+  // Empty cloud results are authoritative too; stale local rows are never used as a fallback.
+  const refreshFinanceCollectionsFromSupabase = async (
+    schoolId: string,
+    collections: FinanceCollection[]
+  ): Promise<boolean> => {
+    if (!schoolId) return false;
+    if (getUseLocalFallback()) return true;
+    if (!supabase) return false;
+
+    try {
+      const fetched: Array<{ key: string; rows: any[] }> = [];
+      for (const collection of Array.from(new Set(collections))) {
+        const definition = financeCollectionDefinitions[collection];
+        const { data, error } = await supabase
+          .from(definition.table)
+          .select("*")
+          .eq("school_id", schoolId);
+        if (error) {
+          console.error("Finance read failed:", {
+            table: definition.table,
+            code: String(error.code || "UNKNOWN")
+          });
+          return false;
+        }
+        fetched.push({
+          key: definition.key,
+          rows: (data || []).map(definition.map)
+        });
+      }
+
+      const db = getEnsureDB();
+      for (const collection of fetched) {
+        const current = Array.isArray(db[collection.key]) ? db[collection.key] : [];
+        db[collection.key] = [
+          ...current.filter((row: any) => row.schoolId !== schoolId),
+          ...collection.rows
+        ];
+      }
+      saveLocalDB(db);
+      return true;
+    } catch (error: any) {
+      console.error("Finance refresh threw an error:", String(error?.message || "unknown").slice(0, 160));
+      return false;
+    }
+  };
+
+  const refreshFinanceOrFail = async (
+    res: express.Response,
+    schoolId: string,
+    collections: FinanceCollection[]
+  ): Promise<boolean> => {
+    const refreshed = await refreshFinanceCollectionsFromSupabase(schoolId, collections);
+    if (refreshed) return true;
+    res.status(503).json({
+      error: "Xogta maaliyadda lagama xaqiijin karin kaydka Supabase. Fadlan mar kale isku day.",
+      code: "DATABASE_UNAVAILABLE"
+    });
+    return false;
   };
 
   /* =========================================================================
