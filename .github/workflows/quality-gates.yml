@@ -50,6 +50,9 @@ jobs:
       - name: Tenant boundary contract test
         run: npm run test:tenant-boundary-contract
 
+      - name: Finance Supabase source-of-truth contract test
+        run: npm run test:finance-source-contract
+
       - name: Students contract test
         run: npm run test:students-contract
 
