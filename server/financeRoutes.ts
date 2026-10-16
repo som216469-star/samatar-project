@@ -408,6 +408,7 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
   app.post("/api/fee-structures", async (req, res) => {
     const { authorized, schoolId } = checkFinanceAuth(req, "finance.manage");
     if (!authorized) return res.status(403).json({ error: "U fasax ma tihid qaabeynta khidmadaha (Forbidden)" });
+    if (!(await refreshFinanceOrFail(res, schoolId, ["feeStructures"]))) return;
 
     const body = req.body;
     if (!body.name || !body.amount) {
@@ -448,6 +449,7 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
   app.put("/api/fee-structures/:id", async (req, res) => {
     const { authorized, schoolId } = checkFinanceAuth(req, "finance.manage");
     if (!authorized) return res.status(403).json({ error: "U fasax ma tihid wax ka beddelka (Forbidden)" });
+    if (!(await refreshFinanceOrFail(res, schoolId, ["feeStructures"]))) return;
 
     const { id } = req.params;
     const db = getEnsureDB();
@@ -481,6 +483,7 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
   app.delete("/api/fee-structures/:id", async (req, res) => {
     const { authorized, schoolId } = checkFinanceAuth(req, "finance.manage");
     if (!authorized) return res.status(403).json({ error: "U fasax ma tihid tirtirista (Forbidden)" });
+    if (!(await refreshFinanceOrFail(res, schoolId, ["feeStructures"]))) return;
 
     const { id } = req.params;
     const db = getEnsureDB();
@@ -526,6 +529,7 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
   app.post("/api/invoices", async (req, res) => {
     const { authorized, schoolId } = checkFinanceAuth(req, "finance.manage");
     if (!authorized) return res.status(403).json({ error: "U fasax ma tihid abuurista biilasha (Forbidden)" });
+    if (!(await refreshFinanceOrFail(res, schoolId, ["invoices","payments","fees"]))) return;
 
     const body = req.body;
     if (!body.studentId) return res.status(400).json({ error: "Ardaygu waa khasab (Student is required)" });
@@ -638,6 +642,7 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
   app.post("/api/invoices/bulk", async (req, res) => {
     const { authorized, schoolId } = checkFinanceAuth(req, "finance.manage");
     if (!authorized) return res.status(403).json({ error: "U fasax ma tihid biilasha wadajirka ah (Forbidden)" });
+    if (!(await refreshFinanceOrFail(res, schoolId, ["invoices","fees","feeStructures"]))) return;
 
     const { targetClass, feeStructureIds, month, year, dueDate, customAmount } = req.body;
     const db = getEnsureDB();
@@ -740,6 +745,7 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
   app.put("/api/invoices/:id", async (req, res) => {
     const { authorized, schoolId } = checkFinanceAuth(req, "finance.manage");
     if (!authorized) return res.status(403).json({ error: "U fasax ma tihid wax ka beddelka (Forbidden)" });
+    if (!(await refreshFinanceOrFail(res, schoolId, ["invoices","fees"]))) return;
 
     const { id } = req.params;
     const db = getEnsureDB();
@@ -815,6 +821,7 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
   app.delete("/api/invoices/:id", async (req, res) => {
     const { authorized, schoolId } = checkFinanceAuth(req, "finance.manage");
     if (!authorized) return res.status(403).json({ error: "U fasax ma tihid tirtirista (Forbidden)" });
+    if (!(await refreshFinanceOrFail(res, schoolId, ["invoices","fees"]))) return;
 
     const { id } = req.params;
     const db = getEnsureDB();
@@ -842,6 +849,7 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
   app.post("/api/payments", async (req, res) => {
     const { authorized, schoolId } = checkFinanceAuth(req, "finance.manage");
     if (!authorized) return res.status(403).json({ error: "U fasax ma tihid qabashada lacagta (Forbidden)" });
+    if (!(await refreshFinanceOrFail(res, schoolId, ["invoices","payments","fees"]))) return;
 
     const body = req.body;
     const { invoiceId, amount, paymentMethod, reference, receivedBy, notes } = body;
@@ -989,6 +997,7 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
   app.post("/api/expenses", async (req, res) => {
     const { authorized, schoolId } = checkFinanceAuth(req, "finance.manage");
     if (!authorized) return res.status(403).json({ error: "U fasax ma tihid diiwaangelinta kharashka (Forbidden)" });
+    if (!(await refreshFinanceOrFail(res, schoolId, ["expenses"]))) return;
 
     const body = req.body;
     if (!body.category || !body.description || !body.amount) {
@@ -1039,6 +1048,7 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
   app.put("/api/expenses/:id", async (req, res) => {
     const { authorized, schoolId } = checkFinanceAuth(req, "finance.manage");
     if (!authorized) return res.status(403).json({ error: "U fasax ma tihid wax ka beddelka kharashka (Forbidden)" });
+    if (!(await refreshFinanceOrFail(res, schoolId, ["expenses"]))) return;
 
     const { id } = req.params;
     const db = getEnsureDB();
@@ -1082,6 +1092,7 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
   app.put("/api/expenses/:id/approve", async (req, res) => {
     const { authorized, schoolId } = checkFinanceAuth(req, "finance.manage");
     if (!authorized) return res.status(403).json({ error: "U fasax ma tihid oggolaanshaha kharashka (Forbidden)" });
+    if (!(await refreshFinanceOrFail(res, schoolId, ["expenses"]))) return;
 
     const { id } = req.params;
     const db = getEnsureDB();
@@ -1116,6 +1127,7 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
   app.delete("/api/expenses/:id", async (req, res) => {
     const { authorized, schoolId } = checkFinanceAuth(req, "finance.manage");
     if (!authorized) return res.status(403).json({ error: "U fasax ma tihid tirtirista kharashka (Forbidden)" });
+    if (!(await refreshFinanceOrFail(res, schoolId, ["expenses"]))) return;
 
     const { id } = req.params;
     const db = getEnsureDB();
@@ -1161,6 +1173,7 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
   app.post("/api/income", async (req, res) => {
     const { authorized, schoolId } = checkFinanceAuth(req, "finance.manage");
     if (!authorized) return res.status(403).json({ error: "U fasax ma tihid diiwaangelinta dakhliga (Forbidden)" });
+    if (!(await refreshFinanceOrFail(res, schoolId, ["income"]))) return;
 
     const body = req.body;
     if (!body.category || !body.description || !body.amount) {
@@ -1207,6 +1220,7 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
   app.put("/api/income/:id", async (req, res) => {
     const { authorized, schoolId } = checkFinanceAuth(req, "finance.manage");
     if (!authorized) return res.status(403).json({ error: "Forbidden" });
+    if (!(await refreshFinanceOrFail(res, schoolId, ["income"]))) return;
 
     const { id } = req.params;
     const db = getEnsureDB();
@@ -1246,6 +1260,7 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
   app.delete("/api/income/:id", async (req, res) => {
     const { authorized, schoolId } = checkFinanceAuth(req, "finance.manage");
     if (!authorized) return res.status(403).json({ error: "Forbidden" });
+    if (!(await refreshFinanceOrFail(res, schoolId, ["income"]))) return;
 
     const { id } = req.params;
     const db = getEnsureDB();
@@ -1270,6 +1285,7 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
   app.post("/api/payroll", async (req, res) => {
     const { authorized, schoolId } = checkFinanceAuth(req, "finance.manage");
     if (!authorized) return res.status(403).json({ error: "U fasax ma tihid maaraynta mushahaarka (Forbidden)" });
+    if (!(await refreshFinanceOrFail(res, schoolId, ["payroll","expenses"]))) return;
 
     const body = req.body;
     if (!body.employeeId || !body.employeeName) {
@@ -1359,6 +1375,7 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
   app.put("/api/payroll/:id", async (req, res) => {
     const { authorized, schoolId } = checkFinanceAuth(req, "finance.manage");
     if (!authorized) return res.status(403).json({ error: "Forbidden" });
+    if (!(await refreshFinanceOrFail(res, schoolId, ["payroll","expenses"]))) return;
 
     const { id } = req.params;
     const db = getEnsureDB();
@@ -1395,6 +1412,7 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
   app.put("/api/payroll/:id/pay", async (req, res) => {
     const { authorized, schoolId } = checkFinanceAuth(req, "finance.manage");
     if (!authorized) return res.status(403).json({ error: "Forbidden" });
+    if (!(await refreshFinanceOrFail(res, schoolId, ["payroll","expenses"]))) return;
 
     const { id } = req.params;
     const db = getEnsureDB();
@@ -1443,6 +1461,7 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
   app.delete("/api/payroll/:id", async (req, res) => {
     const { authorized, schoolId } = checkFinanceAuth(req, "finance.manage");
     if (!authorized) return res.status(403).json({ error: "Forbidden" });
+    if (!(await refreshFinanceOrFail(res, schoolId, ["payroll","expenses"]))) return;
 
     const { id } = req.params;
     const db = getEnsureDB();
@@ -1507,6 +1526,7 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
   app.post("/api/budgets", async (req, res) => {
     const { authorized, schoolId } = checkFinanceAuth(req, "finance.manage");
     if (!authorized) return res.status(403).json({ error: "Forbidden" });
+    if (!(await refreshFinanceOrFail(res, schoolId, ["budgets"]))) return;
 
     const body = req.body;
     if (!body.category || !body.plannedAmount) {
@@ -1551,6 +1571,7 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
   app.put("/api/budgets/:id", async (req, res) => {
     const { authorized, schoolId } = checkFinanceAuth(req, "finance.manage");
     if (!authorized) return res.status(403).json({ error: "Forbidden" });
+    if (!(await refreshFinanceOrFail(res, schoolId, ["budgets"]))) return;
 
     const { id } = req.params;
     const db = getEnsureDB();
@@ -1574,6 +1595,7 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
   app.delete("/api/budgets/:id", async (req, res) => {
     const { authorized, schoolId } = checkFinanceAuth(req, "finance.manage");
     if (!authorized) return res.status(403).json({ error: "Forbidden" });
+    if (!(await refreshFinanceOrFail(res, schoolId, ["budgets"]))) return;
 
     const { id } = req.params;
     const db = getEnsureDB();
