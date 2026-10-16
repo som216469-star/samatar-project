@@ -675,7 +675,7 @@ export const AppShell: React.FC<AppShellProps> = ({
             return (
               <div key={group.id} className="space-y-1">
                 {!collapsed && (
-                  <div className="px-2.5 pb-1 text-[10px] font-bold uppercase tracking-widest text-[var(--sidebar-text-muted)]">
+                  <div className="sidebar-section-heading px-2.5 pb-1 text-[10px] font-bold uppercase tracking-widest text-[var(--sidebar-text-muted)]">
                     {group.label}
                   </div>
                 )}
