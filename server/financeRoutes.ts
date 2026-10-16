@@ -1057,6 +1057,11 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
       updated_at: db.invoices[invoiceIdx].updatedAt
     }))) return res.status(503).json({ error: "Kaydinta maaliyadda way fashilantay; xogta lama xaqiijin karo. Fadlan mar kale isku day.", code: "DATABASE_UNAVAILABLE" });
 
+
+    const linkedFee = (db.fees || []).find((fee: any) => fee.id === invoiceId && fee.schoolId === schoolId);
+    if (feeIdx > -1 && linkedFee && !(await syncFinanceTableToSupabase("dugsiga_fees", toSupabaseFinanceRow("fees", linkedFee)))) {
+      return res.status(503).json({ error: "Lacag-bixinta waa la diiwaangeliyey, laakiin diiwaanka khidmadaha lama waafajin karin.", code: "DATABASE_UNAVAILABLE" });
+    }
     return res.status(201).json({
       success: true,
       payment: newPayment,
@@ -1477,6 +1482,15 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
       expense_id: newPayroll.expenseId || null,
       created_at: newPayroll.createdAt
     }))) return res.status(503).json({ error: "Kaydinta maaliyadda way fashilantay; xogta lama xaqiijin karo. Fadlan mar kale isku day.", code: "DATABASE_UNAVAILABLE" });
+
+    if (newPayroll.status === "Paid") {
+      const linkedExpense = (db.expenses || []).find((expense: any) =>
+        expense.schoolId === schoolId && expense.payrollId === newPayroll.id
+      );
+      if (linkedExpense && !(await syncFinanceTableToSupabase("dugsiga_expenses", toSupabaseFinanceRow("expenses", linkedExpense)))) {
+        return res.status(503).json({ error: "Mushaharka waa la diiwaangeliyey, laakiin kharashka mushaharka lama waafajin karin.", code: "DATABASE_UNAVAILABLE" });
+      }
+    }
     return res.status(201).json(newPayroll);
   });
 
@@ -1513,6 +1527,10 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
     };
 
     saveLocalDB(db);
+
+    if (!(await syncFinanceTableToSupabase("dugsiga_payroll", toSupabaseFinanceRow("payroll", db.payroll[idx])))) {
+      return res.status(503).json({ error: "Cusboonaysiinta mushaharka lama kaydin karin Supabase.", code: "DATABASE_UNAVAILABLE" });
+    }
     return res.json(db.payroll[idx]);
   });
 
@@ -1563,6 +1581,13 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
     }
 
     saveLocalDB(db);
+
+    if (!(await syncFinanceTableToSupabase("dugsiga_payroll", toSupabaseFinanceRow("payroll", pr)))) {
+      return res.status(503).json({ error: "Mushaharka waxaa laga beddelay kaydka maxalliga ah laakiin Supabase lama xaqiijin; fadlan hubi ka hor intaadan ku celin.", code: "DATABASE_UNAVAILABLE" });
+    }
+    if (!(await syncFinanceTableToSupabase("dugsiga_expenses", toSupabaseFinanceRow("expenses", expRecord)))) {
+      return res.status(503).json({ error: "Mushaharka waa la calaamadeeyey Paid, laakiin kharashkiisa lama waafajin karin.", code: "DATABASE_UNAVAILABLE" });
+    }
     return res.json({ success: true, payroll: pr });
   });
 
@@ -1574,6 +1599,7 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
     const { id } = req.params;
     const db = getEnsureDB();
     const pr = (db.payroll || []).find((p: any) => p.id === id && p.schoolId === schoolId);
+    if (!pr) return res.status(404).json({ error: "Payroll record not found" });
     if (pr?.expenseId) {
       db.expenses = (db.expenses || []).filter((e: any) =>
         !(e.schoolId === schoolId && (e.id === pr.expenseId || e.payrollId === id))
@@ -1581,6 +1607,13 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
     }
     db.payroll = (db.payroll || []).filter((p: any) => !(p.id === id && p.schoolId === schoolId));
     saveLocalDB(db);
+
+    if (!(await deleteFinanceRowFromSupabase("dugsiga_payroll", id, schoolId))) {
+      return res.status(503).json({ error: "Diiwaanka mushaharka lagama tirtiri karin Supabase.", code: "DATABASE_UNAVAILABLE" });
+    }
+    if (pr.expenseId && !(await deleteFinanceRowFromSupabase("dugsiga_expenses", pr.expenseId, schoolId))) {
+      return res.status(503).json({ error: "Mushaharka waa la tirtiray, laakiin kharashkiisa lama tirtiri karin.", code: "DATABASE_UNAVAILABLE" });
+    }
     return res.json({ success: true });
   });
 
@@ -1697,6 +1730,10 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
     };
 
     saveLocalDB(db);
+
+    if (!(await syncFinanceTableToSupabase("dugsiga_budgets", toSupabaseFinanceRow("budgets", db.budgets[idx])))) {
+      return res.status(503).json({ error: "Cusboonaysiinta miisaaniyadda lama kaydin karin Supabase.", code: "DATABASE_UNAVAILABLE" });
+    }
     return res.json(db.budgets[idx]);
   });
 
@@ -1709,6 +1746,10 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
     const db = getEnsureDB();
     db.budgets = (db.budgets || []).filter((b: any) => !(b.id === id && b.schoolId === schoolId));
     saveLocalDB(db);
+
+    if (!(await deleteFinanceRowFromSupabase("dugsiga_budgets", id, schoolId))) {
+      return res.status(503).json({ error: "Miisaaniyadda lagama tirtiri karin Supabase.", code: "DATABASE_UNAVAILABLE" });
+    }
     return res.json({ success: true });
   });
 
