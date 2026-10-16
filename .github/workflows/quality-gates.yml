@@ -1,0 +1,55 @@
+name: Quantora quality gates
+
+on:
+  push:
+    branches:
+      - main
+      - "phase1/**"
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quantora-quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Lint, contracts, production build and smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install locked dependencies
+        run: bun install --frozen-lockfile --ignore-scripts
+
+      - name: TypeScript lint
+        run: npm run lint
+
+      - name: Students contract test
+        run: npm run test:students-contract
+
+      - name: Attendance contract test
+        run: npm run test:attendance-contract
+
+      - name: Mobile configuration contract test
+        run: npm run test:mobile-contract
+
+      - name: Production build
+        run: npm run build
+
+      - name: Production server smoke test
+        run: node scripts/server-smoke.mjs
