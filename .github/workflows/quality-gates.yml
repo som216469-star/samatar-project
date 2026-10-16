@@ -47,6 +47,9 @@ jobs:
       - name: Authentication cloud-source contract test
         run: npm run test:auth-cloud-contract
 
+      - name: Tenant boundary contract test
+        run: npm run test:tenant-boundary-contract
+
       - name: Students contract test
         run: npm run test:students-contract
 
