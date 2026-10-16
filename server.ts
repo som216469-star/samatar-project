@@ -4161,7 +4161,17 @@ app.put("/api/fees/:id", async (req, res) => {
   } else {
     const db = loadLocalDB();
     const idx = db.fees.findIndex(f => f.id === id && f.schoolId === schoolId);
-    if (idx > -1) { db.fees[idx] = { ...db.fees[idx], ...updates }; saveLocalDB(db); return res.json({ success: true }); }
+    if (idx > -1) {
+      const currentFee = db.fees[idx];
+      db.fees[idx] = {
+        ...currentFee,
+        ...updates,
+        id: currentFee.id,
+        schoolId: currentFee.schoolId
+      };
+      saveLocalDB(db);
+      return res.json({ success: true });
+    }
     res.status(404).json({ error: "Fee not found" });
   }
 });
