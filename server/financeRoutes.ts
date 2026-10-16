@@ -270,7 +270,13 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
     const idx = (db.feeStructures || []).findIndex((fs: any) => fs.id === id && fs.schoolId === schoolId);
     if (idx === -1) return res.status(404).json({ error: "Fee structure not found" });
 
-    db.feeStructures[idx] = { ...db.feeStructures[idx], ...req.body };
+    const currentStructure = db.feeStructures[idx];
+    db.feeStructures[idx] = {
+      ...currentStructure,
+      ...req.body,
+      id: currentStructure.id,
+      schoolId: currentStructure.schoolId
+    };
     saveLocalDB(db);
     const updated = db.feeStructures[idx];
     await syncFinanceTableToSupabase("dugsiga_fee_structures", {
@@ -569,6 +575,10 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
     db.invoices[idx] = {
       ...current,
       ...updates,
+      id: current.id,
+      schoolId: current.schoolId,
+      feeId: current.feeId,
+      createdAt: current.createdAt,
       items,
       subtotal,
       discount,
@@ -580,7 +590,7 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
     };
 
     // Mirror to db.fees
-    const feeIdx = (db.fees || []).findIndex((f: any) => f.id === id);
+    const feeIdx = (db.fees || []).findIndex((f: any) => f.id === id && f.schoolId === schoolId);
     if (feeIdx > -1) {
       db.fees[feeIdx] = {
         ...db.fees[feeIdx],
@@ -848,10 +858,14 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
     const idx = (db.expenses || []).findIndex((e: any) => e.id === id && e.schoolId === schoolId);
     if (idx === -1) return res.status(404).json({ error: "Expense not found" });
 
+    const currentExpense = db.expenses[idx];
     db.expenses[idx] = {
-      ...db.expenses[idx],
+      ...currentExpense,
       ...req.body,
-      amount: req.body.amount !== undefined ? Number(req.body.amount) : db.expenses[idx].amount,
+      id: currentExpense.id,
+      schoolId: currentExpense.schoolId,
+      createdAt: currentExpense.createdAt,
+      amount: req.body.amount !== undefined ? Number(req.body.amount) : currentExpense.amount,
       updatedAt: new Date().toISOString()
     };
 
@@ -1011,10 +1025,14 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
     const idx = (db.income || []).findIndex((inc: any) => inc.id === id && inc.schoolId === schoolId);
     if (idx === -1) return res.status(404).json({ error: "Income record not found" });
 
+    const currentIncome = db.income[idx];
     db.income[idx] = {
-      ...db.income[idx],
+      ...currentIncome,
       ...req.body,
-      amount: req.body.amount !== undefined ? Number(req.body.amount) : db.income[idx].amount
+      id: currentIncome.id,
+      schoolId: currentIncome.schoolId,
+      createdAt: currentIncome.createdAt,
+      amount: req.body.amount !== undefined ? Number(req.body.amount) : currentIncome.amount
     };
 
     saveLocalDB(db);
@@ -1169,6 +1187,9 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
     db.payroll[idx] = {
       ...current,
       ...updates,
+      id: current.id,
+      schoolId: current.schoolId,
+      createdAt: current.createdAt,
       basicSalary,
       allowances,
       deductions,
@@ -1199,7 +1220,9 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
     const expId = pr.expenseId || ('exp-pr-' + pr.id);
     pr.expenseId = expId;
 
-    const existingExpIdx = (db.expenses || []).findIndex((e: any) => e.payrollId === pr.id || e.id === expId);
+    const existingExpIdx = (db.expenses || []).findIndex((e: any) =>
+      e.schoolId === schoolId && (e.payrollId === pr.id || e.id === expId)
+    );
     const expRecord = {
       id: expId,
       schoolId,
@@ -1236,7 +1259,9 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
     const db = getEnsureDB();
     const pr = (db.payroll || []).find((p: any) => p.id === id && p.schoolId === schoolId);
     if (pr?.expenseId) {
-      db.expenses = (db.expenses || []).filter((e: any) => e.id !== pr.expenseId && e.payrollId !== id);
+      db.expenses = (db.expenses || []).filter((e: any) =>
+        !(e.schoolId === schoolId && (e.id === pr.expenseId || e.payrollId === id))
+      );
     }
     db.payroll = (db.payroll || []).filter((p: any) => !(p.id === id && p.schoolId === schoolId));
     saveLocalDB(db);
@@ -1342,10 +1367,14 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
     const idx = (db.budgets || []).findIndex((b: any) => b.id === id && b.schoolId === schoolId);
     if (idx === -1) return res.status(404).json({ error: "Budget not found" });
 
+    const currentBudget = db.budgets[idx];
     db.budgets[idx] = {
-      ...db.budgets[idx],
+      ...currentBudget,
       ...req.body,
-      plannedAmount: req.body.plannedAmount !== undefined ? Number(req.body.plannedAmount) : db.budgets[idx].plannedAmount
+      id: currentBudget.id,
+      schoolId: currentBudget.schoolId,
+      createdAt: currentBudget.createdAt,
+      plannedAmount: req.body.plannedAmount !== undefined ? Number(req.body.plannedAmount) : currentBudget.plannedAmount
     };
 
     saveLocalDB(db);
