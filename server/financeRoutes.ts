@@ -174,11 +174,12 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
   };
 
   // Helper: synchronize local finance collections with Supabase tables (Tables 21-27) when Cloud DB is active
-  const syncFinanceTableToSupabase = async (table: string, row: Record<string, any>): Promise<boolean> => {
+  const syncFinanceRowsToSupabase = async (table: string, rows: Record<string, any>[]): Promise<boolean> => {
     if (getUseLocalFallback()) return true;
     if (!supabase) return false;
+    if (rows.length === 0) return true;
     try {
-      const { error } = await supabase.from(table).upsert([row], { onConflict: "id" });
+      const { error } = await supabase.from(table).upsert(rows, { onConflict: "id" });
       if (error) {
         console.error("Finance write failed:", { table, code: String(error.code || "UNKNOWN") });
         return false;
@@ -192,6 +193,9 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
       return false;
     }
   };
+
+  const syncFinanceTableToSupabase = async (table: string, row: Record<string, any>): Promise<boolean> =>
+    syncFinanceRowsToSupabase(table, [row]);
 
   const deleteFinanceRowFromSupabase = async (table: string, id: string, schoolId: string): Promise<boolean> => {
     if (getUseLocalFallback()) return true;
@@ -330,6 +334,79 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
         paidAmount: Number(row.paid_amount) || 0, status: row.status || "unpaid",
         createdAt: row.created_at || "", updatedAt: row.updated_at || "", history: row.history || []
       })
+    }
+  };
+
+  const toSupabaseFinanceRow = (collection: FinanceCollection, row: any): Record<string, any> => {
+    switch (collection) {
+      case "feeStructures":
+        return {
+          id: row.id, school_id: row.schoolId, name: row.name, category: row.category,
+          amount: row.amount, class_name: row.className, academic_year: row.academicYear,
+          term: row.term, description: row.description, created_at: row.createdAt
+        };
+      case "invoices":
+        return {
+          id: row.id, school_id: row.schoolId, invoice_number: row.invoiceNumber,
+          student_id: row.studentId, student_name: row.studentName, class_name: row.className,
+          guardian_name: row.guardianName, guardian_phone: row.guardianPhone, items: row.items,
+          subtotal: row.subtotal, discount: row.discount, total: row.total,
+          paid_amount: row.paidAmount, balance: row.balance, issue_date: row.issueDate,
+          due_date: row.dueDate, status: row.status, notes: row.notes,
+          created_at: row.createdAt, updated_at: row.updatedAt || null
+        };
+      case "payments":
+        return {
+          id: row.id, school_id: row.schoolId, receipt_number: row.receiptNumber,
+          invoice_id: row.invoiceId, invoice_number: row.invoiceNumber, student_id: row.studentId,
+          student_name: row.studentName, class_name: row.className, amount: row.amount,
+          payment_date: row.paymentDate, payment_method: row.paymentMethod,
+          reference: row.reference, remaining_balance: row.remainingBalance ?? null,
+          received_by: row.receivedBy, notes: row.notes, created_at: row.createdAt
+        };
+      case "expenses":
+        return {
+          id: row.id, school_id: row.schoolId, expense_id: row.expenseId, category: row.category,
+          description: row.description, amount: row.amount, date: row.date,
+          payment_method: row.paymentMethod, vendor_payee: row.vendorPayee,
+          reference_number: row.referenceNumber, receipt_document: row.receiptDocument,
+          created_by: row.createdBy, notes: row.notes, status: row.status,
+          payroll_id: row.payrollId || null, created_at: row.createdAt, updated_at: row.updatedAt || null
+        };
+      case "income":
+        return {
+          id: row.id, school_id: row.schoolId, income_id: row.incomeId, category: row.category,
+          description: row.description, amount: row.amount, date: row.date,
+          payment_method: row.paymentMethod, reference: row.reference, payer: row.payer,
+          notes: row.notes, created_by: row.createdBy, payment_id: row.paymentId || null,
+          created_at: row.createdAt
+        };
+      case "payroll":
+        return {
+          id: row.id, school_id: row.schoolId, employee_type: row.employeeType,
+          employee_id: row.employeeId, employee_name: row.employeeName,
+          role_or_department: row.roleOrDepartment, basic_salary: row.basicSalary,
+          allowances: row.allowances, deductions: row.deductions, gross_salary: row.grossSalary,
+          net_salary: row.netSalary, payment_date: row.paymentDate, payment_method: row.paymentMethod,
+          payroll_period: row.payrollPeriod, status: row.status, notes: row.notes,
+          paid_at: row.paidAt || null, expense_id: row.expenseId || null,
+          created_at: row.createdAt, updated_at: row.updatedAt || null
+        };
+      case "budgets":
+        return {
+          id: row.id, school_id: row.schoolId, academic_year: row.academicYear,
+          period: row.period, category: row.category, type: row.type,
+          planned_amount: row.plannedAmount, actual_amount: row.actualAmount,
+          remaining_amount: row.remainingAmount, variance: row.variance,
+          notes: row.notes, created_at: row.createdAt
+        };
+      case "fees":
+        return {
+          id: row.id, school_id: row.schoolId, student_id: row.studentId,
+          month: row.month, year: row.year, amount: row.amount, paid_amount: row.paidAmount,
+          status: row.status, created_at: row.createdAt, updated_at: row.updatedAt || null,
+          history: row.history || []
+        };
     }
   };
 
