@@ -533,16 +533,16 @@ export const AppShell: React.FC<AppShellProps> = ({
     const collapsed = !isMobile && sidebarCollapsed;
 
     return (
-      <div className="flex flex-col h-full bg-[var(--sidebar-bg)] text-[var(--sidebar-text)] select-none">
+      <div className="flex flex-col h-full bg-[var(--sidebar-bg)] text-[var(--sidebar-text)] select-none relative">
         {/* 1. Brand & School Identity Header */}
-        <div className="h-16 px-4 border-b border-[var(--sidebar-border)] flex items-center justify-between gap-2 shrink-0">
+        <div className="h-[4.5rem] px-4 border-b border-[var(--sidebar-border)] flex items-center justify-between gap-2 shrink-0">
           <button
             type="button"
             onClick={() => {
               onNavigate('overview');
               if (isMobile) setMobileMenuOpen(false);
             }}
-            className="flex items-center gap-3 min-w-0 text-left cursor-pointer group"
+            className="flex items-center gap-3 min-w-0 text-left cursor-pointer group rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]/70"
           >
             <img src="/brand-mark.svg" alt="" className="w-9 h-9 rounded-[var(--radius-md)] shrink-0 object-contain shadow-sm" />
             {!collapsed && (
@@ -551,7 +551,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                   <span className="text-sm font-extrabold text-white truncate tracking-tight font-display">
                     {settings.schoolName || 'Quantora'}
                   </span>
-                  <span className="badge-system">v2026.04</span>
+                  <span className="badge-system">QUANTORA</span>
                 </div>
                 <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-[var(--sidebar-text-muted)] mt-0.5">
                   <span className="dot" style={{ margin: 0, width: 5, height: 5 }} />
@@ -598,7 +598,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                 onChange={(event) => setSidebarQuery(event.target.value)}
                 placeholder="Raadi qaybta aad u baahan tahay..."
                 aria-label="Ka raadi qaybaha nidaamka"
-                className="w-full min-w-0 bg-transparent border-0 outline-none text-xs text-white placeholder:text-[var(--sidebar-text-muted)]"
+                className="w-full min-w-0 bg-transparent border-0 outline-none text-sm text-white placeholder:text-[var(--sidebar-text-muted)]"
               />
               {sidebarQuery && (
                 <button
@@ -698,7 +698,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                                 toggleExpandItem(item.id);
                               }
                             }}
-                            title={collapsed ? item.label : undefined}
+                            title={collapsed ? getSomaliNavLabel(item.id, item.label) : undefined}
                             aria-expanded={isExpanded}
                             className={`flex-1 flex items-center justify-between gap-2.5 px-2.5 py-2.5 text-xs cursor-pointer min-w-0 text-left rounded-xl transition-all ${active && item.id === 'students' ? 'bg-[var(--sidebar-active-bg)]/90' : ''}`}
                           >
@@ -706,7 +706,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                               <Icon
                                 className={`w-4 h-4 shrink-0 ${active ? 'text-[var(--color-accent)]' : 'text-[var(--sidebar-text-muted)]'}`}
                               />
-                              {!collapsed && <span className="truncate">{item.label}</span>}
+                              {!collapsed && <span className="truncate">{getSomaliNavLabel(item.id, item.label)}</span>}
                             </div>
                             {!collapsed && (
                               <div className="flex items-center gap-1.5 shrink-0">
@@ -791,7 +791,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                                             <span className={`block truncate text-[10px] mt-0.5 ${
                                               childActive ? 'text-white/65' : 'text-[var(--sidebar-text-muted)]'
                                             }`}>
-                                              {child.subLabel}
+                                              {getSomaliNavSubLabel(child.id, child.subLabel)}
                                             </span>
                                           )}
                                         </span>
@@ -831,7 +831,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                           });
                           if (isMobile) setMobileMenuOpen(false);
                         }}
-                        title={collapsed ? item.label : undefined}
+                        title={collapsed ? getSomaliNavLabel(item.id, item.label) : undefined}
                         className={`flex-1 min-w-0 flex items-center gap-2.5 px-2.5 py-2 rounded-[var(--radius-sm)] text-xs transition-colors cursor-pointer ${
                           active
                             ? 'bg-[var(--sidebar-active-bg)] text-white font-semibold border-l-2 border-[var(--color-accent)]'
@@ -841,7 +841,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                         <Icon
                           className={`w-4 h-4 shrink-0 ${active ? 'text-[var(--color-accent)]' : 'text-[var(--sidebar-text-muted)]'}`}
                         />
-                        {!collapsed && <span className="truncate">{item.label}</span>}
+                        {!collapsed && <span className="truncate">{getSomaliNavLabel(item.id, item.label)}</span>}
                       </button>
                       {!collapsed && (
                         <button
@@ -850,8 +850,8 @@ export const AppShell: React.FC<AppShellProps> = ({
                             event.stopPropagation();
                             toggleFavoriteNav(item.id);
                           }}
-                          aria-label={favoriteNavIds.includes(item.id) ? `Unpin ${item.label}` : `Pin ${item.label}`}
-                          title={favoriteNavIds.includes(item.id) ? "Unpin from sidebar" : "Pin to sidebar"}
+                          aria-label={favoriteNavIds.includes(item.id) ? `Ka saar xulashada ${getSomaliNavLabel(item.id, item.label)}` : `Ku dar xulashada ${getSomaliNavLabel(item.id, item.label)}`}
+                          title={favoriteNavIds.includes(item.id) ? "Ka saar liiska la doortay" : "Ku dar liiska la doortay"}
                           className={`mr-1 p-1.5 rounded-[var(--radius-xs)] cursor-pointer transition-colors ${
                             favoriteNavIds.includes(item.id)
                               ? 'text-[var(--color-accent)] bg-[var(--color-brand-soft)]'
@@ -919,7 +919,7 @@ export const AppShell: React.FC<AppShellProps> = ({
       {/* Desktop Sidebar */}
       <aside
         className={`app-sidebar hidden lg:flex flex-col shrink-0 h-screen sticky top-0 z-30 border-r border-[var(--sidebar-border)] transition-all duration-200 ${
-          sidebarCollapsed ? 'w-16' : 'w-64'
+          sidebarCollapsed ? 'w-[4.5rem]' : 'w-[17rem]'
         }`}
       >
         {renderSidebarContent(false)}
@@ -941,7 +941,7 @@ export const AppShell: React.FC<AppShellProps> = ({
               animate={{ x: 0 }}
               exit={{ x: -280 }}
               transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-              className="relative w-72 max-w-[85vw] h-full z-10 shadow-2xl"
+              className="relative w-80 max-w-[88vw] h-full z-10 shadow-2xl border-r border-white/10"
             >
               {renderSidebarContent(true)}
             </motion.aside>
