@@ -43,8 +43,15 @@ import { apiFetch } from '../../lib/apiClient';
 
 export type { FinanceSubSection };
 
+function financeResponseError(status: number): Error {
+  if (status === 401) return new Error("Fadhigaagu wuu dhacay. Fadlan dib u gal si aad u aragto xogta maaliyadda.");
+  if (status === 403) return new Error("Awood uma lihid inaad aragto qaybtaan maaliyadda.");
+  if (status === 503) return new Error("Kaydka xogta maaliyadda hadda lama heli karo. Xogta lama cusboonaysiin; dib isku day marka adeeggu soo noqdo.");
+  return new Error("Xogta maaliyadda lama soo qaadi karin. Fadlan isku day mar kale.");
+}
+
 async function safeJson<T = any>(res: Response, fallback: T): Promise<T> {
-  if (!res.ok) return fallback;
+  if (!res.ok) throw financeResponseError(res.status);
   const contentType = res.headers.get('content-type') || '';
   if (!contentType.includes('application/json')) return fallback;
   try {
@@ -91,6 +98,8 @@ export const FinancePage: React.FC<FinanceViewProps> = ({
   };
 
   const [loading, setLoading] = useState(true);
+  const [hasLoadedFinanceData, setHasLoadedFinanceData] = useState(false);
+  const [financeLoadError, setFinanceLoadError] = useState<string | null>(null);
   const [stats, setStats] = useState<FinanceStats>({
     totalRevenue: 0,
     totalExpenses: 0,
@@ -173,6 +182,8 @@ export const FinancePage: React.FC<FinanceViewProps> = ({
         safeJson(cfRes, null)
       ]);
 
+      setFinanceLoadError(null);
+      setHasLoadedFinanceData(true);
       if (statsData) setStats(statsData);
       if (Array.isArray(fsData)) setFeeStructures(fsData);
       if (Array.isArray(invData)) setInvoices(invData);
@@ -185,6 +196,11 @@ export const FinancePage: React.FC<FinanceViewProps> = ({
       if (cfResult) setCashFlowData(cfResult);
     } catch (error) {
       console.error('Error loading finance data:', error);
+      setFinanceLoadError(
+        error instanceof Error
+          ? error.message
+          : "Xogta maaliyadda lama soo qaadi karin. Fadlan isku day mar kale."
+      );
     } finally {
       setLoading(false);
     }
@@ -202,9 +218,17 @@ export const FinancePage: React.FC<FinanceViewProps> = ({
         if (endDate) params.set('to', endDate);
         const res = await apiFetch(`/api/profit-loss?${params.toString()}`);
         const data = await safeJson(res, null);
-        if (data) setPnlData(data);
+        if (data) {
+          setPnlData(data);
+          setFinanceLoadError(null);
+        }
       } catch (err) {
         console.error('Error updating P&L period:', err);
+        setFinanceLoadError(
+          err instanceof Error
+            ? err.message
+            : "Warbixinta faa’iido iyo khasaaro lama cusboonaysiin karin."
+        );
       }
     },
     []
@@ -214,9 +238,17 @@ export const FinancePage: React.FC<FinanceViewProps> = ({
     try {
       const res = await apiFetch(`/api/cash-flow?period=${encodeURIComponent(period)}`);
       const data = await safeJson(res, null);
-      if (data) setCashFlowData(data);
+      if (data) {
+        setCashFlowData(data);
+        setFinanceLoadError(null);
+      }
     } catch (err) {
       console.error('Error updating Cash Flow period:', err);
+      setFinanceLoadError(
+        err instanceof Error
+          ? err.message
+          : "Xogta socodka lacagta lama cusboonaysiin karin."
+      );
     }
   }, []);
 
@@ -273,6 +305,46 @@ export const FinancePage: React.FC<FinanceViewProps> = ({
       />
 
       {/* Active Module Area */}
+      {financeLoadError ? (
+        <div
+          role="alert"
+          aria-live="assertive"
+          className="min-h-[360px] flex items-center justify-center rounded-3xl border border-amber-500/25 bg-amber-500/[0.045] p-6"
+        >
+          <div className="max-w-lg text-center">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-amber-500/20 bg-amber-500/10 text-amber-500">
+              <RefreshCw className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
+            </div>
+            <h2 className="mt-4 text-lg font-black tracking-tight text-[var(--color-text-primary)]">
+              Xogta maaliyadda lama xaqiijin karin
+            </h2>
+            <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[var(--color-text-secondary)]">
+              {financeLoadError}
+            </p>
+            <p className="mt-2 text-xs text-[var(--color-text-muted)]">
+              Xog hore looma muujinayo sidii inay tahay xogta hadda jirta.
+            </p>
+            <Button
+              variant="primary"
+              size="md"
+              onClick={fetchAllFinanceData}
+              loading={loading}
+              icon={<RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />}
+              className="mt-5"
+            >
+              Dib u tijaabi
+            </Button>
+          </div>
+        </div>
+      ) : loading && !hasLoadedFinanceData ? (
+        <div role="status" aria-live="polite" className="min-h-[360px] flex items-center justify-center rounded-3xl border border-[var(--color-border)] bg-[var(--color-surface)]/60">
+          <div className="flex flex-col items-center gap-3 text-center">
+            <RefreshCw className="h-6 w-6 animate-spin text-[var(--color-brand)]" />
+            <p className="text-sm font-semibold text-[var(--color-text-primary)]">Xogta maaliyadda ayaa la soo qaadaya…</p>
+            <p className="text-xs text-[var(--color-text-muted)]">Fadlan sug inta kaydka xogta la xaqiijinayo.</p>
+          </div>
+        </div>
+      ) : (
       <div className="min-h-[500px]">
         {activeSubTab === 'overview' && (
           <FinanceDashboard
@@ -396,6 +468,7 @@ export const FinancePage: React.FC<FinanceViewProps> = ({
           />
         )}
       </div>
+      )}
     </PageContainer>
   );
 };
