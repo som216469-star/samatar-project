@@ -30,7 +30,7 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
         fullWidth={variant === 'sidebar'}
         title="Ku shub Taleefankaaga ama Computer-kaaga (Install App)"
       >
-        {variant === 'full' ? 'Ku shub Qalabkaaga (Install App)' : 'Install App'}
+        {variant === 'full' ? 'Ku shub Qalabkaaga' : 'Ku Shub App-ka'}
       </Button>
     );
   }
@@ -47,7 +47,7 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
           fullWidth={variant === 'sidebar'}
           title="Ku dar iPhone/iPad Home Screen"
         >
-          {variant === 'full' ? 'Install on iPhone/iPad' : 'Install (iOS)'}
+          {variant === 'full' ? 'Ku shub iPhone/iPad' : 'Ku shub (iOS)'}
         </Button>
 
         <Modal
@@ -62,35 +62,32 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
               onClick={() => setShowIOSGuide(false)}
               className="w-full justify-center"
             >
-              Fahmay (Done)
+              Waan fahmay
             </Button>
           }
         >
           <div className="space-y-4">
             <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
-              Raac talaabooyinkan fudud si aad QUANTORA ugu darto shaashadaada
-              taleefanka (Home Screen):
+              Raac tallaabooyinkan si aad QUANTORA ugu darto shaashadda hore ee taleefankaaga:
             </p>
 
             <ol className="space-y-2.5 text-xs text-[var(--text-primary)]">
               <li className="flex items-start gap-2.5 p-3 rounded-xl bg-[var(--bg-elevated)] border border-[var(--border-subtle)]">
                 <Share2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
                 <span>
-                  1. Riix astaanta <strong>Share</strong> (Wadaag) ee hoose ama sare ee Safari
-                  browser.
+                  1. Riix astaanta <strong>Share (Wadaag)</strong> ee Safari.
                 </span>
               </li>
               <li className="flex items-start gap-2.5 p-3 rounded-xl bg-[var(--bg-elevated)] border border-[var(--border-subtle)]">
                 <PlusSquare className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
                 <span>
-                  2. Hoos u deji liiska, kadibna dooro <strong>Add to Home Screen</strong>.
+                  2. Hoos u rog liiska oo dooro <strong>Add to Home Screen (Ku dar shaashadda hore)</strong>.
                 </span>
               </li>
               <li className="flex items-start gap-2.5 p-3 rounded-xl bg-[var(--bg-elevated)] border border-[var(--border-subtle)]">
                 <Smartphone className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
                 <span>
-                  3. Riix <strong>Add</strong> ee geeska sare. Waxay toos ugu furmaysaa sida App
-                  caadi ah!
+                  3. Riix <strong>Add (Ku dar)</strong>. Quantora waxay uga furmi doontaa sida app caadi ah.
                 </span>
               </li>
             </ol>

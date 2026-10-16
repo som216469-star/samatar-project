@@ -836,6 +836,43 @@ body {
     var(--color-bg);
 }
 
+.app-sidebar-content {
+  background:
+    radial-gradient(circle at 0% 0%, rgba(34, 211, 238, 0.09), transparent 30%),
+    radial-gradient(circle at 100% 88%, rgba(139, 92, 246, 0.11), transparent 34%),
+    linear-gradient(155deg, color-mix(in srgb, var(--sidebar-bg) 91%, #172554 9%) 0%, var(--sidebar-bg) 55%, color-mix(in srgb, var(--sidebar-bg) 90%, #164e63 10%) 100%);
+}
+
+.sidebar-section-heading {
+  color: color-mix(in srgb, var(--color-accent) 46%, var(--sidebar-text-muted));
+  letter-spacing: 0.14em;
+}
+
+.app-sidebar nav {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.28) transparent;
+  overscroll-behavior: contain;
+}
+
+.app-sidebar nav::-webkit-scrollbar {
+  width: 5px;
+}
+
+.app-sidebar nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.app-sidebar nav::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.25);
+  border-radius: 999px;
+}
+
+.app-sidebar button:focus-visible,
+.app-sidebar input:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
 .app-sidebar {
   box-shadow: 12px 0 34px rgba(11, 7, 24, 0.08);
   position: sticky;

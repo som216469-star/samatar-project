@@ -31,7 +31,10 @@ import {
   NormalizedRole,
   getAuthorizedNavItems,
   canRoleAccessStudentSubSection,
-  canRoleAccessPeopleSubSection
+  canRoleAccessPeopleSubSection,
+  getSomaliNavLabel,
+  getSomaliNavSubLabel,
+  getSomaliRoleLabel
 } from './navigationConfig';
 import { OfflineSyncBadge } from '../components/OfflineSyncBadge';
 import { PWAInstallButton } from '../components/PWAInstallButton';
@@ -248,68 +251,68 @@ export const AppShell: React.FC<AppShellProps> = ({
     ];
 
     if (activeTab === 'overview') {
-      trail.push({ label: 'Executive Dashboard' });
+      trail.push({ label: 'Guudmarka Maamulka' });
     } else if (activeTab === 'students') {
       trail.push({
-        label: 'Students',
+        label: 'Ardayda',
         onClick: () => onNavigate('students', { studentSubSection: 'all' })
       });
       const subLabelMap: Record<StudentSubSection, string> = {
-        all: 'All Students',
-        add: 'Add Student',
-        active: 'Active Students',
-        inactive: 'Inactive Students',
-        archived: 'Archived Students',
-        import: 'Import Students',
-        export: 'Export Students'
+        all: 'Dhammaan Ardayda',
+        add: 'Ku Dar Arday',
+        active: 'Arday Firfircoon',
+        inactive: 'Arday Hakad ku Jira',
+        archived: 'Ardayda Kaydsan',
+        import: 'Soo Gelin Xogta Ardayda',
+        export: 'Dhoofin Xogta Ardayda'
       };
-      trail.push({ label: subLabelMap[studentSubSection] || 'All Students' });
+      trail.push({ label: subLabelMap[studentSubSection] || 'Dhammaan Ardayda' });
     } else if (activeTab === 'attendance') {
       trail.push({
-        label: 'Attendance',
+        label: 'Xaadirinta',
         onClick: () => onNavigate('attendance', { attendanceSubSection: 'overview' })
       });
       const aMap: Record<AttendanceSubSection, string> = {
-        overview: 'Attendance Overview',
-        take: 'Take Attendance',
-        daily: 'Daily Register',
-        history: 'Attendance History',
-        students: 'Student Attendance',
-        classes: 'Class Attendance',
-        analytics: 'Attendance Analytics',
-        reports: 'Attendance Reports'
+        overview: 'Guudmarka Xaadirinta',
+        take: 'Qor Xaadirinta',
+        daily: 'Diiwaanka Maalinlaha',
+        history: 'Taariikhda Xaadirinta',
+        students: 'Xaadirinta Ardayga',
+        classes: 'Xaadirinta Fasallada',
+        analytics: 'Falanqaynta Xaadirinta',
+        reports: 'Warbixinta Xaadirinta'
       };
-      trail.push({ label: aMap[attendanceSubSection] || 'Attendance Overview' });
+      trail.push({ label: aMap[attendanceSubSection] || 'Guudmarka Xaadirinta' });
     } else if (activeTab === 'people') {
-      trail.push({ label: 'People & HR' });
+      trail.push({ label: 'Shaqaalaha iyo Waalidiinta' });
       const pMap: Record<PeopleSubSection, string> = {
-        teachers: 'Teachers',
-        staff: 'Staff Directory',
-        guardians: 'Guardians'
+        teachers: 'Macallimiinta',
+        staff: 'Diiwaanka Shaqaalaha',
+        guardians: 'Waalidiinta'
       };
       trail.push({ label: pMap[peopleSubSection] });
     } else if (activeTab === 'fees') {
       trail.push({
-        label: 'Finance & Billing',
+        label: 'Maaliyadda iyo Biilasha',
         onClick: () => onNavigate('fees', { financeSubSection: 'overview' })
       });
       const fMap: Record<FinanceSubSection, string> = {
-        overview: 'Finance Dashboard',
-        invoices: 'Invoices',
-        payments: 'Payments',
-        expenses: 'Expenses',
-        income: 'Income',
-        budgets: 'Budgets',
-        payroll: 'Payroll',
-        profit_loss: 'Profit & Loss',
-        cash_flow: 'Cash Flow',
-        fee_structures: 'Fee Structures',
-        reports: 'Financial Reports'
+        overview: 'Guudmarka Maaliyadda',
+        invoices: 'Biilasha',
+        payments: 'Lacag-bixinnada',
+        expenses: 'Kharashaadka',
+        income: 'Dakhliga',
+        budgets: 'Miisaaniyadda',
+        payroll: 'Mushaharka',
+        profit_loss: 'Faa’iido iyo Khasaare',
+        cash_flow: 'Socodka Lacagta',
+        fee_structures: 'Qaab-dhismeedka Khidmadaha',
+        reports: 'Warbixinta Maaliyadda'
       };
       trail.push({ label: fMap[financeSubSection] });
     } else {
       const found = NAVIGATION_CONFIG.find((n) => n.tab === activeTab);
-      if (found) trail.push({ label: found.label });
+      if (found) trail.push({ label: getSomaliNavLabel(found.id, found.label) });
     }
 
     return trail;
@@ -323,8 +326,9 @@ export const AppShell: React.FC<AppShellProps> = ({
         if (item.children && item.children.length > 0) {
           return item.children.map((c) => ({
             id: c.id,
-            label: `${item.label} → ${c.label}`,
-            category: 'Navigation',
+            label: `${getSomaliNavLabel(item.id, item.label)} → ${getSomaliNavLabel(c.id, c.label)}`,
+            searchText: `${item.label} ${c.label} ${item.subLabel || ''} ${c.subLabel || ''} ${getSomaliNavLabel(item.id, item.label)} ${getSomaliNavLabel(c.id, c.label)} ${getSomaliNavSubLabel(item.id, item.subLabel) || ''} ${getSomaliNavSubLabel(c.id, c.subLabel) || ''}`,
+            category: 'Qaybta nidaamka',
             action: () => {
               onNavigate(c.tab, {
                 studentSubSection: c.studentSubSection,
@@ -338,8 +342,9 @@ export const AppShell: React.FC<AppShellProps> = ({
         return [
           {
             id: item.id,
-            label: `${item.label} (${item.subLabel || item.group})`,
-            category: 'Navigation',
+            label: `${getSomaliNavLabel(item.id, item.label)} (${getSomaliNavSubLabel(item.id, item.subLabel || item.group)})`,
+            searchText: `${item.label} ${item.subLabel || item.group} ${getSomaliNavLabel(item.id, item.label)} ${getSomaliNavSubLabel(item.id, item.subLabel || item.group) || ''}`,
+            category: 'Qaybta nidaamka',
             action: () => {
               onNavigate(item.tab, {
                 peopleSubSection: item.peopleSubSection,
@@ -350,7 +355,7 @@ export const AppShell: React.FC<AppShellProps> = ({
           }
         ];
       })
-      .filter((n) => !q || n.label.toLowerCase().includes(q));
+      .filter((n) => !q || n.searchText.toLowerCase().includes(q));
 
     const matchedStudents = q
       ? students
@@ -396,7 +401,7 @@ export const AppShell: React.FC<AppShellProps> = ({
         id: `nav-${nav.id}`,
         type: 'nav',
         primaryLabel: nav.label,
-        metaLabel: 'Jump →',
+        metaLabel: 'Fur',
         onSelect: nav.action
       });
     });
@@ -420,7 +425,7 @@ export const AppShell: React.FC<AppShellProps> = ({
         id: `teacher-${teacher.id}`,
         type: 'teacher',
         primaryLabel: teacher.name,
-        metaLabel: teacher.specialization || 'Teacher',
+        metaLabel: teacher.specialization || 'Macallin',
         onSelect: () => {
           onNavigate('people', { peopleSubSection: 'teachers' });
           closeCommandPalette();
@@ -488,12 +493,12 @@ export const AppShell: React.FC<AppShellProps> = ({
 
     return authorizedNavItems
       .map((item) => {
-        const itemMatches = [item.label, item.subLabel]
+        const itemMatches = [item.label, getSomaliNavLabel(item.id, item.label), item.subLabel, getSomaliNavSubLabel(item.id, item.subLabel)]
           .filter(Boolean)
           .some((value) => String(value).toLowerCase().includes(query));
 
         const matchingChildren = item.children?.filter((child) =>
-          [child.label, child.subLabel]
+          [child.label, getSomaliNavLabel(child.id, child.label), child.subLabel, getSomaliNavSubLabel(child.id, child.subLabel)]
             .filter(Boolean)
             .some((value) => String(value).toLowerCase().includes(query))
         );
@@ -530,16 +535,16 @@ export const AppShell: React.FC<AppShellProps> = ({
     const collapsed = !isMobile && sidebarCollapsed;
 
     return (
-      <div className="flex flex-col h-full bg-[var(--sidebar-bg)] text-[var(--sidebar-text)] select-none">
+      <div className="app-sidebar-content flex flex-col h-full text-[var(--sidebar-text)] select-none relative">
         {/* 1. Brand & School Identity Header */}
-        <div className="h-16 px-4 border-b border-[var(--sidebar-border)] flex items-center justify-between gap-2 shrink-0">
+        <div className="h-[4.5rem] px-4 border-b border-[var(--sidebar-border)] flex items-center justify-between gap-2 shrink-0">
           <button
             type="button"
             onClick={() => {
               onNavigate('overview');
               if (isMobile) setMobileMenuOpen(false);
             }}
-            className="flex items-center gap-3 min-w-0 text-left cursor-pointer group"
+            className="flex items-center gap-3 min-w-0 text-left cursor-pointer group rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]/70"
           >
             <img src="/brand-mark.svg" alt="" className="w-9 h-9 rounded-[var(--radius-md)] shrink-0 object-contain shadow-sm" />
             {!collapsed && (
@@ -548,11 +553,11 @@ export const AppShell: React.FC<AppShellProps> = ({
                   <span className="text-sm font-extrabold text-white truncate tracking-tight font-display">
                     {settings.schoolName || 'Quantora'}
                   </span>
-                  <span className="badge-system">v2026.04</span>
+                  <span className="badge-system">QUANTORA</span>
                 </div>
                 <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-[var(--sidebar-text-muted)] mt-0.5">
                   <span className="dot" style={{ margin: 0, width: 5, height: 5 }} />
-                  <span>{settings.academicYear || '2025/2026'}</span>
+                  <span>{settings.academicYear || '2026/2027'}</span>
                 </div>
               </div>
             )}
@@ -562,7 +567,7 @@ export const AppShell: React.FC<AppShellProps> = ({
             <button
               type="button"
               onClick={() => setMobileMenuOpen(false)}
-              aria-label="Close sidebar"
+              aria-label="Xir liiska dhinaca"
               className="p-1.5 rounded-[var(--radius-sm)] text-[var(--sidebar-text-muted)] hover:text-white hover:bg-white/5 cursor-pointer"
             >
               <X className="w-5 h-5" />
@@ -571,8 +576,8 @@ export const AppShell: React.FC<AppShellProps> = ({
             <button
               type="button"
               onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-              aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-              title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              aria-label={collapsed ? 'Ballaarin liiska dhinaca' : 'Yaree liiska dhinaca'}
+              title={collapsed ? 'Ballaarin liiska dhinaca' : 'Yaree liiska dhinaca'}
               className="p-1.5 rounded-[var(--radius-sm)] text-[var(--sidebar-text-muted)] hover:text-white hover:bg-white/5 cursor-pointer"
             >
               {collapsed ? (
@@ -593,15 +598,21 @@ export const AppShell: React.FC<AppShellProps> = ({
                 type="search"
                 value={sidebarQuery}
                 onChange={(event) => setSidebarQuery(event.target.value)}
-                placeholder="Find a module..."
-                aria-label="Search sidebar navigation"
-                className="w-full min-w-0 bg-transparent border-0 outline-none text-xs text-white placeholder:text-[var(--sidebar-text-muted)]"
+                onKeyDown={(event) => {
+                  if (event.key === 'Escape' && sidebarQuery) {
+                    event.preventDefault();
+                    setSidebarQuery('');
+                  }
+                }}
+                placeholder="Raadi qaybta aad u baahan tahay..."
+                aria-label="Ka raadi qaybaha nidaamka"
+                className="w-full min-w-0 bg-transparent border-0 outline-none text-sm text-white placeholder:text-[var(--sidebar-text-muted)]"
               />
               {sidebarQuery && (
                 <button
                   type="button"
                   onClick={() => setSidebarQuery('')}
-                  aria-label="Clear sidebar search"
+                  aria-label="Nadiifi raadinta"
                   className="p-0.5 rounded text-[var(--sidebar-text-muted)] hover:text-white cursor-pointer"
                 >
                   <X className="w-3 h-3" />
@@ -613,13 +624,13 @@ export const AppShell: React.FC<AppShellProps> = ({
 
         {/* 2. Scrollable Grouped Navigation */}
         <nav
-          aria-label="Primary Sidebar Navigation"
+          aria-label="Liiska ugu weyn ee qaybaha"
           className="flex-1 overflow-y-auto px-3 py-4 space-y-5"
         >
           {favoriteNavItems.length > 0 && !sidebarQuery && !collapsed && (
             <div className="space-y-1 pb-2 mb-1 border-b border-[var(--sidebar-border)]">
-              <div className="px-2.5 pb-1 text-[10px] font-bold uppercase tracking-widest text-[var(--sidebar-text-muted)]">
-                Pinned
+              <div className="sidebar-section-heading px-2.5 pb-1 text-[10px] font-bold uppercase tracking-widest text-[var(--sidebar-text-muted)]">
+                Kuwa la doortay
               </div>
               {favoriteNavItems.map((item) => {
                 const Icon = item.icon;
@@ -632,6 +643,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                       if (item.children?.length) {
                         toggleExpandItem(item.id);
                       } else {
+                        setSidebarQuery('');
                         onNavigate(item.tab, {
                           peopleSubSection: item.peopleSubSection,
                           financeSubSection: item.financeSubSection
@@ -642,7 +654,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                     className={'w-full flex items-center gap-2.5 px-2.5 py-2 rounded-[var(--radius-sm)] text-xs cursor-pointer transition-colors ' + (active ? 'bg-[var(--sidebar-active-bg)] text-white font-semibold' : 'text-[var(--sidebar-text)] hover:bg-[var(--sidebar-hover-bg)] hover:text-white')}
                   >
                     <Icon className={'w-4 h-4 shrink-0 ' + (active ? 'text-[var(--color-accent)]' : 'text-[var(--sidebar-text-muted)]')} />
-                    <span className="truncate flex-1 text-left">{item.label}</span>
+                    <span className="truncate flex-1 text-left">{getSomaliNavLabel(item.id, item.label)}</span>
                     <Star className="w-3 h-3 text-[var(--color-accent)] fill-current shrink-0" aria-hidden="true" />
                   </button>
                 );
@@ -653,8 +665,8 @@ export const AppShell: React.FC<AppShellProps> = ({
           {sidebarNavItems.length === 0 ? (
             <div className="px-3 py-10 text-center">
               <Search className="w-5 h-5 mx-auto text-[var(--sidebar-text-muted)]" aria-hidden="true" />
-              <p className="mt-2 text-xs font-semibold text-[var(--sidebar-text)]">No modules found</p>
-              <p className="mt-1 text-[11px] text-[var(--sidebar-text-muted)]">Try a different search.</p>
+              <p className="mt-2 text-xs font-semibold text-[var(--sidebar-text)]">Qayb lama helin</p>
+              <p className="mt-1 text-[11px] text-[var(--sidebar-text-muted)]">Isku day eray kale.</p>
             </div>
           ) : NAVIGATION_GROUPS.map((group) => {
             const items = sidebarNavItems.filter((i) => i.group === group.id);
@@ -663,7 +675,7 @@ export const AppShell: React.FC<AppShellProps> = ({
             return (
               <div key={group.id} className="space-y-1">
                 {!collapsed && (
-                  <div className="px-2.5 pb-1 text-[10px] font-bold uppercase tracking-widest text-[var(--sidebar-text-muted)]">
+                  <div className="sidebar-section-heading px-2.5 pb-1 text-[10px] font-bold uppercase tracking-widest text-[var(--sidebar-text-muted)]">
                     {group.label}
                   </div>
                 )}
@@ -695,7 +707,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                                 toggleExpandItem(item.id);
                               }
                             }}
-                            title={collapsed ? item.label : undefined}
+                            title={collapsed ? getSomaliNavLabel(item.id, item.label) : undefined}
                             aria-expanded={isExpanded}
                             className={`flex-1 flex items-center justify-between gap-2.5 px-2.5 py-2.5 text-xs cursor-pointer min-w-0 text-left rounded-xl transition-all ${active && item.id === 'students' ? 'bg-[var(--sidebar-active-bg)]/90' : ''}`}
                           >
@@ -703,7 +715,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                               <Icon
                                 className={`w-4 h-4 shrink-0 ${active ? 'text-[var(--color-accent)]' : 'text-[var(--sidebar-text-muted)]'}`}
                               />
-                              {!collapsed && <span className="truncate">{item.label}</span>}
+                              {!collapsed && <span className="truncate">{getSomaliNavLabel(item.id, item.label)}</span>}
                             </div>
                             {!collapsed && (
                               <div className="flex items-center gap-1.5 shrink-0">
@@ -725,8 +737,8 @@ export const AppShell: React.FC<AppShellProps> = ({
                                 event.stopPropagation();
                                 toggleFavoriteNav(item.id);
                               }}
-                              aria-label={favoriteNavIds.includes(item.id) ? `Unpin ${item.label}` : `Pin ${item.label}`}
-                              title={favoriteNavIds.includes(item.id) ? "Unpin from sidebar" : "Pin to sidebar"}
+                              aria-label={favoriteNavIds.includes(item.id) ? `Ka saar xulashada ${getSomaliNavLabel(item.id, item.label)}` : `Ku dar xulashada ${getSomaliNavLabel(item.id, item.label)}`}
+                              title={favoriteNavIds.includes(item.id) ? "Ka saar liiska la doortay" : "Ku dar liiska la doortay"}
                               className={`mr-1.5 p-1.5 rounded-[var(--radius-xs)] cursor-pointer transition-colors ${favoriteNavIds.includes(item.id) ? 'text-[var(--color-accent)] bg-[var(--color-brand-soft)]' : 'text-[var(--sidebar-text-muted)] hover:text-[var(--color-accent)] hover:bg-white/5 opacity-0 group-hover:opacity-100 focus-visible:opacity-100'}`}
                             >
                               <Star className={`w-3.5 h-3.5 ${favoriteNavIds.includes(item.id) ? 'fill-current' : ''}`} />
@@ -754,6 +766,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                                       key={child.id}
                                       type="button"
                                       onClick={() => {
+                                        setSidebarQuery('');
                                         onNavigate(child.tab, {
                                           studentSubSection: child.studentSubSection,
                                           financeSubSection: child.financeSubSection,
@@ -783,12 +796,12 @@ export const AppShell: React.FC<AppShellProps> = ({
                                           />
                                         </span>
                                         <span className="min-w-0 text-left">
-                                          <span className="block truncate font-semibold">{child.label}</span>
+                                          <span className="block truncate font-semibold">{getSomaliNavLabel(child.id, child.label)}</span>
                                           {child.subLabel && (
                                             <span className={`block truncate text-[10px] mt-0.5 ${
                                               childActive ? 'text-white/65' : 'text-[var(--sidebar-text-muted)]'
                                             }`}>
-                                              {child.subLabel}
+                                              {getSomaliNavSubLabel(child.id, child.subLabel)}
                                             </span>
                                           )}
                                         </span>
@@ -822,23 +835,25 @@ export const AppShell: React.FC<AppShellProps> = ({
                       <button
                         type="button"
                         onClick={() => {
+                          setSidebarQuery('');
                           onNavigate(item.tab, {
                             peopleSubSection: item.peopleSubSection,
                             financeSubSection: item.financeSubSection
                           });
                           if (isMobile) setMobileMenuOpen(false);
                         }}
-                        title={collapsed ? item.label : undefined}
-                        className={`flex-1 min-w-0 flex items-center gap-2.5 px-2.5 py-2 rounded-[var(--radius-sm)] text-xs transition-colors cursor-pointer ${
+                        title={collapsed ? getSomaliNavLabel(item.id, item.label) : undefined}
+                        aria-current={active ? 'page' : undefined}
+                        className={`flex-1 min-w-0 flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-[13px] transition-all duration-150 cursor-pointer ${
                           active
-                            ? 'bg-[var(--sidebar-active-bg)] text-white font-semibold border-l-2 border-[var(--color-accent)]'
+                            ? 'bg-[var(--sidebar-active-bg)] text-white font-semibold border-l-2 border-[var(--color-accent)] shadow-sm shadow-black/10'
                             : 'text-[var(--sidebar-text)] hover:bg-[var(--sidebar-hover-bg)] hover:text-white'
                         }`}
                       >
                         <Icon
                           className={`w-4 h-4 shrink-0 ${active ? 'text-[var(--color-accent)]' : 'text-[var(--sidebar-text-muted)]'}`}
                         />
-                        {!collapsed && <span className="truncate">{item.label}</span>}
+                        {!collapsed && <span className="truncate">{getSomaliNavLabel(item.id, item.label)}</span>}
                       </button>
                       {!collapsed && (
                         <button
@@ -847,8 +862,8 @@ export const AppShell: React.FC<AppShellProps> = ({
                             event.stopPropagation();
                             toggleFavoriteNav(item.id);
                           }}
-                          aria-label={favoriteNavIds.includes(item.id) ? `Unpin ${item.label}` : `Pin ${item.label}`}
-                          title={favoriteNavIds.includes(item.id) ? "Unpin from sidebar" : "Pin to sidebar"}
+                          aria-label={favoriteNavIds.includes(item.id) ? `Ka saar xulashada ${getSomaliNavLabel(item.id, item.label)}` : `Ku dar xulashada ${getSomaliNavLabel(item.id, item.label)}`}
+                          title={favoriteNavIds.includes(item.id) ? "Ka saar liiska la doortay" : "Ku dar liiska la doortay"}
                           className={`mr-1 p-1.5 rounded-[var(--radius-xs)] cursor-pointer transition-colors ${
                             favoriteNavIds.includes(item.id)
                               ? 'text-[var(--color-accent)] bg-[var(--color-brand-soft)]'
@@ -886,7 +901,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                     {user.name || user.email.split('@')[0]}
                   </p>
                   <p className="text-[10px] font-mono uppercase tracking-wider text-[var(--sidebar-text-muted)] truncate">
-                    {user.role || 'Administrator'}
+                    {getSomaliRoleLabel(user.role)}
                   </p>
                 </div>
               )}
@@ -895,8 +910,8 @@ export const AppShell: React.FC<AppShellProps> = ({
             <button
               type="button"
               onClick={onLogout}
-              title="Sign out"
-              aria-label="Sign out"
+              title="Ka bax akoonka"
+              aria-label="Ka bax akoonka"
               className="p-1.5 rounded-[var(--radius-xs)] text-[var(--sidebar-text-muted)] hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer shrink-0"
             >
               <LogOut className="w-4 h-4" />
@@ -916,7 +931,7 @@ export const AppShell: React.FC<AppShellProps> = ({
       {/* Desktop Sidebar */}
       <aside
         className={`app-sidebar hidden lg:flex flex-col shrink-0 h-screen sticky top-0 z-30 border-r border-[var(--sidebar-border)] transition-all duration-200 ${
-          sidebarCollapsed ? 'w-16' : 'w-64'
+          sidebarCollapsed ? 'w-[4.5rem]' : 'w-[17rem]'
         }`}
       >
         {renderSidebarContent(false)}
@@ -938,7 +953,7 @@ export const AppShell: React.FC<AppShellProps> = ({
               animate={{ x: 0 }}
               exit={{ x: -280 }}
               transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-              className="relative w-72 max-w-[85vw] h-full z-10 shadow-2xl"
+              className="relative w-80 max-w-[88vw] h-full z-10 shadow-2xl border-r border-white/10"
             >
               {renderSidebarContent(true)}
             </motion.aside>
@@ -955,13 +970,13 @@ export const AppShell: React.FC<AppShellProps> = ({
             <button
               type="button"
               onClick={() => setMobileMenuOpen(true)}
-              aria-label="Open navigation menu"
+              aria-label="Fur liiska qaybaha"
               className="lg:hidden p-2 rounded-[var(--radius-sm)] border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-hover)] cursor-pointer"
             >
               <Menu className="w-4 h-4" />
             </button>
 
-            <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs min-w-0">
+            <nav aria-label="Meesha aad joogto" className="flex items-center gap-1.5 text-xs min-w-0">
               {breadcrumbs.map((crumb, idx) => {
                 const isLast = idx === breadcrumbs.length - 1;
                 return (
@@ -1004,10 +1019,10 @@ export const AppShell: React.FC<AppShellProps> = ({
               aria-haspopup="dialog"
               aria-expanded={commandOpen}
               className="flex items-center gap-2.5 px-3 py-1.5 rounded-[var(--radius-sm)] bg-[var(--color-surface-muted)] hover:bg-[var(--color-surface-hover)] border border-[var(--color-border)] text-xs text-[var(--color-text-secondary)] transition-colors cursor-pointer"
-              title="Quick Search & Command (Ctrl+K)"
+              title="Raadin degdeg ah (Ctrl+K)"
             >
               <Search className="w-3.5 h-3.5 text-[var(--color-text-muted)]" />
-              <span className="hidden md:inline">Search students, modules...</span>
+              <span className="hidden md:inline">Raadi arday ama qayb...</span>
               <kbd className="hidden md:inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-mono bg-[var(--color-surface)] border border-[var(--color-border)] rounded-[var(--radius-xs)] text-[var(--color-text-muted)]">
                 <Command className="w-2.5 h-2.5" />K
               </kbd>
@@ -1026,7 +1041,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                     dbStatus.connected ? 'bg-[var(--color-success)]' : 'bg-[var(--color-warning)]'
                   }`}
                 />
-                <span>{dbStatus.connected ? 'Cloud Synced' : 'Local Storage'}</span>
+                <span>{dbStatus.connected ? 'Cloud-ku waa diyaar' : 'Kayd maxalli ah'}</span>
               </div>
             )}
 
@@ -1034,8 +1049,8 @@ export const AppShell: React.FC<AppShellProps> = ({
             <button
               type="button"
               onClick={onToggleTheme}
-              aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
-              title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} mode`}
+              aria-label={`U beddel muuqaalka ${theme === 'dark' ? 'iftiin' : 'madow'}`}
+              title={`U beddel muuqaalka ${theme === 'dark' ? 'iftiin' : 'madow'}`}
               className="p-2 rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-surface-muted)] hover:bg-[var(--color-surface-hover)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors cursor-pointer"
             >
               {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4" />}
@@ -1049,7 +1064,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[var(--radius-sm)] bg-[var(--color-brand)] hover:bg-[var(--color-brand-hover)] text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Add Student</span>
+                <span className="hidden sm:inline">Ku Dar Arday</span>
               </button>
             )}
           </div>
@@ -1068,7 +1083,7 @@ export const AppShell: React.FC<AppShellProps> = ({
             className="fixed inset-0 z-50 flex items-start justify-center pt-16 sm:pt-24 p-4 bg-black/70 backdrop-blur-xs"
             role="dialog"
             aria-modal="true"
-            aria-label="Global Command Search"
+            aria-label="Raadinta guud ee nidaamka"
             onMouseDown={(e) => {
               if (e.target === e.currentTarget) closeCommandPalette();
             }}
@@ -1095,17 +1110,17 @@ export const AppShell: React.FC<AppShellProps> = ({
                       ? `command-option-${flatCommandItems[selectedCommandIndex].id}`
                       : undefined
                   }
-                  aria-label="Search modules, students, and teachers"
+                  aria-label="Raadi qaybaha, ardayda iyo macallimiinta"
                   autoFocus
                   value={commandQuery}
                   onChange={(e) => setCommandQuery(e.target.value)}
-                  placeholder="Jump to module, search student by name or ID, teacher..."
+                  placeholder="Raadi qayb, arday magaciis ama aqoonsigiis, ama macallin..."
                   className="w-full bg-transparent text-sm text-[var(--color-text-primary)] placeholder-[var(--color-text-muted)] focus:outline-none"
                 />
                 <button
                   type="button"
                   onClick={closeCommandPalette}
-                  aria-label="Close command search"
+                  aria-label="Xir raadinta"
                   className="px-1.5 py-0.5 text-[10px] font-mono uppercase rounded-[var(--radius-xs)] border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] cursor-pointer"
                 >
                   ESC
@@ -1115,7 +1130,7 @@ export const AppShell: React.FC<AppShellProps> = ({
               <div
                 id="command-palette-listbox"
                 role="listbox"
-                aria-label="Command search results"
+                aria-label="Natiijooyinka raadinta"
                 className="max-h-96 overflow-y-auto p-3 space-y-2"
               >
                 {flatCommandItems.length === 0 ? (
@@ -1124,7 +1139,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                     aria-live="polite"
                     className="py-8 text-center text-xs text-[var(--color-text-muted)]"
                   >
-                    No matching modules or records found for "{commandQuery}".
+                    Wax natiijo ah lagama helin "{commandQuery}".
                   </div>
                 ) : (
                   flatCommandItems.map((item, idx) => {

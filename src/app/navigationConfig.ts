@@ -117,13 +117,138 @@ export interface NavItemConfig {
 }
 
 export const NAVIGATION_GROUPS: Array<{ id: NavGroupId; label: string }> = [
-  { id: 'OVERVIEW', label: 'Overview' },
-  { id: 'ACADEMIC', label: 'Academic' },
-  { id: 'PEOPLE', label: 'People & HR' },
-  { id: 'OPERATIONS', label: 'Operations' },
-  { id: 'FINANCE', label: 'Finance & Billing' },
-  { id: 'SYSTEM', label: 'System' }
+  { id: 'OVERVIEW', label: 'GUUDMAR' },
+  { id: 'ACADEMIC', label: 'WAXBARASHO' },
+  { id: 'PEOPLE', label: 'SHAQAALE & WAALIDIIN' },
+  { id: 'OPERATIONS', label: 'HAWLAHA DUGSIGA' },
+  { id: 'FINANCE', label: 'MAALIYADDA' },
+  { id: 'SYSTEM', label: 'NIDAAMKA' }
 ];
+
+const SOMALI_NAV_LABELS: Record<string, string> = {
+  dashboard: 'Guudmar',
+  students: 'Ardayda',
+  attendance: 'Xaadirinta',
+  classes: 'Fasallada',
+  subjects: 'Maaddooyinka',
+  exams: 'Imtixaannada',
+  reports: 'Warbixinnada',
+  teachers: 'Macallimiinta',
+  staff: 'Shaqaalaha',
+  guardians: 'Waalidiinta',
+  staff_attendance: 'Xaadirinta Shaqaalaha',
+  timetable: 'Jadwalka Xiisadaha',
+  admissions: 'Diiwaangelinta',
+  library: 'Maktabadda',
+  inventory: 'Agabka iyo Hantida',
+  announcements: 'Ogeysiisyada',
+  finance: 'Maaliyadda',
+  settings: 'Dejinta Nidaamka',
+
+  'students-all': 'Dhammaan Ardayda',
+  'students-add': 'Ku Dar Arday',
+  'students-active': 'Arday Firfircoon',
+  'students-inactive': 'Arday Hakad ku Jira',
+  'students-archived': 'Ardayda Kaydsan',
+  'students-import': 'Soo Gelin Xogta Ardayda',
+  'students-export': 'Dhoofin Xogta Ardayda',
+
+  'attendance-overview': 'Guudmarka Xaadirinta',
+  'attendance-take': 'Qor Xaadirinta',
+  'attendance-daily': 'Diiwaanka Maalinlaha',
+  'attendance-history': 'Taariikhda Xaadirinta',
+  'attendance-students': 'Xaadirinta Ardayga',
+  'attendance-classes': 'Xaadirinta Fasallada',
+  'attendance-analytics': 'Falanqaynta Xaadirinta',
+  'attendance-reports': 'Warbixinta Xaadirinta',
+
+  'finance-overview': 'Guudmarka Maaliyadda',
+  'finance-invoices': 'Biilasha',
+  'finance-payments': 'Lacag-bixinnada',
+  'finance-expenses': 'Kharashaadka',
+  'finance-income': 'Dakhliga',
+  'finance-budgets': 'Miisaaniyadda',
+  'finance-payroll': 'Mushaharka',
+  'finance-pnl': 'Faa’iido iyo Khasaare',
+  'finance-cashflow': 'Socodka Lacagta',
+  'finance-structures': 'Qaab-dhismeedka Khidmadaha',
+  'finance-reports': 'Warbixinta Maaliyadda'
+};
+
+const SOMALI_NAV_SUBLABELS: Record<string, string> = {
+  dashboard: 'Guudmarka dugsiga',
+  students: 'Maamulka ardayda',
+  attendance: 'Diiwaanka joogitaanka',
+  classes: 'Maamulka fasallada',
+  subjects: 'Maadooyinka waxbarashada',
+  exams: 'Imtixaannada iyo natiijooyinka',
+  reports: 'Warbixinnada dugsiga',
+  teachers: 'Diiwaanka macallimiinta',
+  staff: 'Diiwaanka shaqaalaha',
+  guardians: 'Xiriirrada waalidiinta',
+  staff_attendance: 'Joogitaanka shaqaalaha',
+  timetable: 'Jadwalka fasallada',
+  admissions: 'Ardayda cusub',
+  library: 'Buugaagta iyo amaahda',
+  inventory: 'Qalabka dugsiga',
+  announcements: 'Farriimaha dugsiga',
+  finance: 'Khidmadaha iyo xisaabaadka',
+  settings: 'Habaynta nidaamka',
+
+  'students-all': 'Diiwaanka guud',
+  'students-add': 'Diiwaangelin cusub',
+  'students-active': 'Ardayda waxbarashada ku jirta',
+  'students-inactive': 'Ardayda hakadka ku jirta',
+  'students-archived': 'Diiwaannadii hore',
+  'students-import': 'Excel ama CSV',
+  'students-export': 'Warbixin iyo faylal xogeed',
+
+  'attendance-overview': 'Aragti guud oo maanta ah',
+  'attendance-take': 'Calaamadee joogitaanka maanta',
+  'attendance-daily': 'Arag fasal kasta',
+  'attendance-history': 'Raadi xaadirintii hore',
+  'attendance-students': 'Diiwaanka arday kasta',
+  'attendance-classes': 'Isbarbardhigga fasallada',
+  'attendance-analytics': 'Isbeddellada iyo heerarka',
+  'attendance-reports': 'Soo saar warbixinta',
+
+  'finance-overview': 'Xaaladda maaliyadda',
+  'finance-invoices': 'Abuur oo maamul biilasha',
+  'finance-payments': 'Rasiidhada iyo lacagaha la bixiyey',
+  'finance-expenses': 'Diiwaanka kharashaadka',
+  'finance-income': 'Dakhliga kale',
+  'finance-budgets': 'Qorshaha iyo kharashka dhabta ah',
+  'finance-payroll': 'Mushaharka macallimiinta iyo shaqaalaha',
+  'finance-pnl': 'Dakhliga laga jaray kharashaadka',
+  'finance-cashflow': 'Lacagta soo gasha iyo baxda',
+  'finance-structures': 'Noocyada iyo qiimaha khidmadaha',
+  'finance-reports': 'Warbixinnada xisaabaadka'
+};
+
+export function getSomaliNavLabel(id: string, fallback: string): string {
+  return SOMALI_NAV_LABELS[id] || fallback;
+}
+
+export function getSomaliNavSubLabel(id: string, fallback?: string): string | undefined {
+  return SOMALI_NAV_SUBLABELS[id] || fallback;
+}
+
+export function getSomaliRoleLabel(role?: string | null): string {
+  const normalized = String(role || '').toLowerCase().trim();
+  const labels: Record<string, string> = {
+    admin: 'Maamule',
+    'school admin': 'Maamulka Dugsiga',
+    'super admin': 'Maamule Guud',
+    principal: 'Maamule Sare',
+    teacher: 'Macallin',
+    accountant: 'Xisaabiye',
+    finance: 'Maaliyad',
+    receptionist: 'Soo-dhoweeye',
+    librarian: 'Maktabad-haye',
+    staff: 'Shaqaale'
+  };
+  return labels[normalized] || role || 'Isticmaale';
+}
 
 export const NAVIGATION_CONFIG: NavItemConfig[] = [
   /* ============================== OVERVIEW ============================== */
