@@ -399,29 +399,7 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
      ========================================================================= */
   app.get("/api/fee-structures", async (req, res) => {
     const schoolId = getSchoolId(req);
-    if (!getUseLocalFallback() && supabase) {
-      try {
-        const { data, error } = await supabase
-          .from("dugsiga_fee_structures")
-          .select("*")
-          .eq("school_id", schoolId);
-        if (!error && data && data.length > 0) {
-          const formatted = data.map((fs: any) => ({
-            id: fs.id,
-            schoolId: fs.school_id,
-            name: fs.name,
-            category: fs.category || "Monthly Tuition",
-            amount: Number(fs.amount) || 0,
-            className: fs.class_name || "All Classes",
-            academicYear: fs.academic_year || "2026-2027",
-            term: fs.term || "All Terms",
-            description: fs.description || "",
-            createdAt: fs.created_at || ""
-          }));
-          return res.json(formatted);
-        }
-      } catch {}
-    }
+    if (!(await refreshFinanceOrFail(res, schoolId, ["feeStructures"]))) return;
     const db = getEnsureDB();
     const list = (db.feeStructures || []).filter((fs: any) => fs.schoolId === schoolId);
     return res.json(list);
@@ -517,7 +495,8 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
      ========================================================================= */
   app.get("/api/invoices", async (req, res) => {
     const schoolId = getSchoolId(req);
-    syncLegacyFeesToInvoices(schoolId);
+    if (!(await refreshFinanceOrFail(res, schoolId, ["invoices","payments","fees"]))) return;
+    if (getUseLocalFallback()) syncLegacyFeesToInvoices(schoolId);
 
     const db = getEnsureDB();
     let invoices = (db.invoices || []).filter((inv: any) => inv.schoolId === schoolId);
@@ -851,7 +830,8 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
      ========================================================================= */
   app.get("/api/payments", async (req, res) => {
     const schoolId = getSchoolId(req);
-    syncLegacyFeesToInvoices(schoolId);
+    if (!(await refreshFinanceOrFail(res, schoolId, ["payments","invoices","fees"]))) return;
+    if (getUseLocalFallback()) syncLegacyFeesToInvoices(schoolId);
 
     const db = getEnsureDB();
     const payments = (db.payments || []).filter((p: any) => p.schoolId === schoolId);
@@ -973,6 +953,7 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
      ========================================================================= */
   app.get("/api/expenses", async (req, res) => {
     const schoolId = getSchoolId(req);
+    if (!(await refreshFinanceOrFail(res, schoolId, ["expenses"]))) return;
     const db = getEnsureDB();
     let expenses = (db.expenses || []).filter((e: any) => e.schoolId === schoolId);
 
@@ -1149,7 +1130,8 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
      ========================================================================= */
   app.get("/api/income", async (req, res) => {
     const schoolId = getSchoolId(req);
-    syncLegacyFeesToInvoices(schoolId);
+    if (!(await refreshFinanceOrFail(res, schoolId, ["income","payments"]))) return;
+    if (getUseLocalFallback()) syncLegacyFeesToInvoices(schoolId);
 
     const db = getEnsureDB();
     const standaloneIncome = (db.income || []).filter((inc: any) => inc.schoolId === schoolId);
@@ -1278,6 +1260,7 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
      ========================================================================= */
   app.get("/api/payroll", async (req, res) => {
     const schoolId = getSchoolId(req);
+    if (!(await refreshFinanceOrFail(res, schoolId, ["payroll","expenses"]))) return;
     const db = getEnsureDB();
     const list = (db.payroll || []).filter((pr: any) => pr.schoolId === schoolId);
     list.sort((a: any, b: any) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime());
@@ -1479,7 +1462,8 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
      ========================================================================= */
   app.get("/api/budgets", async (req, res) => {
     const schoolId = getSchoolId(req);
-    syncLegacyFeesToInvoices(schoolId);
+    if (!(await refreshFinanceOrFail(res, schoolId, ["budgets","expenses","income","payments","invoices","payroll"]))) return;
+    if (getUseLocalFallback()) syncLegacyFeesToInvoices(schoolId);
 
     const db = getEnsureDB();
     const budgets = (db.budgets || []).filter((b: any) => b.schoolId === schoolId);
@@ -1603,7 +1587,8 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
      ========================================================================= */
   app.get("/api/profit-loss", async (req, res) => {
     const schoolId = getSchoolId(req);
-    syncLegacyFeesToInvoices(schoolId);
+    if (!(await refreshFinanceOrFail(res, schoolId, ["payments","income","expenses","invoices","fees"]))) return;
+    if (getUseLocalFallback()) syncLegacyFeesToInvoices(schoolId);
 
     const db = getEnsureDB();
     const { period, from, to } = req.query;
@@ -1705,7 +1690,8 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
      ========================================================================= */
   app.get("/api/cash-flow", async (req, res) => {
     const schoolId = getSchoolId(req);
-    syncLegacyFeesToInvoices(schoolId);
+    if (!(await refreshFinanceOrFail(res, schoolId, ["payments","income","expenses","invoices","fees"]))) return;
+    if (getUseLocalFallback()) syncLegacyFeesToInvoices(schoolId);
 
     const db = getEnsureDB();
     const openingBalance = Number(req.query.openingBalance) || 0;
@@ -1779,7 +1765,8 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
      ========================================================================= */
   app.get("/api/finance/stats", async (req, res) => {
     const schoolId = getSchoolId(req);
-    syncLegacyFeesToInvoices(schoolId);
+    if (!(await refreshFinanceOrFail(res, schoolId, ["invoices","payments","expenses","income","payroll","budgets","fees"]))) return;
+    if (getUseLocalFallback()) syncLegacyFeesToInvoices(schoolId);
 
     const db = getEnsureDB();
     const invoices = (db.invoices || []).filter((inv: any) => inv.schoolId === schoolId);
@@ -1824,7 +1811,8 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
      ========================================================================= */
   app.get("/api/financial-reports", async (req, res) => {
     const schoolId = getSchoolId(req);
-    syncLegacyFeesToInvoices(schoolId);
+    if (!(await refreshFinanceOrFail(res, schoolId, ["invoices","payments","expenses","income","payroll","budgets","fees"]))) return;
+    if (getUseLocalFallback()) syncLegacyFeesToInvoices(schoolId);
 
     const db = getEnsureDB();
     const { type } = req.query;
