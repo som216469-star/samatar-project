@@ -254,7 +254,7 @@ export const AppShell: React.FC<AppShellProps> = ({
       trail.push({ label: 'Guudmarka Maamulka' });
     } else if (activeTab === 'students') {
       trail.push({
-        label: 'Students',
+        label: 'Ardayda',
         onClick: () => onNavigate('students', { studentSubSection: 'all' })
       });
       const subLabelMap: Record<StudentSubSection, string> = {
@@ -269,7 +269,7 @@ export const AppShell: React.FC<AppShellProps> = ({
       trail.push({ label: subLabelMap[studentSubSection] || 'Dhammaan Ardayda' });
     } else if (activeTab === 'attendance') {
       trail.push({
-        label: 'Attendance',
+        label: 'Xaadirinta',
         onClick: () => onNavigate('attendance', { attendanceSubSection: 'overview' })
       });
       const aMap: Record<AttendanceSubSection, string> = {
