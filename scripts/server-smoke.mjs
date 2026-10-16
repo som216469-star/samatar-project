@@ -52,12 +52,27 @@ try {
     throw new Error(`GET /api/user/profile expected 401 without a session, got ${session.status}`);
   }
 
+  const dbStatus = await fetch(`${baseUrl}/api/db/status`);
+  if (dbStatus.status !== 200) {
+    throw new Error(`GET /api/db/status should remain available for diagnostics, got ${dbStatus.status}`);
+  }
+
+  const studentsWhenDatabaseUnavailable = await fetch(`${baseUrl}/api/students`);
+  if (studentsWhenDatabaseUnavailable.status !== 503) {
+    throw new Error(`GET /api/students should fail closed when production database is unavailable, got ${studentsWhenDatabaseUnavailable.status}`);
+  }
+
+  const logout = await fetch(`${baseUrl}/api/auth/logout`, { method: 'POST' });
+  if (logout.status !== 200) {
+    throw new Error(`POST /api/auth/logout should remain available to clear the session, got ${logout.status}`);
+  }
+
   const manifest = await fetch(`${baseUrl}/manifest.webmanifest`);
   if (manifest.status !== 200) {
     throw new Error(`GET /manifest.webmanifest returned ${manifest.status}`);
   }
 
-  console.log('Runtime smoke test passed: /, /api/user/profile, and manifest.webmanifest');
+  console.log('Runtime smoke test passed: SPA shell, unauthenticated profile, DB diagnostics, fail-closed data API, logout, and manifest');
 } finally {
   stop();
 }
