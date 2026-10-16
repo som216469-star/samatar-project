@@ -535,7 +535,7 @@ export const AppShell: React.FC<AppShellProps> = ({
     const collapsed = !isMobile && sidebarCollapsed;
 
     return (
-      <div className="flex flex-col h-full bg-[var(--sidebar-bg)] text-[var(--sidebar-text)] select-none relative">
+      <div className="app-sidebar-content flex flex-col h-full text-[var(--sidebar-text)] select-none relative">
         {/* 1. Brand & School Identity Header */}
         <div className="h-[4.5rem] px-4 border-b border-[var(--sidebar-border)] flex items-center justify-between gap-2 shrink-0">
           <button
@@ -629,7 +629,7 @@ export const AppShell: React.FC<AppShellProps> = ({
         >
           {favoriteNavItems.length > 0 && !sidebarQuery && !collapsed && (
             <div className="space-y-1 pb-2 mb-1 border-b border-[var(--sidebar-border)]">
-              <div className="px-2.5 pb-1 text-[10px] font-bold uppercase tracking-widest text-[var(--sidebar-text-muted)]">
+              <div className="sidebar-section-heading px-2.5 pb-1 text-[10px] font-bold uppercase tracking-widest text-[var(--sidebar-text-muted)]">
                 Kuwa la doortay
               </div>
               {favoriteNavItems.map((item) => {
