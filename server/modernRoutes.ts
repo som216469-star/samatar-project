@@ -271,7 +271,13 @@ export function registerModernRoutes(app: express.Express, helpers: ModernRouteH
     if (!db.teachers) db.teachers = [];
     const idx = db.teachers.findIndex((t: any) => t.id === id && t.schoolId === schoolId);
     if (idx > -1) {
-      db.teachers[idx] = { ...db.teachers[idx], ...updates };
+      const currentTeacher = db.teachers[idx];
+      db.teachers[idx] = {
+        ...currentTeacher,
+        ...updates,
+        id: currentTeacher.id,
+        schoolId: currentTeacher.schoolId
+      };
       saveLocalDB(db);
       return res.json({ success: true });
     }
@@ -429,7 +435,13 @@ export function registerModernRoutes(app: express.Express, helpers: ModernRouteH
     if (!db.staff) db.staff = [];
     const idx = db.staff.findIndex((s: any) => s.id === id && s.schoolId === schoolId);
     if (idx > -1) {
-      db.staff[idx] = { ...db.staff[idx], ...updates };
+      const currentStaff = db.staff[idx];
+      db.staff[idx] = {
+        ...currentStaff,
+        ...updates,
+        id: currentStaff.id,
+        schoolId: currentStaff.schoolId
+      };
       saveLocalDB(db);
       return res.json({ success: true });
     }
@@ -567,7 +579,13 @@ export function registerModernRoutes(app: express.Express, helpers: ModernRouteH
     if (!db.guardians) db.guardians = [];
     const idx = db.guardians.findIndex((g: any) => g.id === id && g.schoolId === schoolId);
     if (idx > -1) {
-      db.guardians[idx] = { ...db.guardians[idx], ...updates };
+      const currentGuardian = db.guardians[idx];
+      db.guardians[idx] = {
+        ...currentGuardian,
+        ...updates,
+        id: currentGuardian.id,
+        schoolId: currentGuardian.schoolId
+      };
       saveLocalDB(db);
       return res.json({ success: true });
     }
@@ -963,7 +981,13 @@ export function registerModernRoutes(app: express.Express, helpers: ModernRouteH
     if (!db.admissions) db.admissions = [];
     const idx = db.admissions.findIndex((a: any) => a.id === id && a.schoolId === schoolId);
     if (idx > -1) {
-      db.admissions[idx] = { ...db.admissions[idx], ...updates };
+      const currentAdmission = db.admissions[idx];
+      db.admissions[idx] = {
+        ...currentAdmission,
+        ...updates,
+        id: currentAdmission.id,
+        schoolId: currentAdmission.schoolId
+      };
       saveLocalDB(db);
       return res.json({ success: true });
     }
@@ -1180,7 +1204,13 @@ export function registerModernRoutes(app: express.Express, helpers: ModernRouteH
     if (!db.announcements) db.announcements = [];
     const idx = db.announcements.findIndex((a: any) => a.id === id && a.schoolId === schoolId);
     if (idx > -1) {
-      db.announcements[idx] = { ...db.announcements[idx], ...updates };
+      const currentAnnouncement = db.announcements[idx];
+      db.announcements[idx] = {
+        ...currentAnnouncement,
+        ...updates,
+        id: currentAnnouncement.id,
+        schoolId: currentAnnouncement.schoolId
+      };
       saveLocalDB(db);
       return res.json({ success: true });
     }
@@ -1308,7 +1338,13 @@ export function registerModernRoutes(app: express.Express, helpers: ModernRouteH
     if (!db.libraryBooks) db.libraryBooks = [];
     const idx = db.libraryBooks.findIndex((b: any) => b.id === id && b.schoolId === schoolId);
     if (idx > -1) {
-      db.libraryBooks[idx] = { ...db.libraryBooks[idx], ...updates };
+      const currentBook = db.libraryBooks[idx];
+      db.libraryBooks[idx] = {
+        ...currentBook,
+        ...updates,
+        id: currentBook.id,
+        schoolId: currentBook.schoolId
+      };
       saveLocalDB(db);
       return res.json({ success: true });
     }
@@ -1558,7 +1594,13 @@ export function registerModernRoutes(app: express.Express, helpers: ModernRouteH
     if (!db.inventory) db.inventory = [];
     const idx = db.inventory.findIndex((i: any) => i.id === id && i.schoolId === schoolId);
     if (idx > -1) {
-      db.inventory[idx] = { ...db.inventory[idx], ...updates };
+      const currentItem = db.inventory[idx];
+      db.inventory[idx] = {
+        ...currentItem,
+        ...updates,
+        id: currentItem.id,
+        schoolId: currentItem.schoolId
+      };
       saveLocalDB(db);
       return res.json({ success: true });
     }
