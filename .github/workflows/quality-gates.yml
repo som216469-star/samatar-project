@@ -6,10 +6,12 @@ on:
       - main
       - "phase1/**"
       - "phase2/**"
+      - "phase3/**"
   pull_request:
     branches:
       - main
       - "phase1/**"
+      - "phase2/**"
 
 permissions:
   contents: read
@@ -52,6 +54,9 @@ jobs:
 
       - name: Finance Supabase source-of-truth contract test
         run: npm run test:finance-source-contract
+
+      - name: Somali navigation and sidebar UX contract test
+        run: npm run test:navigation-shell-contract
 
       - name: Students contract test
         run: npm run test:students-contract
