@@ -33,7 +33,7 @@ assertContains(finance, "const deleteFinanceRowFromSupabase =", "delete persiste
 assertContains(finance, "const { error } = await supabase", "delete operation checks errors");
 assertContains(finance, "const toSupabaseFinanceRow =", "authoritative finance rows are mapped to the DB schema");
 assertContains(finance, "if (getUseLocalFallback()) syncLegacyFeesToInvoices(schoolId);", "legacy fee bridging is limited to local fallback mode");
-assertNotContains(finance, "await syncFinanceTableToSupabase(\"dugsiga_payroll\"", "payroll writes are guarded by persistence checks");
+assertNotContains(finance, "\n    await syncFinanceTableToSupabase(\"dugsiga_payroll\"", "no unguarded direct payroll persistence calls remain");
 
 for (const route of [
   '  app.get("/api/fee-structures", async (req, res) => {',
