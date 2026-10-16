@@ -96,9 +96,11 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
     let changed = false;
 
     for (const f of schoolFees) {
-      const invExists = (db.invoices || []).some((inv: any) => inv.id === f.id || inv.feeId === f.id);
+      const invExists = (db.invoices || []).some((inv: any) =>
+        inv.schoolId === schoolId && (inv.id === f.id || inv.feeId === f.id)
+      );
       if (!invExists) {
-        const student = (db.students || []).find((s: any) => s.id === f.studentId);
+        const student = (db.students || []).find((s: any) => s.id === f.studentId && s.schoolId === schoolId);
         const feeAmount = Number(f.amount) || 50;
         const paidAmount = Number(f.paidAmount || (f.status === 'paid' ? feeAmount : 0));
         const balance = Math.max(0, feeAmount - paidAmount);
@@ -140,7 +142,9 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
 
         // If paid amount > 0, log a corresponding payment transaction if not exists
         if (paidAmount > 0) {
-          const payExists = (db.payments || []).some((p: any) => p.invoiceId === f.id);
+          const payExists = (db.payments || []).some((p: any) =>
+            p.schoolId === schoolId && p.invoiceId === f.id
+          );
           if (!payExists) {
             db.payments.push({
               id: 'pay-' + f.id,
@@ -387,7 +391,7 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
     db.invoices.unshift(newInvoice);
 
     // Sync to db.fees for 100% backward compatibility
-    const feeExists = (db.fees || []).find((f: any) => f.id === invoiceId);
+    const feeExists = (db.fees || []).find((f: any) => f.id === invoiceId && f.schoolId === schoolId);
     if (!feeExists) {
       db.fees.push({
         id: invoiceId,
@@ -686,7 +690,7 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
     };
 
     // Mirror to db.fees
-    const feeIdx = (db.fees || []).findIndex((f: any) => f.id === invoiceId);
+    const feeIdx = (db.fees || []).findIndex((f: any) => f.id === invoiceId && f.schoolId === schoolId);
     if (feeIdx > -1) {
       db.fees[feeIdx].paidAmount = newPaidAmount;
       db.fees[feeIdx].status = newStatus.toLowerCase();
