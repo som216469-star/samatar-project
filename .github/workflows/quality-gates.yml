@@ -39,6 +39,9 @@ jobs:
       - name: TypeScript lint
         run: npm run lint
 
+      - name: Database source-of-truth contract test
+        run: npm run test:database-source-contract
+
       - name: Students contract test
         run: npm run test:students-contract
 
