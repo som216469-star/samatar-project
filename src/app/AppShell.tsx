@@ -326,8 +326,9 @@ export const AppShell: React.FC<AppShellProps> = ({
         if (item.children && item.children.length > 0) {
           return item.children.map((c) => ({
             id: c.id,
-            label: `${getSomaliNavLabel(item.id, item.label)} → ${getSomaliNavLabel(c.id, c.label)}`, 
-            category: 'Navigation',
+            label: `${getSomaliNavLabel(item.id, item.label)} → ${getSomaliNavLabel(c.id, c.label)}`,
+            searchText: `${item.label} ${c.label} ${item.subLabel || ''} ${c.subLabel || ''} ${getSomaliNavLabel(item.id, item.label)} ${getSomaliNavLabel(c.id, c.label)} ${getSomaliNavSubLabel(item.id, item.subLabel) || ''} ${getSomaliNavSubLabel(c.id, c.subLabel) || ''}`,
+            category: 'Qaybta nidaamka',
             action: () => {
               onNavigate(c.tab, {
                 studentSubSection: c.studentSubSection,
@@ -341,8 +342,9 @@ export const AppShell: React.FC<AppShellProps> = ({
         return [
           {
             id: item.id,
-            label: `${getSomaliNavLabel(item.id, item.label)} (${getSomaliNavSubLabel(item.id, item.subLabel || item.group)})`, 
-            category: 'Navigation',
+            label: `${getSomaliNavLabel(item.id, item.label)} (${getSomaliNavSubLabel(item.id, item.subLabel || item.group)})`,
+            searchText: `${item.label} ${item.subLabel || item.group} ${getSomaliNavLabel(item.id, item.label)} ${getSomaliNavSubLabel(item.id, item.subLabel || item.group) || ''}`,
+            category: 'Qaybta nidaamka',
             action: () => {
               onNavigate(item.tab, {
                 peopleSubSection: item.peopleSubSection,
@@ -353,7 +355,7 @@ export const AppShell: React.FC<AppShellProps> = ({
           }
         ];
       })
-      .filter((n) => !q || n.label.toLowerCase().includes(q));
+      .filter((n) => !q || n.searchText.toLowerCase().includes(q));
 
     const matchedStudents = q
       ? students
@@ -832,9 +834,9 @@ export const AppShell: React.FC<AppShellProps> = ({
                           if (isMobile) setMobileMenuOpen(false);
                         }}
                         title={collapsed ? getSomaliNavLabel(item.id, item.label) : undefined}
-                        className={`flex-1 min-w-0 flex items-center gap-2.5 px-2.5 py-2 rounded-[var(--radius-sm)] text-xs transition-colors cursor-pointer ${
+                        className={`flex-1 min-w-0 flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-[13px] transition-all duration-150 cursor-pointer ${
                           active
-                            ? 'bg-[var(--sidebar-active-bg)] text-white font-semibold border-l-2 border-[var(--color-accent)]'
+                            ? 'bg-[var(--sidebar-active-bg)] text-white font-semibold border-l-2 border-[var(--color-accent)] shadow-sm shadow-black/10'
                             : 'text-[var(--sidebar-text)] hover:bg-[var(--sidebar-hover-bg)] hover:text-white'
                         }`}
                       >
