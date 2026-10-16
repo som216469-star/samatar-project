@@ -89,7 +89,9 @@ for (const route of [
   '  app.delete("/api/budgets/:id", async (req, res) => {'
 ]) {
   const block = routeBlock(finance, route);
-  assertContains(block, "syncFinance", `previously cache-only mutation now persists to Supabase: ${route}`);
+  if (!block.includes("syncFinance") && !block.includes("deleteFinanceRowFromSupabase")) {
+    throw new Error(`Finance source-of-truth contract failed: previously cache-only mutation has no Supabase persistence: ${route}`);
+  }
 }
 
 assertContains(finance, "syncFinanceRowsToSupabase(\n      \"dugsiga_invoices\"", "bulk invoice creation is persisted as a batch");
