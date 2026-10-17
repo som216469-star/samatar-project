@@ -2259,20 +2259,44 @@ app.post("/api/auth/signup", async (req, res) => {
           if (insertError.code === "23505") {
             return res.status(400).json({ error: "Email-kan horey ayaa loo diiwaangeliyey. Fadlan 'Sign In' ku gal." });
           }
-          if (insertError.message?.includes("fetch failed") || insertError.message?.includes("ENOTFOUND")) {
+          const networkFailure =
+            String(insertError.message || "").includes("fetch failed") ||
+            String(insertError.message || "").includes("ENOTFOUND");
+
+          if (networkFailure) {
             useLocalFallback = true;
             customSupabaseActive = false;
-          } else {
-            console.log("Supabase auth insert notice:", insertError.message);
+          }
+
+          // Never report successful registration if the authoritative cloud write failed.
+          // Development can still use the deliberate local fallback for network outages.
+          if (process.env.NODE_ENV === "production" || !networkFailure) {
+            console.error("Signup rejected because the authoritative database write failed.", {
+              code: String(insertError.code || "UNKNOWN")
+            });
+            return res.status(503).json({
+              error: "Akoonka lama diiwaangelin sababtoo ah kaydka xogta daruurta ah lama heli karo. Fadlan mar kale isku day.",
+              code: "DATABASE_UNAVAILABLE"
+            });
           }
         }
       }
     } catch (sbErr: any) {
-      if (sbErr?.message?.includes("fetch failed") || sbErr?.message?.includes("ENOTFOUND")) {
+      const networkFailure =
+        String(sbErr?.message || "").includes("fetch failed") ||
+        String(sbErr?.message || "").includes("ENOTFOUND");
+
+      if (networkFailure) {
         useLocalFallback = true;
         customSupabaseActive = false;
-      } else {
-        console.log("Supabase auth notice:", sbErr?.message || sbErr);
+      }
+
+      if (process.env.NODE_ENV === "production" || !networkFailure) {
+        console.error("Signup rejected because the authoritative database write threw an error.");
+        return res.status(503).json({
+          error: "Akoonka lama diiwaangelin sababtoo ah kaydka xogta daruurta ah lama heli karo. Fadlan mar kale isku day.",
+          code: "DATABASE_UNAVAILABLE"
+        });
       }
     }
   }
@@ -2327,55 +2351,79 @@ app.post("/api/auth/login", async (req, res) => {
   const db = loadLocalDB();
   const localUser = db.users.find(u => u.email.toLowerCase() === cleanEmail);
 
-  // 1. Supabase is the cloud source of truth when available.
+  // 1. Supabase is the only authentication source when cloud mode is active.
   if (!useLocalFallback && supabase) {
     try {
       const { data: user, error } = await supabase
         .from("dugsiga_users")
         .select("*")
-        .ilike("email", cleanEmail)
+        .eq("email", cleanEmail)
         .maybeSingle();
 
       if (error) {
-        if (error.message?.includes("fetch failed") || error.message?.includes("ENOTFOUND")) {
+        const networkFailure =
+          String(error.message || "").includes("fetch failed") ||
+          String(error.message || "").includes("ENOTFOUND");
+
+        if (networkFailure) {
           useLocalFallback = true;
           customSupabaseActive = false;
         }
-      } else if (user) {
-        const cloudCheck = await verifyPassword(password, user.password);
-        const localCheck = localUser
-          ? await verifyPassword(password, localUser.password_hash)
-          : { valid: false, needsRehash: false };
 
-        if (!cloudCheck.valid && !localCheck.valid) {
+        // Do not authenticate against a stale local password while cloud mode is authoritative.
+        if (process.env.NODE_ENV === "production" || !networkFailure) {
+          return res.status(503).json({
+            error: "Xaqiijinta akoonka lama samayn karo hadda sababtoo ah kaydka xogta daruurta ah lama heli karo.",
+            code: "DATABASE_UNAVAILABLE"
+          });
+        }
+      } else if (!user) {
+        // A cloud account that has been deleted/disabled must not be resurrected from a stale local cache.
+        return res.status(400).json({ error: "Email ama password ayaa qalad ah." });
+      } else {
+        const cloudCheck = await verifyPassword(
+          password,
+          typeof user.password === "string" ? user.password : ""
+        );
+
+        // The local cache is never a second password authority when Supabase is healthy.
+        if (!cloudCheck.valid) {
           return res.status(400).json({ error: "Email ama password ayaa qalad ah." });
         }
 
-        let upgradedHash: string | null = null;
-        if (cloudCheck.needsRehash || localCheck.needsRehash || !cloudCheck.valid) {
-          upgradedHash = await hashPassword(password);
-          await supabase
+        let canonicalHash = String(user.password || "");
+        if (cloudCheck.needsRehash) {
+          const upgradedHash = await hashPassword(password);
+          const { error: rehashError } = await supabase
             .from("dugsiga_users")
             .update({ password: upgradedHash })
-            .ilike("email", cleanEmail);
+            .eq("email", cleanEmail);
+
+          if (rehashError) {
+            return res.status(503).json({
+              error: "Password-ka waa la xaqiijiyey, laakiin cusboonaysiinta amniga lama kaydin karin. Fadlan mar kale isku day.",
+              code: "DATABASE_UNAVAILABLE"
+            });
+          }
+          canonicalHash = upgradedHash;
         }
 
-        const canonicalHash = upgradedHash || user.password;
-        const localIdx = db.users.findIndex(u => u.email.toLowerCase() === cleanEmail);
+        // Keep a local cache only for development/offline recovery; never use it to override cloud auth.
+        const localIdx = db.users.findIndex((u) => u.email.toLowerCase() === cleanEmail);
         if (localIdx !== -1) {
           db.users[localIdx].password_hash = canonicalHash;
-          db.users[localIdx].verified = true;
-          db.users[localIdx].role = user.role || db.users[localIdx].role || "admin";
-          db.users[localIdx].school_id = user.school_id || db.users[localIdx].school_id || cleanEmail;
-          db.users[localIdx].teacher_id = user.teacher_id || db.users[localIdx].teacher_id;
+          db.users[localIdx].verified = user.verified ?? true;
+          db.users[localIdx].role = user.role || "admin";
+          db.users[localIdx].school_id = user.school_id || cleanEmail;
+          db.users[localIdx].teacher_id = user.teacher_id || undefined;
         } else {
           db.users.push({
             email: cleanEmail,
             password_hash: canonicalHash,
-            verified: true,
+            verified: user.verified ?? true,
             role: user.role || "admin",
             school_id: user.school_id || cleanEmail,
-            teacher_id: user.teacher_id
+            teacher_id: user.teacher_id || undefined
           });
         }
         saveLocalDB(db);
@@ -2391,13 +2439,17 @@ app.post("/api/auth/login", async (req, res) => {
           if (teacherLookupError) {
             console.warn("Teacher status lookup error:", teacherLookupError.message);
             return res.status(503).json({
-              error: "Akoonka macallinka lama xaqiijin karin hadda. Fadlan mar kale isku day."
+              error: "Akoonka macallinka lama xaqiijin karin hadda. Fadlan mar kale isku day.",
+              code: "DATABASE_UNAVAILABLE"
             });
-          } else if (!cloudTeacher) {
+          }
+          if (!cloudTeacher) {
             return res.status(403).json({ error: "Akoonka macallinka lama helin ama waa la saaray." });
-          } else if (cloudTeacher.status === "DEACTIVATED" || cloudTeacher.status === "INACTIVE") {
+          }
+          if (["DEACTIVATED", "INACTIVE"].includes(String(cloudTeacher.status || "").toUpperCase())) {
             return res.status(403).json({ error: "Akoonkaaga macallinka waa la hakiyey (Account deactivated). Fadlan la xiriir maamulka iskuulka." });
-          } else if (cloudTeacher.status === "INVITED") {
+          }
+          if (String(cloudTeacher.status || "").toUpperCase() === "INVITED") {
             return res.status(403).json({ error: "Akoonkan weli lama dhaqaajin. Fadlan isticmaal link-gii casuumaadda." });
           }
 
@@ -2421,25 +2473,37 @@ app.post("/api/auth/login", async (req, res) => {
           );
         }
 
-        const authRes = buildAuthResponse(cleanEmail, db);
-        if (authRes.error) return res.status(403).json({ error: authRes.error });
-        if (!authRes.error && authRes.token) {
-          if (!isCapacitorClient(req)) setSessionCookie(req, res, authRes.token);
-          const { token: _token, ...safeAuthResponse } = authRes;
-          clearAuthRateLimit(`login:ip:${req.ip || "unknown"}:`);
-          clearAuthRateLimit(`login:account:${req.ip || "unknown"}:${cleanEmail}`);
-          return res.json(isCapacitorClient(req) ? authRes : safeAuthResponse);
-        }
+        const authPayload: any = {
+          email: cleanEmail,
+          role: user.role || "admin",
+          schoolId: user.school_id || cleanEmail
+        };
+        const token = createSessionToken(authPayload);
+        if (!isCapacitorClient(req)) setSessionCookie(req, res, token);
         clearAuthRateLimit(`login:ip:${req.ip || "unknown"}:`);
         clearAuthRateLimit(`login:account:${req.ip || "unknown"}:${cleanEmail}`);
-        return res.json(authRes);
+        return res.json(
+          isCapacitorClient(req)
+            ? { success: true, user: authPayload, token }
+            : { success: true, user: authPayload }
+        );
       }
     } catch (e: any) {
-      if (e?.message?.includes("fetch failed") || e?.message?.includes("ENOTFOUND")) {
+      const networkFailure =
+        String(e?.message || "").includes("fetch failed") ||
+        String(e?.message || "").includes("ENOTFOUND");
+
+      if (networkFailure) {
         useLocalFallback = true;
         customSupabaseActive = false;
-      } else {
-        console.log("Supabase login check notice:", e?.message || e);
+      }
+
+      // The production API fails closed during database outages and unexpected auth errors.
+      if (process.env.NODE_ENV === "production" || !networkFailure) {
+        return res.status(503).json({
+          error: "Xaqiijinta akoonka lama samayn karo hadda. Fadlan mar kale isku day.",
+          code: "DATABASE_UNAVAILABLE"
+        });
       }
     }
   }
@@ -4097,7 +4161,17 @@ app.put("/api/fees/:id", async (req, res) => {
   } else {
     const db = loadLocalDB();
     const idx = db.fees.findIndex(f => f.id === id && f.schoolId === schoolId);
-    if (idx > -1) { db.fees[idx] = { ...db.fees[idx], ...updates }; saveLocalDB(db); return res.json({ success: true }); }
+    if (idx > -1) {
+      const currentFee = db.fees[idx];
+      db.fees[idx] = {
+        ...currentFee,
+        ...updates,
+        id: currentFee.id,
+        schoolId: currentFee.schoolId
+      };
+      saveLocalDB(db);
+      return res.json({ success: true });
+    }
     res.status(404).json({ error: "Fee not found" });
   }
 });
