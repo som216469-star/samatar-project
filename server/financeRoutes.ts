@@ -221,6 +221,39 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
     }
   };
 
+  type FinanceWriteOperation =
+    | { action: "upsert"; table: string; rows: Record<string, any>[] }
+    | { action: "delete"; table: string; ids: string[] };
+
+  // Related finance writes go through one Postgres function so the full set commits or rolls back together.
+  const syncFinanceTransaction = async (
+    schoolId: string,
+    operations: FinanceWriteOperation[]
+  ): Promise<boolean> => {
+    if (getUseLocalFallback()) return true;
+    if (!supabase || !schoolId) return false;
+
+    try {
+      const { error } = await supabase.rpc("dugsiga_finance_transaction", {
+        p_school_id: schoolId,
+        p_operations: operations
+      });
+      if (error) {
+        console.error("Atomic finance transaction failed:", {
+          code: String(error.code || "UNKNOWN"),
+          message: String(error.message || "unknown").slice(0, 160)
+        });
+        return false;
+      }
+      return true;
+    } catch (error: any) {
+      console.error("Atomic finance transaction threw an error:", {
+        message: String(error?.message || "unknown").slice(0, 160)
+      });
+      return false;
+    }
+  };
+
   type FinanceCollection =
     | "feeStructures"
     | "invoices"
@@ -682,6 +715,7 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
         studentName: student.fullName,
         className: student.class,
         amount: paidAmount,
+        remainingBalance: balance,
         paymentDate: newInvoice.issueDate,
         paymentMethod: body.paymentMethod || 'Cash',
         reference: body.paymentReference || 'INITIAL-PAY',
@@ -691,39 +725,22 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
       });
     }
 
-    saveLocalDB(db);
-    if (!(await syncFinanceTableToSupabase("dugsiga_invoices", {
-      id: newInvoice.id,
-      school_id: schoolId,
-      invoice_number: newInvoice.invoiceNumber,
-      student_id: newInvoice.studentId,
-      student_name: newInvoice.studentName,
-      class_name: newInvoice.className,
-      guardian_name: newInvoice.guardianName,
-      guardian_phone: newInvoice.guardianPhone,
-      items: newInvoice.items,
-      subtotal: newInvoice.subtotal,
-      discount: newInvoice.discount,
-      total: newInvoice.total,
-      paid_amount: newInvoice.paidAmount,
-      balance: newInvoice.balance,
-      issue_date: newInvoice.issueDate,
-      due_date: newInvoice.dueDate,
-      status: newInvoice.status,
-      notes: newInvoice.notes,
-      created_at: newInvoice.createdAt
-    }))) return res.status(503).json({ error: "Kaydinta maaliyadda way fashilantay; xogta lama xaqiijin karo. Fadlan mar kale isku day.", code: "DATABASE_UNAVAILABLE" });
-
     const linkedFee = (db.fees || []).find((fee: any) => fee.id === invoiceId && fee.schoolId === schoolId);
-    if (linkedFee && !(await syncFinanceTableToSupabase("dugsiga_fees", toSupabaseFinanceRow("fees", linkedFee)))) {
-      return res.status(503).json({ error: "Biilka waa la abuuray, laakiin kaydka biilka hore lama waafajin karin. Fadlan dib u hubi xogta ka hor ku celinta codsiga.", code: "DATABASE_UNAVAILABLE" });
+    const initialPayment = paidAmount > 0
+      ? (db.payments || []).find((payment: any) => payment.invoiceId === invoiceId && payment.schoolId === schoolId)
+      : null;
+    const operations: FinanceWriteOperation[] = [
+      { action: "upsert", table: "dugsiga_invoices", rows: [toSupabaseFinanceRow("invoices", newInvoice)] },
+      { action: "upsert", table: "dugsiga_fees", rows: linkedFee ? [toSupabaseFinanceRow("fees", linkedFee)] : [] },
+      { action: "upsert", table: "dugsiga_payments", rows: initialPayment ? [toSupabaseFinanceRow("payments", initialPayment)] : [] }
+    ];
+    if (!(await syncFinanceTransaction(schoolId, operations))) {
+      return res.status(503).json({
+        error: "Biilka iyo diiwaannada la xiriira si wadajir ah looma kaydin karin. Fadlan dib u hubi xogta ka hor ku celinta codsiga.",
+        code: "DATABASE_UNAVAILABLE"
+      });
     }
-    if (paidAmount > 0) {
-      const initialPayment = (db.payments || []).find((payment: any) => payment.invoiceId === invoiceId && payment.schoolId === schoolId);
-      if (initialPayment && !(await syncFinanceTableToSupabase("dugsiga_payments", toSupabaseFinanceRow("payments", initialPayment)))) {
-        return res.status(503).json({ error: "Biilka waa la abuuray, laakiin rasiidhka lacag-bixinta lama xaqiijin karin. Fadlan hubi rasiidhada ka hor ku celinta codsiga.", code: "DATABASE_UNAVAILABLE" });
-      }
-    }
+    saveLocalDB(db);
     return res.status(201).json(newInvoice);
   });
 
@@ -823,19 +840,27 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
       });
     }
 
-    saveLocalDB(db);
-
-    if (!(await syncFinanceRowsToSupabase(
-      "dugsiga_invoices",
-      createdInvoices.map((invoice: any) => toSupabaseFinanceRow("invoices", invoice))
-    ))) return res.status(503).json({ error: "Biilasha lama wada kaydin karin Supabase. Fadlan dib u hubi liiska biilasha ka hor ku celinta codsiga.", code: "DATABASE_UNAVAILABLE" });
-
     const createdIds = new Set(createdInvoices.map((invoice: any) => invoice.id));
     const linkedFees = (db.fees || []).filter((fee: any) => fee.schoolId === schoolId && createdIds.has(fee.id));
-    if (!(await syncFinanceRowsToSupabase(
-      "dugsiga_fees",
-      linkedFees.map((fee: any) => toSupabaseFinanceRow("fees", fee))
-    ))) return res.status(503).json({ error: "Biilasha waa la abuuray, laakiin waafajinta diiwaanka khidmadaha hore way fashilantay.", code: "DATABASE_UNAVAILABLE" });
+    if (!(await syncFinanceTransaction(schoolId, [
+      {
+        action: "upsert",
+        table: "dugsiga_invoices",
+        rows: createdInvoices.map((invoice: any) => toSupabaseFinanceRow("invoices", invoice))
+      },
+      {
+        action: "upsert",
+        table: "dugsiga_fees",
+        rows: linkedFees.map((fee: any) => toSupabaseFinanceRow("fees", fee))
+      }
+    ]))) {
+      return res.status(503).json({
+        error: "Biilasha iyo diiwaannada khidmadaha lama wada kaydin karin. Fadlan hubi liiska ka hor ku celinta codsiga.",
+        code: "DATABASE_UNAVAILABLE"
+      });
+    }
+    saveLocalDB(db);
+
     return res.json({ 
       success: true, 
       count: createdInvoices.length, 
@@ -892,34 +917,24 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
       };
     }
 
-    saveLocalDB(db);
     const updatedInv = db.invoices[idx];
-    if (!(await syncFinanceTableToSupabase("dugsiga_invoices", {
-      id: updatedInv.id,
-      school_id: schoolId,
-      invoice_number: updatedInv.invoiceNumber,
-      student_id: updatedInv.studentId,
-      student_name: updatedInv.studentName,
-      class_name: updatedInv.className,
-      guardian_name: updatedInv.guardianName,
-      guardian_phone: updatedInv.guardianPhone,
-      items: updatedInv.items,
-      subtotal: updatedInv.subtotal,
-      discount: updatedInv.discount,
-      total: updatedInv.total,
-      paid_amount: updatedInv.paidAmount,
-      balance: updatedInv.balance,
-      issue_date: updatedInv.issueDate,
-      due_date: updatedInv.dueDate,
-      status: updatedInv.status,
-      notes: updatedInv.notes,
-      created_at: updatedInv.createdAt,
-      updated_at: updatedInv.updatedAt
-    }))) return res.status(503).json({ error: "Kaydinta maaliyadda way fashilantay; xogta lama xaqiijin karo. Fadlan mar kale isku day.", code: "DATABASE_UNAVAILABLE" });
-
-    if (feeIdx > -1 && !(await syncFinanceTableToSupabase("dugsiga_fees", toSupabaseFinanceRow("fees", db.fees[feeIdx])))) {
-      return res.status(503).json({ error: "Biilka waa la cusboonaysiiyey, laakiin diiwaanka khidmadaha hore lama waafajin karin.", code: "DATABASE_UNAVAILABLE" });
+    const operations: FinanceWriteOperation[] = [
+      { action: "upsert", table: "dugsiga_invoices", rows: [toSupabaseFinanceRow("invoices", updatedInv)] }
+    ];
+    if (feeIdx > -1) {
+      operations.push({
+        action: "upsert",
+        table: "dugsiga_fees",
+        rows: [toSupabaseFinanceRow("fees", db.fees[feeIdx])]
+      });
     }
+    if (!(await syncFinanceTransaction(schoolId, operations))) {
+      return res.status(503).json({
+        error: "Biilka iyo diiwaanka khidmadaha lama wada cusboonaysiin karin. Fadlan dib u hubi xogta.",
+        code: "DATABASE_UNAVAILABLE"
+      });
+    }
+    saveLocalDB(db);
     return res.json(updatedInv);
   });
 
@@ -930,14 +945,18 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
 
     const { id } = req.params;
     const db = getEnsureDB();
+    if (!(await syncFinanceTransaction(schoolId, [
+      { action: "delete", table: "dugsiga_invoices", ids: [id] },
+      { action: "delete", table: "dugsiga_fees", ids: [id] }
+    ]))) {
+      return res.status(503).json({
+        error: "Biilka iyo diiwaanka khidmadaha lama wada tirtiri karin.",
+        code: "DATABASE_UNAVAILABLE"
+      });
+    }
     db.invoices = (db.invoices || []).filter((inv: any) => !(inv.id === id && inv.schoolId === schoolId));
     db.fees = (db.fees || []).filter((f: any) => !(f.id === id && f.schoolId === schoolId));
     saveLocalDB(db);
-    if (!(await deleteFinanceRowFromSupabase("dugsiga_invoices", id, schoolId))) return res.status(503).json({ error: "Kaydinta maaliyadda way fashilantay; xogta lama xaqiijin karo. Fadlan mar kale isku day.", code: "DATABASE_UNAVAILABLE" });
-
-    if (!(await deleteFinanceRowFromSupabase("dugsiga_fees", id, schoolId))) {
-      return res.status(503).json({ error: "Biilka waa la tirtiray, laakiin diiwaanka khidmadaha hore lama tirtiri karin.", code: "DATABASE_UNAVAILABLE" });
-    }
     return res.json({ success: true });
   });
 
@@ -958,111 +977,111 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
   app.post("/api/payments", async (req, res) => {
     const { authorized, schoolId } = checkFinanceAuth(req, "finance.manage");
     if (!authorized) return res.status(403).json({ error: "U fasax ma tihid qabashada lacagta (Forbidden)" });
-    if (!(await refreshFinanceOrFail(res, schoolId, ["invoices","payments","fees"]))) return;
+    if (!(await refreshFinanceOrFail(res, schoolId, ["invoices", "payments", "fees"]))) return;
 
     const body = req.body;
     const { invoiceId, amount, paymentMethod, reference, receivedBy, notes } = body;
-
     const payAmount = Number(amount);
     if (!payAmount || payAmount <= 0) {
       return res.status(400).json({ error: "Fadlan geli cadad lacageed oo sax ah (Valid amount required)" });
     }
 
     const db = getEnsureDB();
-    const invoiceIdx = (db.invoices || []).findIndex((inv: any) => inv.id === invoiceId && inv.schoolId === schoolId);
+    const invoiceIdx = (db.invoices || []).findIndex((invoice: any) => invoice.id === invoiceId && invoice.schoolId === schoolId);
     if (invoiceIdx === -1) {
       return res.status(404).json({ error: "Biilka lama helin (Invoice not found)" });
     }
 
-    const inv = db.invoices[invoiceIdx];
-    const newPaidAmount = (Number(inv.paidAmount) || 0) + payAmount;
-    const newBalance = Math.max(0, inv.total - newPaidAmount);
-    const newStatus = newBalance === 0 ? 'Paid' : 'Partially Paid';
+    const invoice = db.invoices[invoiceIdx];
+    const createdAt = new Date().toISOString();
+    const newPayment = {
+      id: "pay-" + crypto.randomUUID(),
+      receiptNumber: `REC-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+      schoolId,
+      invoiceId: invoice.id,
+      invoiceNumber: invoice.invoiceNumber,
+      studentId: invoice.studentId,
+      studentName: invoice.studentName,
+      className: invoice.className,
+      amount: payAmount,
+      remainingBalance: null as number | null,
+      paymentDate: body.paymentDate || new Date().toISOString().split("T")[0],
+      paymentMethod: paymentMethod || "Cash",
+      reference: reference || "TXN-" + Math.random().toString(36).substring(2, 8).toUpperCase(),
+      receivedBy: receivedBy || "Xisaabiyaha",
+      notes: notes || "",
+      createdAt
+    };
 
-    // Update invoice
+    if (!getUseLocalFallback()) {
+      if (!supabase) {
+        return res.status(503).json({
+          error: "Kaydka Supabase lama heli karo; lacag-bixinta lama diiwaangelin.",
+          code: "DATABASE_UNAVAILABLE"
+        });
+      }
+      try {
+        const { data, error } = await supabase.rpc("dugsiga_record_invoice_payment", {
+          p_school_id: schoolId,
+          p_invoice_id: invoice.id,
+          p_payment: toSupabaseFinanceRow("payments", newPayment)
+        });
+        if (error || !data?.invoice || !data?.payment) {
+          console.error("Atomic invoice payment failed:", {
+            code: String(error?.code || "UNKNOWN"),
+            message: String(error?.message || "RPC returned an incomplete result").slice(0, 160)
+          });
+          return res.status(503).json({
+            error: "Lacag-bixinta iyo cusboonaysiinta biilka si wadajir ah looma kaydin karin. Fadlan hubi rasiidhada ka hor ku celinta codsiga.",
+            code: "DATABASE_UNAVAILABLE"
+          });
+        }
+
+        const savedInvoice = financeCollectionDefinitions.invoices.map(data.invoice);
+        const savedPayment = financeCollectionDefinitions.payments.map(data.payment);
+        const savedFee = data.fee ? financeCollectionDefinitions.fees.map(data.fee) : null;
+        db.invoices[invoiceIdx] = savedInvoice;
+        if (savedFee) {
+          const feeIdx = (db.fees || []).findIndex((fee: any) => fee.id === savedFee.id && fee.schoolId === schoolId);
+          if (feeIdx >= 0) db.fees[feeIdx] = savedFee;
+          else db.fees.push(savedFee);
+        }
+        db.payments.unshift(savedPayment);
+        saveLocalDB(db);
+        return res.status(201).json({
+          success: true,
+          payment: savedPayment,
+          invoice: savedInvoice
+        });
+      } catch (error: any) {
+        console.error("Atomic invoice payment threw an error:", String(error?.message || "unknown").slice(0, 160));
+        return res.status(503).json({
+          error: "Lacag-bixinta lama xaqiijin karin kaydka Supabase. Fadlan dib u hubi ka hor ku celinta codsiga.",
+          code: "DATABASE_UNAVAILABLE"
+        });
+      }
+    }
+
+    // Local-only fallback retains the previous behavior; cloud mode never uses this path.
+    const newPaidAmount = (Number(invoice.paidAmount) || 0) + payAmount;
+    const newBalance = Math.max(0, Number(invoice.total) - newPaidAmount);
+    const newStatus = newBalance === 0 ? "Paid" : "Partially Paid";
     db.invoices[invoiceIdx] = {
-      ...inv,
+      ...invoice,
       paidAmount: newPaidAmount,
       balance: newBalance,
       status: newStatus,
-      updatedAt: new Date().toISOString()
+      updatedAt: createdAt
     };
-
-    // Mirror to db.fees
-    const feeIdx = (db.fees || []).findIndex((f: any) => f.id === invoiceId && f.schoolId === schoolId);
-    if (feeIdx > -1) {
+    const feeIdx = (db.fees || []).findIndex((fee: any) => fee.id === invoiceId && fee.schoolId === schoolId);
+    if (feeIdx >= 0) {
       db.fees[feeIdx].paidAmount = newPaidAmount;
       db.fees[feeIdx].status = newStatus.toLowerCase();
+      db.fees[feeIdx].updatedAt = createdAt;
     }
-
-    // Create Payment Transaction Record
-    const receiptNumber = `REC-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
-    const newPayment = {
-      id: 'pay-' + Math.random().toString(36).substring(2, 11),
-      receiptNumber,
-      schoolId,
-      invoiceId: inv.id,
-      invoiceNumber: inv.invoiceNumber,
-      studentId: inv.studentId,
-      studentName: inv.studentName,
-      className: inv.className,
-      amount: payAmount,
-      paymentDate: body.paymentDate || new Date().toISOString().split('T')[0],
-      paymentMethod: paymentMethod || 'Cash',
-      reference: reference || 'TXN-' + Math.random().toString(36).substring(2, 8).toUpperCase(),
-      receivedBy: receivedBy || 'Xisaabiyaha',
-      notes: notes || '',
-      createdAt: new Date().toISOString()
-    };
-
+    newPayment.remainingBalance = newBalance;
     db.payments.unshift(newPayment);
     saveLocalDB(db);
-    if (!(await syncFinanceTableToSupabase("dugsiga_payments", {
-      id: newPayment.id,
-      school_id: schoolId,
-      receipt_number: newPayment.receiptNumber,
-      invoice_id: newPayment.invoiceId,
-      invoice_number: newPayment.invoiceNumber,
-      student_id: newPayment.studentId,
-      student_name: newPayment.studentName,
-      class_name: newPayment.className,
-      amount: newPayment.amount,
-      payment_date: newPayment.paymentDate,
-      payment_method: newPayment.paymentMethod,
-      reference: newPayment.reference,
-      remaining_balance: newBalance,
-      received_by: newPayment.receivedBy,
-      notes: newPayment.notes,
-      created_at: newPayment.createdAt
-    }))) return res.status(503).json({ error: "Kaydinta maaliyadda way fashilantay; xogta lama xaqiijin karo. Fadlan mar kale isku day.", code: "DATABASE_UNAVAILABLE" });
-    if (!(await syncFinanceTableToSupabase("dugsiga_invoices", {
-      id: inv.id,
-      school_id: schoolId,
-      invoice_number: inv.invoiceNumber,
-      student_id: inv.studentId,
-      student_name: inv.studentName,
-      class_name: inv.className,
-      guardian_name: inv.guardianName,
-      guardian_phone: inv.guardianPhone,
-      items: inv.items,
-      subtotal: inv.subtotal,
-      discount: inv.discount,
-      total: inv.total,
-      paid_amount: newPaidAmount,
-      balance: newBalance,
-      issue_date: inv.issueDate,
-      due_date: inv.dueDate,
-      status: newStatus,
-      notes: inv.notes,
-      created_at: inv.createdAt,
-      updated_at: db.invoices[invoiceIdx].updatedAt
-    }))) return res.status(503).json({ error: "Kaydinta maaliyadda way fashilantay; xogta lama xaqiijin karo. Fadlan mar kale isku day.", code: "DATABASE_UNAVAILABLE" });
-
-
-    const linkedFee = (db.fees || []).find((fee: any) => fee.id === invoiceId && fee.schoolId === schoolId);
-    if (feeIdx > -1 && linkedFee && !(await syncFinanceTableToSupabase("dugsiga_fees", toSupabaseFinanceRow("fees", linkedFee)))) {
-      return res.status(503).json({ error: "Lacag-bixinta waa la diiwaangeliyey, laakiin diiwaanka khidmadaha lama waafajin karin.", code: "DATABASE_UNAVAILABLE" });
-    }
     return res.status(201).json({
       success: true,
       payment: newPayment,
@@ -1581,14 +1600,17 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
       db.expenses.unshift(expRecord);
     }
 
+    pr.updatedAt = pr.paidAt;
+    if (!(await syncFinanceTransaction(schoolId, [
+      { action: "upsert", table: "dugsiga_payroll", rows: [toSupabaseFinanceRow("payroll", pr)] },
+      { action: "upsert", table: "dugsiga_expenses", rows: [toSupabaseFinanceRow("expenses", expRecord)] }
+    ]))) {
+      return res.status(503).json({
+        error: "Mushaharka iyo kharashkiisa si wadajir ah looma kaydin karin. Fadlan hubi diiwaannada ka hor ku celinta codsiga.",
+        code: "DATABASE_UNAVAILABLE"
+      });
+    }
     saveLocalDB(db);
-
-    if (!(await syncFinanceTableToSupabase("dugsiga_payroll", toSupabaseFinanceRow("payroll", pr)))) {
-      return res.status(503).json({ error: "Mushaharka waxaa laga beddelay kaydka maxalliga ah laakiin Supabase lama xaqiijin; fadlan hubi ka hor intaadan ku celin.", code: "DATABASE_UNAVAILABLE" });
-    }
-    if (!(await syncFinanceTableToSupabase("dugsiga_expenses", toSupabaseFinanceRow("expenses", expRecord)))) {
-      return res.status(503).json({ error: "Mushaharka waa la calaamadeeyey Paid, laakiin kharashkiisa lama waafajin karin.", code: "DATABASE_UNAVAILABLE" });
-    }
     return res.json({ success: true, payroll: pr });
   });
 
@@ -1601,20 +1623,25 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
     const db = getEnsureDB();
     const pr = (db.payroll || []).find((p: any) => p.id === id && p.schoolId === schoolId);
     if (!pr) return res.status(404).json({ error: "Payroll record not found" });
-    if (pr?.expenseId) {
-      db.expenses = (db.expenses || []).filter((e: any) =>
-        !(e.schoolId === schoolId && (e.id === pr.expenseId || e.payrollId === id))
+    const operations: FinanceWriteOperation[] = [
+      { action: "delete", table: "dugsiga_payroll", ids: [id] }
+    ];
+    if (pr.expenseId) {
+      operations.push({ action: "delete", table: "dugsiga_expenses", ids: [pr.expenseId] });
+    }
+    if (!(await syncFinanceTransaction(schoolId, operations))) {
+      return res.status(503).json({
+        error: "Diiwaanka mushaharka iyo kharashkiisa lama wada tirtiri karin.",
+        code: "DATABASE_UNAVAILABLE"
+      });
+    }
+    if (pr.expenseId) {
+      db.expenses = (db.expenses || []).filter((expense: any) =>
+        !(expense.schoolId === schoolId && (expense.id === pr.expenseId || expense.payrollId === id))
       );
     }
-    db.payroll = (db.payroll || []).filter((p: any) => !(p.id === id && p.schoolId === schoolId));
+    db.payroll = (db.payroll || []).filter((payroll: any) => !(payroll.id === id && payroll.schoolId === schoolId));
     saveLocalDB(db);
-
-    if (!(await deleteFinanceRowFromSupabase("dugsiga_payroll", id, schoolId))) {
-      return res.status(503).json({ error: "Diiwaanka mushaharka lagama tirtiri karin Supabase.", code: "DATABASE_UNAVAILABLE" });
-    }
-    if (pr.expenseId && !(await deleteFinanceRowFromSupabase("dugsiga_expenses", pr.expenseId, schoolId))) {
-      return res.status(503).json({ error: "Mushaharka waa la tirtiray, laakiin kharashkiisa lama tirtiri karin.", code: "DATABASE_UNAVAILABLE" });
-    }
     return res.json({ success: true });
   });
 
