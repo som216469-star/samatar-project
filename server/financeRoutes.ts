@@ -1637,7 +1637,7 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
     }
     if (pr.expenseId) {
       db.expenses = (db.expenses || []).filter((expense: any) =>
-        !(expense.schoolId === schoolId && (expense.id === pr.expenseId || expense.payrollId === id))
+        !(e.schoolId === schoolId && (e.id === pr.expenseId || e.payrollId === id))
       );
     }
     db.payroll = (db.payroll || []).filter((payroll: any) => !(payroll.id === id && payroll.schoolId === schoolId));
