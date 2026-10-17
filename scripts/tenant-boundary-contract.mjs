@@ -42,4 +42,17 @@ for (const [needle,label] of [
  ["b.id === loan.bookId && b.schoolId === schoolId","local book lookup is scoped"]
 ]) assertContains(modern,needle,label);
 
+
+const financeAuthStart = finance.indexOf("  const checkFinanceAuth =");
+const financeAuthEnd = finance.indexOf("  // Helper: ensure DB arrays exist", financeAuthStart);
+if (financeAuthStart < 0 || financeAuthEnd < 0) {
+  throw new Error("Tenant boundary contract failed: finance authorization helper not found");
+}
+const financeAuth = finance.slice(financeAuthStart, financeAuthEnd);
+assertContains(financeAuth, "const role = authUser.role.trim();", "finance permission checks use the signed session role");
+assertContains(financeAuth, "if (!authUser || !schoolId)", "finance routes reject missing authenticated tenant identity");
+if (financeAuth.includes("(db.users || []).find") || financeAuth.includes("user?.role || authUser?.role")) {
+  throw new Error("Tenant boundary contract failed: local-cache roles must not override signed session roles");
+}
+
 console.log("Tenant boundary contract checks: PASS");
