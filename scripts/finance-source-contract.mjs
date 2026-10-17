@@ -94,6 +94,30 @@ for (const route of [
   }
 }
 
-assertContains(finance, "syncFinanceRowsToSupabase(\n      \"dugsiga_invoices\"", "bulk invoice creation is persisted as a batch");
-assertContains(finance, "syncFinanceRowsToSupabase(\n      \"dugsiga_fees\"", "linked legacy fee rows are batch-persisted");
+const migration = read("supabase/migrations/20261017100000_atomic_finance_transactions.sql");
+assertContains(finance, "const syncFinanceTransaction =", "atomic finance transaction helper exists");
+assertContains(finance, 'supabase.rpc("dugsiga_finance_transaction"', "related finance rows use the atomic Supabase transaction RPC");
+assertContains(finance, 'supabase.rpc("dugsiga_record_invoice_payment"', "invoice payments use the row-locking database transaction");
+assertContains(migration, "CREATE OR REPLACE FUNCTION public.dugsiga_finance_transaction", "atomic batch transaction migration exists");
+assertContains(migration, "CREATE OR REPLACE FUNCTION public.dugsiga_record_invoice_payment", "atomic invoice-payment migration exists");
+assertContains(migration, "FOR UPDATE", "invoice payment locks the invoice row before calculating the new balance");
+assertContains(migration, "v_row ->> 'school_id' IS DISTINCT FROM p_school_id", "atomic finance upserts validate tenant identity");
+assertContains(migration, "existing.school_id = $2 AND EXCLUDED.school_id = $2", "conflicting rows cannot be reassigned across schools");
+assertContains(migration, "REVOKE ALL ON FUNCTION public.dugsiga_finance_transaction(text, jsonb) FROM PUBLIC", "transaction RPC is not public");
+assertContains(migration, "GRANT EXECUTE ON FUNCTION public.dugsiga_finance_transaction(text, jsonb) TO service_role", "only trusted server role receives execute permission");
+assertNotContains(migration, "SECURITY DEFINER", "finance RPCs do not bypass RLS with SECURITY DEFINER");
+
+for (const route of [
+  '  app.post("/api/invoices", async (req, res) => {',
+  '  app.post("/api/invoices/bulk", async (req, res) => {',
+  '  app.put("/api/invoices/:id", async (req, res) => {',
+  '  app.delete("/api/invoices/:id", async (req, res) => {',
+  '  app.put("/api/payroll/:id/pay", async (req, res) => {',
+  '  app.delete("/api/payroll/:id", async (req, res) => {'
+]) {
+  assertContains(routeBlock(finance, route), "syncFinanceTransaction", `related writes are transactional: ${route}`);
+}
+const paymentRoute = routeBlock(finance, '  app.post("/api/payments", async (req, res) => {');
+assertContains(paymentRoute, "dugsiga_record_invoice_payment", "payment recording uses atomic database logic");
+assertContains(paymentRoute, "financeCollectionDefinitions.invoices.map(data.invoice)", "atomic payment result refreshes the local invoice cache");
 console.log("Finance Supabase source-of-truth contract checks: PASS");
