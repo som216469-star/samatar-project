@@ -1636,7 +1636,7 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
       });
     }
     if (pr.expenseId) {
-      db.expenses = (db.expenses || []).filter((expense: any) =>
+      db.expenses = (db.expenses || []).filter((e: any) =>
         !(e.schoolId === schoolId && (e.id === pr.expenseId || e.payrollId === id))
       );
     }
