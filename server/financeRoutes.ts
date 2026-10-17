@@ -24,15 +24,25 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
 
   // Helper: check user role for finance operations using Zero-Trust session resolution
   const checkFinanceAuth = (req: express.Request, requiredPermission: string): { authorized: boolean; role: string; schoolId: string } => {
+    // Authorization must use the verified session, never a stale role from the local JSON cache.
+    const authUser = getAuthenticatedUser(req);
     const schoolId = getSchoolId(req);
-    const authUser = getAuthenticatedUser(req, loadLocalDB);
-    const db = loadLocalDB();
 
-    if (authUser && (authUser.role === "teacher" || authUser.role === "staff" || authUser.role === "receptionist")) {
+    // Fail closed when the signed session or its tenant identity is missing.
+    if (!authUser || !schoolId) {
+      return { authorized: false, role: "unknown", schoolId };
+    }
+
+    const role = authUser.role.trim();
+    if (!role) {
+      return { authorized: false, role: "unknown", schoolId };
+    }
+
+    if (role === "teacher" || role === "staff" || role === "receptionist") {
       const normalizedRole =
-        authUser.role === "teacher"
+        role === "teacher"
           ? "Teacher"
-          : authUser.role === "receptionist"
+          : role === "receptionist"
           ? "Receptionist"
           : "Staff";
       return {
@@ -41,11 +51,6 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
         schoolId
       };
     }
-
-    const user = authUser
-      ? (db.users || []).find((u: any) => u.email.toLowerCase() === authUser.email.toLowerCase())
-      : null;
-    const role = user?.role || authUser?.role || "";
 
     // Only recognized administrator/accounting roles receive finance access.
     if (
@@ -67,10 +72,6 @@ export function registerFinanceRoutes(app: express.Express, helpers: FinanceRout
     }
 
     // Unknown roles fail closed instead of silently becoming School Admin.
-    if (!role) {
-      return { authorized: false, role: "unknown", schoolId };
-    }
-
     const authorized = hasPermission(role, requiredPermission);
     return { authorized, role, schoolId };
   };
