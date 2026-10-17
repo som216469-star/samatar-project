@@ -23,7 +23,7 @@ DECLARE
   v_affected integer;
   v_total_affected integer := 0;
 BEGIN
-  IF pg_catalog.coalesce(pg_catalog.btrim(p_school_id), '') = '' THEN
+  IF COALESCE(pg_catalog.btrim(p_school_id), '') = '' THEN
     RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'school_id_required';
   END IF;
 
@@ -59,7 +59,7 @@ BEGIN
         SELECT value FROM pg_catalog.jsonb_array_elements(v_operation -> 'rows') AS rows(value)
       LOOP
         IF pg_catalog.jsonb_typeof(v_row) IS DISTINCT FROM 'object'
-          OR pg_catalog.coalesce(v_row ->> 'id', '') = ''
+          OR COALESCE(v_row ->> 'id', '') = ''
           OR v_row ->> 'school_id' IS DISTINCT FROM p_school_id
         THEN
           RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'finance_row_tenant_or_id_invalid';
@@ -155,15 +155,15 @@ DECLARE
   v_updated_at text;
   v_has_fee boolean := false;
 BEGIN
-  IF pg_catalog.coalesce(pg_catalog.btrim(p_school_id), '') = ''
-    OR pg_catalog.coalesce(pg_catalog.btrim(p_invoice_id), '') = ''
+  IF COALESCE(pg_catalog.btrim(p_school_id), '') = ''
+    OR COALESCE(pg_catalog.btrim(p_invoice_id), '') = ''
   THEN
     RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'school_and_invoice_required';
   END IF;
 
   IF pg_catalog.jsonb_typeof(p_payment) IS DISTINCT FROM 'object'
     OR p_payment ->> 'school_id' IS DISTINCT FROM p_school_id
-    OR pg_catalog.coalesce(p_payment ->> 'id', '') = ''
+    OR COALESCE(p_payment ->> 'id', '') = ''
   THEN
     RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'payment_payload_invalid';
   END IF;
@@ -183,14 +183,14 @@ BEGIN
     RAISE EXCEPTION USING ERRCODE = 'P0002', MESSAGE = 'invoice_not_found';
   END IF;
 
-  v_new_paid := pg_catalog.coalesce(v_invoice.paid_amount, 0) + v_amount;
-  v_new_balance := pg_catalog.greatest(0, pg_catalog.coalesce(v_invoice.total, 0) - v_new_paid);
+  v_new_paid := COALESCE(v_invoice.paid_amount, 0) + v_amount;
+  v_new_balance := GREATEST(0, COALESCE(v_invoice.total, 0) - v_new_paid);
   v_new_status := CASE
     WHEN v_new_balance = 0 THEN 'Paid'
     WHEN v_new_paid > 0 THEN 'Partially Paid'
     ELSE 'Unpaid'
   END;
-  v_updated_at := pg_catalog.coalesce(p_payment ->> 'created_at', pg_catalog.now()::text);
+  v_updated_at := COALESCE(p_payment ->> 'created_at', pg_catalog.now()::text);
 
   UPDATE public.dugsiga_invoices
   SET paid_amount = v_new_paid,
@@ -214,11 +214,11 @@ BEGIN
     v_invoice.student_name,
     v_invoice.class_name,
     v_amount,
-    pg_catalog.coalesce(p_payment ->> 'payment_date', pg_catalog.current_date::text),
-    pg_catalog.coalesce(p_payment ->> 'payment_method', 'Cash'),
+    COALESCE(p_payment ->> 'payment_date', CURRENT_DATE::text),
+    COALESCE(p_payment ->> 'payment_method', 'Cash'),
     p_payment ->> 'reference',
     v_new_balance,
-    pg_catalog.coalesce(p_payment ->> 'received_by', 'Xisaabiyaha'),
+    COALESCE(p_payment ->> 'received_by', 'Xisaabiyaha'),
     p_payment ->> 'notes',
     v_updated_at
   )
