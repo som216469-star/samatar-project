@@ -2000,8 +2000,88 @@ export function registerModernRoutes(app: express.Express, helpers: ModernRouteH
      ========================================================================= */
   app.get("/api/analytics/dashboard", async (req, res) => {
     const schoolId = getSchoolId(req);
-    const db = loadLocalDB();
+    const today = new Date().toISOString().split("T")[0];
 
+    if (!getUseLocalFallback() && supabase) {
+      try {
+        const [
+          studentsResult,
+          teachersResult,
+          staffResult,
+          classesResult,
+          subjectsResult,
+          feesResult,
+          admissionsResult,
+          booksResult,
+          loansResult,
+          announcementsResult,
+          studentAttendanceResult,
+          staffAttendanceResult
+        ] = await Promise.all([
+          supabase.from("dugsiga_students").select("id,status").eq("school_id", schoolId),
+          supabase.from("dugsiga_teachers").select("id").eq("school_id", schoolId),
+          supabase.from("dugsiga_staff").select("id").eq("school_id", schoolId),
+          supabase.from("dugsiga_classes").select("id").eq("school_id", schoolId),
+          supabase.from("dugsiga_subjects").select("id").eq("school_id", schoolId),
+          supabase.from("dugsiga_fees").select("amount,paid_amount").eq("school_id", schoolId),
+          supabase.from("dugsiga_admissions").select("status").eq("school_id", schoolId),
+          supabase.from("dugsiga_library_books").select("total_copies").eq("school_id", schoolId),
+          supabase.from("dugsiga_library_loans").select("status").eq("school_id", schoolId),
+          supabase.from("dugsiga_announcements").select("status").eq("school_id", schoolId),
+          supabase.from("dugsiga_attendance").select("status,date").eq("school_id", schoolId).eq("date", today),
+          supabase.from("dugsiga_staff_attendance").select("status,date").eq("school_id", schoolId).eq("date", today)
+        ]);
+
+        const cloudError = [
+          studentsResult.error, teachersResult.error, staffResult.error,
+          classesResult.error, subjectsResult.error, feesResult.error,
+          admissionsResult.error, booksResult.error, loansResult.error,
+          announcementsResult.error, studentAttendanceResult.error, staffAttendanceResult.error
+        ].find(Boolean);
+        if (cloudError) throw cloudError;
+
+        const students = studentsResult.data || [];
+        const fees = feesResult.data || [];
+        const admissions = admissionsResult.data || [];
+        const books = booksResult.data || [];
+        const loans = loansResult.data || [];
+        const announcements = announcementsResult.data || [];
+        const studentAttendanceToday = studentAttendanceResult.data || [];
+        const staffAttendanceToday = staffAttendanceResult.data || [];
+
+        const totalCollectedFees = fees.reduce((sum: number, f: any) => sum + (Number(f.paid_amount) || 0), 0);
+        const totalPendingFees = fees.reduce((sum: number, f: any) => sum + Math.max(0, (Number(f.amount) || 0) - (Number(f.paid_amount) || 0)), 0);
+
+        return res.json({
+          studentsCount: students.length,
+          activeStudentsCount: students.filter((s: any) => s.status === "active").length,
+          teachersCount: (teachersResult.data || []).length,
+          staffCount: (staffResult.data || []).length,
+          classesCount: (classesResult.data || []).length,
+          subjectsCount: (subjectsResult.data || []).length,
+          totalCollectedFees,
+          totalPendingFees,
+          pendingAdmissionsCount: admissions.filter((a: any) => a.status === "Pending").length,
+          totalBooksCount: books.reduce((sum: number, b: any) => sum + (Number(b.total_copies) || 0), 0),
+          activeLoansCount: loans.filter((l: any) => l.status === "Borrowed").length,
+          activeAnnouncementsCount: announcements.filter((a: any) => a.status === "Active").length,
+          todayAttendance: {
+            studentsPresent: studentAttendanceToday.filter((a: any) => (a.status || "").toLowerCase() === "present").length,
+            studentsTotalMarked: studentAttendanceToday.length,
+            staffPresent: staffAttendanceToday.filter((a: any) => (a.status || "").toLowerCase() === "present").length,
+            staffTotalMarked: staffAttendanceToday.length
+          }
+        });
+      } catch (error: any) {
+        console.error("Dashboard cloud query failed:", String(error?.message || error).slice(0, 180));
+        return res.status(503).json({
+          error: "Warbixinta guud lama heli karo maadaama kaydka xogta daruurta ahi aanu jawaab sax ah bixin.",
+          code: "DATABASE_UNAVAILABLE"
+        });
+      }
+    }
+
+    const db = loadLocalDB();
     const students = (db.students || []).filter((s: any) => s.schoolId === schoolId);
     const teachers = (db.teachers || []).filter((t: any) => t.schoolId === schoolId);
     const staff = (db.staff || []).filter((s: any) => s.schoolId === schoolId);
@@ -2012,11 +2092,8 @@ export function registerModernRoutes(app: express.Express, helpers: ModernRouteH
     const books = (db.libraryBooks || []).filter((b: any) => b.schoolId === schoolId);
     const loans = (db.libraryLoans || []).filter((l: any) => l.schoolId === schoolId && l.status === "Borrowed");
     const announcements = (db.announcements || []).filter((a: any) => a.schoolId === schoolId && a.status === "Active");
-
     const totalCollectedFees = fees.reduce((sum: number, f: any) => sum + (Number(f.paidAmount) || 0), 0);
     const totalPendingFees = fees.reduce((sum: number, f: any) => sum + Math.max(0, (Number(f.amount) || 0) - (Number(f.paidAmount) || 0)), 0);
-
-    const today = new Date().toISOString().split("T")[0];
     const studentAttendanceToday = (db.attendance || []).filter((a: any) => a.schoolId === schoolId && a.date === today);
     const staffAttendanceToday = (db.staffAttendance || []).filter((a: any) => a.schoolId === schoolId && a.date === today);
 
@@ -2040,5 +2117,5 @@ export function registerModernRoutes(app: express.Express, helpers: ModernRouteH
         staffTotalMarked: staffAttendanceToday.length
       }
     });
-  });
+  }););
 }
