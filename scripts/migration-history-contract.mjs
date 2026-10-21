@@ -56,7 +56,7 @@ for (const file of recordedRemoteMigrations) {
   assert.ok(content.trim().length > 0, `Recorded migration is empty: ${file}`);
 }
 
-const pendingFinanceMigration = "20261017100000_atomic_finance_transactions.sql";
+const pendingFinanceMigration = "20261021173729_atomic_finance_transactions.sql";
 assert.ok(sqlFiles.includes(pendingFinanceMigration), "Atomic finance migration is missing.");
 const timestamps = sqlFiles.map((file) => file.slice(0, 14));
 assert.equal(new Set(timestamps).size, timestamps.length, "Migration timestamps must be unique.");
