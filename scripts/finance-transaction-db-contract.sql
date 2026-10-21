@@ -87,7 +87,7 @@ CREATE TABLE public.dugsiga_budgets (
 GRANT USAGE ON SCHEMA public TO service_role;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO service_role;
 
-\i supabase/migrations/20261017100000_atomic_finance_transactions.sql
+\i supabase/migrations/20261021173729_atomic_finance_transactions.sql
 
 -- Verify that only the trusted server role may execute the RPCs.
 DO $privileges$
