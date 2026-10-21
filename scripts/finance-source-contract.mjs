@@ -94,7 +94,7 @@ for (const route of [
   }
 }
 
-const migration = read("supabase/migrations/20261017100000_atomic_finance_transactions.sql");
+const migration = read("supabase/migrations/20261021173729_atomic_finance_transactions.sql");
 assertContains(finance, "const syncFinanceTransaction =", "atomic finance transaction helper exists");
 assertContains(finance, 'supabase.rpc("dugsiga_finance_transaction"', "related finance rows use the atomic Supabase transaction RPC");
 assertContains(finance, 'supabase.rpc("dugsiga_record_invoice_payment"', "invoice payments use the row-locking database transaction");
