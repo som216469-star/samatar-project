@@ -18,7 +18,7 @@ function assertContains(content, needle, label) {
 const server = read("server.ts");
 const modern = read("server/modernRoutes.ts");
 const finance = read("server/financeRoutes.ts");
-const migration = read("supabase/migrations/20261017100000_atomic_finance_transactions.sql");
+const migration = read("supabase/migrations/20261021173729_atomic_finance_transactions.sql");
 
 // Tenant identity must come from the verified server session, not client headers.
 assertContains(server, 'return authUser?.schoolId?.trim() || "";', "tenant comes from verified server session");
