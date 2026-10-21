@@ -19,7 +19,9 @@ import {
 } from "./server/authSession.ts";
 
 // Load environment variables
-dotenv.config({ override: true });
+if (process.env.QUANTORA_SKIP_DOTENV !== "1") {
+  dotenv.config({ override: true });
+}
 
 // Normalize/Clean all Supabase-related environment variables for both SDKs
 const envKeysToClean = [
