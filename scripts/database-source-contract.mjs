@@ -23,6 +23,8 @@ function assertNotContains(content, needle, label) {
 
 const server = read("server.ts");
 const smoke = read("scripts/server-smoke.mjs");
+const modern = read("server/modernRoutes.ts");
+const finance = read("server/financeRoutes.ts");
 
 assertContains(server, 'const supabaseUrl = parseSupabaseUrl(process.env.SUPABASE_URL);', "Supabase URL must be explicitly configured");
 assertNotContains(server, "https://mdvfcqujqjnvfpzowayo.supabase.co", "no hard-coded Supabase project fallback");
@@ -39,5 +41,19 @@ assertContains(smoke, "studentsWhenDatabaseUnavailable", "runtime checks the pro
 assertContains(smoke, "should fail closed when production database is unavailable", "runtime asserts data API returns 503");
 assertContains(smoke, "should remain available to clear the session", "runtime asserts logout is available");
 assertContains(smoke, "QUANTORA_SKIP_DOTENV: '1'", "runtime test does not load local credentials");
+
+assertContains(server, "if (customSupabaseActive) return;", "cloud-active cache is not persisted to the service filesystem");
+assertContains(server, 'const { error: readError }', "database health checks use a read-only probe");
+assertNotContains(server, 'school_id: "__health_check__"', "health checks do not write fake tenant rows");
+
+assertNotContains(modern, "catch (e: any) {}", "cloud route failures are not silently swallowed");
+assertContains(modern, 'supabase.from("dugsiga_students").select("id,status").eq("school_id", schoolId)', "dashboard analytics reads tenant-scoped cloud data");
+assertContains(modern, "let cloudSlotsRead = false;", "empty timetable cloud results are tracked as authoritative");
+assertContains(modern, "Compare-and-set prevents two concurrent requests from borrowing the last copy.", "library loan stock updates protect the last copy");
+assertContains(modern, '.eq("school_id", schoolId)', "modern route data access scopes rows to the authenticated school");
+
+assertContains(finance, "const refreshFinanceCollectionsFromSupabase =", "finance reads refresh from the cloud source of truth");
+assertContains(finance, "rows: (data || []).map(definition.map)", "empty finance cloud results replace stale cache rows");
+assertContains(finance, "const syncFinanceTransaction =", "related finance writes use the database transaction RPC");
 
 console.log("Database source-of-truth contract checks: PASS");
