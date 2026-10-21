@@ -38,7 +38,8 @@ for (const [needle, label] of [
   ["i.id === id && i.schoolId === schoolId", "inventory fallback update includes tenant predicate"],
   ["b.id === loan.bookId && b.schoolId === schoolId", "library loan stock changes include tenant predicate"],
   ['.eq("id", loan.bookId)\n          .eq("school_id", schoolId)', "library loan cloud stock update is tenant-scoped"],
-  ['.eq("id", returnedLoan.book_id)\n          .eq("school_id", schoolId)', "library return cloud stock update is tenant-scoped"]
+  ['.eq("id", book.id)\n              .eq("school_id", schoolId)', "library return cloud stock increment/rollback is tenant-scoped"],
+  ['.eq("id", id)\n          .eq("school_id", schoolId)\n          .eq("status", "Borrowed")', "library return changes only this tenant's borrowed loan"]
 ]) {
   assertContains(modern, needle, label);
 }
