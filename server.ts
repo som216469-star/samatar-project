@@ -414,6 +414,15 @@ function loadLocalDB(): LocalDB {
     return db;
   };
 
+  // Supabase is the source of truth in cloud mode. Do not read legacy JSON files:
+  // they may contain stale credentials or another tenant's outdated cache.
+  if (customSupabaseActive) {
+    if (inMemoryDB) return ensureArrays(inMemoryDB);
+    const initial = ensureArrays({ settings: defaultSettings });
+    inMemoryDB = initial;
+    return initial;
+  }
+
   const candidatePaths = [PRIMARY_DB_PATH, TMP_DB_PATH];
   for (const dbPath of candidatePaths) {
     try {
