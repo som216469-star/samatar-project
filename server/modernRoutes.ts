@@ -321,11 +321,12 @@ export function registerModernRoutes(app: express.Express, helpers: ModernRouteH
         if (teacherDeleteError) throw teacherDeleteError;
 
         // Remove the linked login so a deleted teacher cannot authenticate as a stale account.
-        await supabase
+        const { error: userDeleteError } = await supabase
           .from("dugsiga_users")
           .delete()
           .eq("teacher_id", id)
           .eq("school_id", schoolId);
+        if (userDeleteError) throw userDeleteError;
       } catch (e: any) {
         return res.status(500).json({ error: e?.message || "Teacher deletion failed." });
       }
@@ -494,7 +495,8 @@ export function registerModernRoutes(app: express.Express, helpers: ModernRouteH
     const { id } = req.params;
     if (!getUseLocalFallback() && supabase) {
       try {
-        await supabase.from("dugsiga_staff").delete().eq("id", id).eq("school_id", schoolId);
+        const { error } = await supabase.from("dugsiga_staff").delete().eq("id", id).eq("school_id", schoolId);
+        if (error) throw error;
       } catch (e: any) {
         if (!getUseLocalFallback()) {
           console.error("Cloud data operation failed:", String(e?.message || e).slice(0, 180));
@@ -666,7 +668,8 @@ export function registerModernRoutes(app: express.Express, helpers: ModernRouteH
     const { id } = req.params;
     if (!getUseLocalFallback() && supabase) {
       try {
-        await supabase.from("dugsiga_guardians").delete().eq("id", id).eq("school_id", schoolId);
+        const { error } = await supabase.from("dugsiga_guardians").delete().eq("id", id).eq("school_id", schoolId);
+        if (error) throw error;
       } catch (e: any) {
         if (!getUseLocalFallback()) {
           console.error("Cloud data operation failed:", String(e?.message || e).slice(0, 180));
@@ -750,14 +753,15 @@ export function registerModernRoutes(app: express.Express, helpers: ModernRouteH
     if (!getUseLocalFallback() && supabase) {
       try {
         // Delete existing for this date first
-        await supabase
+        const { error: deleteAttendanceError } = await supabase
           .from("dugsiga_staff_attendance")
           .delete()
           .eq("school_id", schoolId)
           .eq("date", date);
+        if (deleteAttendanceError) throw deleteAttendanceError;
 
         if (prepared.length > 0) {
-          await supabase.from("dugsiga_staff_attendance").insert(
+          const { error: insertAttendanceError } = await supabase.from("dugsiga_staff_attendance").insert(
             prepared.map(p => ({
               id: p.id,
               school_id: schoolId,
@@ -770,6 +774,7 @@ export function registerModernRoutes(app: express.Express, helpers: ModernRouteH
               notes: p.notes
             }))
           );
+          if (insertAttendanceError) throw insertAttendanceError;
         }
         return res.json({ success: true, count: prepared.length });
       } catch (e: any) {
@@ -855,11 +860,13 @@ export function registerModernRoutes(app: express.Express, helpers: ModernRouteH
 
     // Load existing slots to perform collision detection
     let existingSlots: any[] = [];
+    let cloudSlotsRead = false;
     if (!getUseLocalFallback() && supabase) {
       try {
-        const { data } = await supabase.from("dugsiga_timetable").select("*").eq("school_id", schoolId).eq("day", day);
-        if (data) {
-          existingSlots = data.map((t: any) => ({
+        const { data, error } = await supabase.from("dugsiga_timetable").select("*").eq("school_id", schoolId).eq("day", day);
+        if (error) throw error;
+        cloudSlotsRead = true;
+        existingSlots = (data || []).map((t: any) => ({
             id: t.id,
             className: t.class_name,
             teacherName: t.teacher_name,
@@ -868,7 +875,6 @@ export function registerModernRoutes(app: express.Express, helpers: ModernRouteH
             startTime: t.start_time,
             endTime: t.end_time
           }));
-        }
       } catch (e: any) {
         if (!getUseLocalFallback()) {
           console.error("Cloud data operation failed:", String(e?.message || e).slice(0, 180));
@@ -879,7 +885,7 @@ export function registerModernRoutes(app: express.Express, helpers: ModernRouteH
         }
       }
     }
-    if (existingSlots.length === 0) {
+    if (getUseLocalFallback() || !supabase || !cloudSlotsRead) {
       const db = loadLocalDB();
       existingSlots = (db.timetable || []).filter((t: any) => t.schoolId === schoolId && t.day === day);
     }
@@ -974,7 +980,8 @@ export function registerModernRoutes(app: express.Express, helpers: ModernRouteH
     const { id } = req.params;
     if (!getUseLocalFallback() && supabase) {
       try {
-        await supabase.from("dugsiga_timetable").delete().eq("id", id).eq("school_id", schoolId);
+        const { error } = await supabase.from("dugsiga_timetable").delete().eq("id", id).eq("school_id", schoolId);
+        if (error) throw error;
       } catch (e: any) {
         if (!getUseLocalFallback()) {
           console.error("Cloud data operation failed:", String(e?.message || e).slice(0, 180));
@@ -1149,12 +1156,13 @@ export function registerModernRoutes(app: express.Express, helpers: ModernRouteH
     let admission: any = null;
     if (!getUseLocalFallback() && supabase) {
       try {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from("dugsiga_admissions")
           .select("*")
           .eq("id", id)
           .eq("school_id", schoolId)
-          .single();
+          .maybeSingle();
+        if (error) throw error;
         if (data) {
           admission = {
             id: data.id,
@@ -1179,7 +1187,7 @@ export function registerModernRoutes(app: express.Express, helpers: ModernRouteH
       }
     }
 
-    if (!admission) {
+    if (!admission && (getUseLocalFallback() || !supabase)) {
       admission = (db.admissions || []).find((a: any) => a.id === id && a.schoolId === schoolId);
     }
 
@@ -1210,7 +1218,7 @@ export function registerModernRoutes(app: express.Express, helpers: ModernRouteH
 
     if (!getUseLocalFallback() && supabase) {
       try {
-        await supabase.from("dugsiga_students").insert([{
+        const { error: studentInsertError } = await supabase.from("dugsiga_students").insert([{
           id: newStudentId,
           school_id: schoolId,
           full_name: newStudent.fullName,
@@ -1220,12 +1228,14 @@ export function registerModernRoutes(app: express.Express, helpers: ModernRouteH
           status: "active",
           created_at: createdAt
         }]);
+        if (studentInsertError) throw studentInsertError;
 
-        await supabase
+        const { error: admissionUpdateError } = await supabase
           .from("dugsiga_admissions")
           .update({ status: "Enrolled", student_id: newStudentId })
           .eq("id", id)
           .eq("school_id", schoolId);
+        if (admissionUpdateError) throw admissionUpdateError;
       } catch (e: any) {
         if (!getUseLocalFallback()) {
           console.error("Cloud data operation failed:", String(e?.message || e).slice(0, 180));
@@ -1404,7 +1414,8 @@ export function registerModernRoutes(app: express.Express, helpers: ModernRouteH
     const { id } = req.params;
     if (!getUseLocalFallback() && supabase) {
       try {
-        await supabase.from("dugsiga_announcements").delete().eq("id", id).eq("school_id", schoolId);
+        const { error } = await supabase.from("dugsiga_announcements").delete().eq("id", id).eq("school_id", schoolId);
+        if (error) throw error;
       } catch (e: any) {
         if (!getUseLocalFallback()) {
           console.error("Cloud data operation failed:", String(e?.message || e).slice(0, 180));
@@ -1566,7 +1577,8 @@ export function registerModernRoutes(app: express.Express, helpers: ModernRouteH
     const { id } = req.params;
     if (!getUseLocalFallback() && supabase) {
       try {
-        await supabase.from("dugsiga_library_books").delete().eq("id", id).eq("school_id", schoolId);
+        const { error } = await supabase.from("dugsiga_library_books").delete().eq("id", id).eq("school_id", schoolId);
+        if (error) throw error;
       } catch (e: any) {
         if (!getUseLocalFallback()) {
           console.error("Cloud data operation failed:", String(e?.message || e).slice(0, 180));
@@ -1874,7 +1886,8 @@ export function registerModernRoutes(app: express.Express, helpers: ModernRouteH
     const { id } = req.params;
     if (!getUseLocalFallback() && supabase) {
       try {
-        await supabase.from("dugsiga_inventory").delete().eq("id", id).eq("school_id", schoolId);
+        const { error } = await supabase.from("dugsiga_inventory").delete().eq("id", id).eq("school_id", schoolId);
+        if (error) throw error;
       } catch (e: any) {
         if (!getUseLocalFallback()) {
           console.error("Cloud data operation failed:", String(e?.message || e).slice(0, 180));
@@ -1952,7 +1965,7 @@ export function registerModernRoutes(app: express.Express, helpers: ModernRouteH
 
     if (!getUseLocalFallback() && supabase) {
       try {
-        await supabase.from("dugsiga_notifications").insert([{
+        const { error } = await supabase.from("dugsiga_notifications").insert([{
           id,
           school_id: schoolId,
           title: notif.title.trim(),
@@ -1963,6 +1976,7 @@ export function registerModernRoutes(app: express.Express, helpers: ModernRouteH
           status: "Sent",
           created_at: createdAt
         }]);
+        if (error) throw error;
       } catch (e: any) {
         if (!getUseLocalFallback()) {
           console.error("Cloud data operation failed:", String(e?.message || e).slice(0, 180));
