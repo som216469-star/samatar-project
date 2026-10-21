@@ -465,6 +465,11 @@ function recordLocalStudentAudit(
 
 function saveLocalDB(data: LocalDB) {
   inMemoryDB = data;
+
+  // When Supabase is authoritative, this process-local object is only a cache.
+  // Never persist a second production copy of school records to the service filesystem.
+  if (customSupabaseActive) return;
+
   try {
     fs.writeFileSync(PRIMARY_DB_PATH, JSON.stringify(data, null, 2));
     return;
@@ -666,21 +671,19 @@ async function checkSupabaseStatus() {
       return;
     }
 
-    // Ping check: verify read and write capability
-    const pingKey = `_ping_${Date.now()}`;
-    const { error: writeError } = await supabase
+    // Read-only health probe. Real mutations validate their own write result; health
+    // checks must not create synthetic tenant rows or require write access.
+    const { error: readError } = await supabase
       .from("dugsiga_settings")
-      .upsert({ school_id: "__health_check__", key: pingKey, value: { ping: true } });
+      .select("school_id")
+      .limit(1);
 
-    if (writeError) {
+    if (readError) {
       useLocalFallback = true;
       customSupabaseActive = false;
-      console.warn(`Supabase RLS or write permission issue (${writeError.code}: ${writeError.message}). Operating in resilient local database mode.`);
+      console.warn(`Supabase read probe failed (${readError.code}: ${readError.message}). Cloud persistence is unavailable.`);
       return;
     }
-
-    // Clean up ping record
-    await supabase.from("dugsiga_settings").delete().eq("school_id", "__health_check__").eq("key", pingKey);
 
     useLocalFallback = false;
     customSupabaseActive = true;
