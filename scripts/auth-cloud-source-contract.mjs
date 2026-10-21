@@ -48,6 +48,14 @@ assertContains(signup, "Signup rejected because the authoritative database write
 assertContains(signup, 'code: "DATABASE_UNAVAILABLE"', "signup reports cloud persistence failure");
 assertContains(signup, 'if (insertError.code === "23505")', "duplicate cloud accounts remain rejected");
 
+const teacherAuth = read("server/teacherAuthRoutes.ts");
+assertContains(teacherAuth, 'if (!getUseLocalFallback() && supabase)', "teacher invitation handlers distinguish cloud authority from local fallback");
+assertContains(teacherAuth, 'Cloud teacher activation failed:', "teacher activation reports cloud persistence failures");
+assertContains(teacherAuth, "Restore the invitation so the teacher can safely retry", "failed teacher account persistence attempts to restore the invitation");
+assertContains(teacherAuth, '.eq("school_id", authUser.schoolId)', "teacher admin actions are tenant-scoped");
+assertNotContains(teacherAuth, "catch (e) {}", "teacher activation and administration do not silently swallow cloud failures");
+assertContains(teacherAuth, "Do not persist cloud credentials into database.json.", "cloud teacher passwords are not cached to the local JSON store");
+
 const authSession = read("server/authSession.ts");
 assertContains(authSession, "crypto.timingSafeEqual", "session/password comparisons use timing-safe comparison");
 assertContains(authSession, "payload.exp <= now", "expired signed sessions are rejected");
