@@ -9,7 +9,7 @@ const sqlFiles = readdirSync(migrationDirectory)
   .filter((file) => file.endsWith(".sql"))
   .sort();
 
-const malformedNames = sqlFiles.filter((file) => !/^\\d{14}_[a-z0-9_]+\\.sql$/i.test(file));
+const malformedNames = sqlFiles.filter((file) => !/^\d{14}_[a-z0-9_]+\.sql$/i.test(file));
 assert.deepEqual(
   malformedNames,
   [],
