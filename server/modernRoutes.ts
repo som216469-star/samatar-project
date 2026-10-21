@@ -1644,7 +1644,6 @@ export function registerModernRoutes(app: express.Express, helpers: ModernRouteH
 
     const id = loan.id || "loan-" + Math.random().toString(36).substr(2, 9);
     const issueDate = loan.issueDate || new Date().toISOString().split("T")[0];
-
     const fullLoan = {
       ...loan,
       id,
@@ -1655,11 +1654,39 @@ export function registerModernRoutes(app: express.Express, helpers: ModernRouteH
 
     if (!getUseLocalFallback() && supabase) {
       try {
-        await supabase.from("dugsiga_library_loans").insert([{
+        const { data: book, error: bookLookupError } = await supabase
+          .from("dugsiga_library_books")
+          .select("id, title, available_copies, total_copies")
+          .eq("id", loan.bookId)
+          .eq("school_id", schoolId)
+          .maybeSingle();
+        if (bookLookupError) throw bookLookupError;
+        if (!book) return res.status(404).json({ error: "Buugga lagama helin dugsigan." });
+
+        const availableCopies = Number(book.available_copies) || 0;
+        if (availableCopies <= 0) {
+          return res.status(409).json({ error: "Buuggan hadda lama amaahan karo; nuqullo bannaan ma jiraan." });
+        }
+
+        // Compare-and-set prevents two concurrent requests from borrowing the last copy.
+        const { data: decrementedBook, error: decrementError } = await supabase
+          .from("dugsiga_library_books")
+          .update({ available_copies: availableCopies - 1 })
+          .eq("id", loan.bookId)
+          .eq("school_id", schoolId)
+          .eq("available_copies", availableCopies)
+          .select("id")
+          .maybeSingle();
+        if (decrementError) throw decrementError;
+        if (!decrementedBook) {
+          return res.status(409).json({ error: "Nuqullada bannaan way is beddeleen. Fadlan dib u cusboonaysii oo mar kale isku day." });
+        }
+
+        const { error: loanInsertError } = await supabase.from("dugsiga_library_loans").insert([{
           id,
           school_id: schoolId,
           book_id: loan.bookId,
-          book_title: loan.bookTitle || "",
+          book_title: loan.bookTitle || book.title || "",
           borrower_type: loan.borrowerType || "Student",
           borrower_id: loan.borrowerId || "N/A",
           borrower_name: loan.borrowerName.trim(),
@@ -1668,33 +1695,40 @@ export function registerModernRoutes(app: express.Express, helpers: ModernRouteH
           status: "Borrowed"
         }]);
 
-        // Decrement available copies
-        const { data: bData } = await supabase.from("dugsiga_library_books").select("available_copies").eq("id", loan.bookId).single();
-        if (bData && bData.available_copies > 0) {
-          await supabase.from("dugsiga_library_books").update({ available_copies: bData.available_copies - 1 }).eq("id", loan.bookId);
+        if (loanInsertError) {
+          const { error: rollbackError } = await supabase
+            .from("dugsiga_library_books")
+            .update({ available_copies: availableCopies })
+            .eq("id", loan.bookId)
+            .eq("school_id", schoolId)
+            .eq("available_copies", availableCopies - 1);
+          if (rollbackError) {
+            console.error("Library stock rollback failed after loan insert error:", String(rollbackError.message || rollbackError).slice(0, 160));
+          }
+          throw loanInsertError;
         }
+
+        return res.status(201).json(fullLoan);
       } catch (e: any) {
-        if (!getUseLocalFallback()) {
-          console.error("Cloud data operation failed:", String(e?.message || e).slice(0, 180));
-          return res.status(503).json({
-            error: "Kaydka xogta daruurta ah lama heli karo hadda. Xogta lama akhrin ama lama kaydin.",
-            code: "DATABASE_UNAVAILABLE"
-          });
-        }
+        console.error("Cloud library loan creation failed:", String(e?.message || e).slice(0, 180));
+        return res.status(503).json({
+          error: "Amaahda buugga laguma kaydin kaydka xogta daruurta ah. Fadlan mar kale isku day.",
+          code: "DATABASE_UNAVAILABLE"
+        });
       }
     }
 
     const db = loadLocalDB();
     if (!db.libraryLoans) db.libraryLoans = [];
-    db.libraryLoans.push(fullLoan);
-
-    // Decrement copies locally
-    const bk = (db.libraryBooks || []).find((b: any) => b.id === loan.bookId);
-    if (bk && bk.availableCopies > 0) {
-      bk.availableCopies -= 1;
+    const book = (db.libraryBooks || []).find((b: any) => b.id === loan.bookId && b.schoolId === schoolId);
+    if (!book) return res.status(404).json({ error: "Buugga lagama helin dugsigan." });
+    if ((Number(book.availableCopies) || 0) <= 0) {
+      return res.status(409).json({ error: "Buuggan hadda lama amaahan karo; nuqullo bannaan ma jiraan." });
     }
+    book.availableCopies -= 1;
+    db.libraryLoans.push(fullLoan);
     saveLocalDB(db);
-    return res.json(fullLoan);
+    return res.status(201).json(fullLoan);
   });
 
   app.put("/api/library/loans/:id/return", async (req, res) => {
@@ -1702,42 +1736,109 @@ export function registerModernRoutes(app: express.Express, helpers: ModernRouteH
     const { id } = req.params;
     const returnDate = new Date().toISOString().split("T")[0];
 
-    let bookId = "";
     if (!getUseLocalFallback() && supabase) {
       try {
-        const { data: loan } = await supabase.from("dugsiga_library_loans").select("book_id").eq("id", id).eq("school_id", schoolId).single();
-        if (loan) bookId = loan.book_id;
-        await supabase.from("dugsiga_library_loans").update({ status: "Returned", return_date: returnDate }).eq("id", id).eq("school_id", schoolId);
-        if (bookId) {
-          const { data: bData } = await supabase.from("dugsiga_library_books").select("available_copies, total_copies").eq("id", bookId).single();
-          if (bData && bData.available_copies < bData.total_copies) {
-            await supabase.from("dugsiga_library_books").update({ available_copies: bData.available_copies + 1 }).eq("id", bookId);
-          }
+        const { data: loan, error: loanLookupError } = await supabase
+          .from("dugsiga_library_loans")
+          .select("id, book_id, status")
+          .eq("id", id)
+          .eq("school_id", schoolId)
+          .maybeSingle();
+        if (loanLookupError) throw loanLookupError;
+        if (!loan) return res.status(404).json({ error: "Amaahda buugga lagama helin dugsigan." });
+        if (loan.status === "Returned") {
+          return res.json({ success: true, message: "Buugga hore ayaa loo soo celiyey." });
         }
-      } catch (e: any) {
-        if (!getUseLocalFallback()) {
-          console.error("Cloud data operation failed:", String(e?.message || e).slice(0, 180));
+        if (loan.status !== "Borrowed") {
+          return res.status(409).json({ error: "Xaaladda amaahda ma oggola in buugga la soo celiyo." });
+        }
+
+        const { data: book, error: bookLookupError } = await supabase
+          .from("dugsiga_library_books")
+          .select("id, available_copies, total_copies")
+          .eq("id", loan.book_id)
+          .eq("school_id", schoolId)
+          .maybeSingle();
+        if (bookLookupError) throw bookLookupError;
+        if (!book) {
           return res.status(503).json({
-            error: "Kaydka xogta daruurta ah lama heli karo hadda. Xogta lama akhrin ama lama kaydin.",
+            error: "Diiwaanka buugga wuu maqan yahay; soo-celinta si ammaan ah looma dhammeystiri karo.",
             code: "DATABASE_UNAVAILABLE"
           });
         }
+
+        const availableCopies = Number(book.available_copies) || 0;
+        const totalCopies = Number(book.total_copies) || 0;
+        let stockIncremented = false;
+        if (availableCopies < totalCopies) {
+          const { data: updatedBook, error: incrementError } = await supabase
+            .from("dugsiga_library_books")
+            .update({ available_copies: availableCopies + 1 })
+            .eq("id", book.id)
+            .eq("school_id", schoolId)
+            .eq("available_copies", availableCopies)
+            .select("id")
+            .maybeSingle();
+          if (incrementError) throw incrementError;
+          if (!updatedBook) {
+            return res.status(409).json({ error: "Xogta nuqullada buugga way is beddeleen. Fadlan mar kale isku day." });
+          }
+          stockIncremented = true;
+        }
+
+        const { data: returnedLoan, error: returnError } = await supabase
+          .from("dugsiga_library_loans")
+          .update({ status: "Returned", return_date: returnDate })
+          .eq("id", id)
+          .eq("school_id", schoolId)
+          .eq("status", "Borrowed")
+          .select("id")
+          .maybeSingle();
+
+        if (returnError || !returnedLoan) {
+          if (stockIncremented) {
+            const { error: rollbackError } = await supabase
+              .from("dugsiga_library_books")
+              .update({ available_copies: availableCopies })
+              .eq("id", book.id)
+              .eq("school_id", schoolId)
+              .eq("available_copies", availableCopies + 1);
+            if (rollbackError) {
+              console.error("Library return stock rollback failed:", String(rollbackError.message || rollbackError).slice(0, 160));
+            }
+          }
+          if (returnError) throw returnError;
+          return res.status(409).json({ error: "Amaahdan hore ayaa loo soo celiyey ama waa la beddelay." });
+        }
+
+        return res.json({ success: true, message: "Buugga si nabad ah ayaa loo soo celiyey" });
+      } catch (e: any) {
+        console.error("Cloud library return failed:", String(e?.message || e).slice(0, 180));
+        return res.status(503).json({
+          error: "Soo-celinta buugga laguma xaqiijin karin kaydka xogta daruurta ah. Fadlan mar kale hubi.",
+          code: "DATABASE_UNAVAILABLE"
+        });
       }
     }
 
     const db = loadLocalDB();
     const loan = (db.libraryLoans || []).find((l: any) => l.id === id && l.schoolId === schoolId);
-    if (loan) {
-      loan.status = "Returned";
-      loan.returnDate = returnDate;
-      const bk = (db.libraryBooks || []).find((b: any) => b.id === loan.bookId);
-      if (bk && bk.availableCopies < bk.totalCopies) {
-        bk.availableCopies += 1;
-      }
-      saveLocalDB(db);
-      return res.json({ success: true, message: "Buugga si nabad ah ayaa loo soo celiyey" });
+    if (!loan) return res.status(404).json({ error: "Loan record not found" });
+    if (loan.status === "Returned") {
+      return res.json({ success: true, message: "Buugga hore ayaa loo soo celiyey." });
     }
-    return res.status(404).json({ error: "Loan record not found" });
+    if (loan.status !== "Borrowed") {
+      return res.status(409).json({ error: "Xaaladda amaahda ma oggola in buugga la soo celiyo." });
+    }
+
+    const book = (db.libraryBooks || []).find((b: any) => b.id === loan.bookId && b.schoolId === schoolId);
+    if (book && Number(book.availableCopies) < Number(book.totalCopies)) {
+      book.availableCopies += 1;
+    }
+    loan.status = "Returned";
+    loan.returnDate = returnDate;
+    saveLocalDB(db);
+    return res.json({ success: true, message: "Buugga si nabad ah ayaa loo soo celiyey" });
   });
 
   /* =========================================================================
@@ -2117,5 +2218,5 @@ export function registerModernRoutes(app: express.Express, helpers: ModernRouteH
         staffTotalMarked: staffAttendanceToday.length
       }
     });
-  }););
+  });
 }
