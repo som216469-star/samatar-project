@@ -39,61 +39,63 @@ export function registerTeacherAuthRoutes(
       return res.status(400).json({ valid: false, error: "Link-ga casuumaaddu ma shaqeynayo (Invalid token)." });
     }
 
-    const db = loadLocalDB();
-    const teacher = (db.teachers || []).find((t: any) => t.invitationToken === token);
-
-    if (!teacher) {
-      // Check Supabase if connected
-      if (!getUseLocalFallback() && supabase) {
-        try {
-          const { data, error } = await supabase
-            .from("dugsiga_teachers")
-            .select("*")
-            .eq("invitation_token", token)
-            .maybeSingle();
-
-          if (!error && data) {
-            const isExpired = data.invitation_expires_at && new Date(data.invitation_expires_at) < new Date();
-            if (isExpired) {
-              return res.status(400).json({ valid: false, error: "Casuumaaddani way dhacday. Fadlan la xiriir maamulka iskuulka." });
-            }
-            if (data.status === "ACTIVE") {
-              return res.status(400).json({ valid: false, error: "Akoonkan horey ayaa loo dhaqaajiyey. Fadlan 'Login' ku gal." });
-            }
-            return res.json({
-              valid: true,
-              teacherName: data.name,
-              email: data.email,
-              schoolId: data.school_id,
-              status: data.status || "INVITED"
-            });
-          }
-        } catch (sbErr) {
-          console.warn("Supabase invitation verify notice:", sbErr);
+    if (!getUseLocalFallback() && supabase) {
+      try {
+        const { data, error } = await supabase
+          .from("dugsiga_teachers")
+          .select("id, school_id, name, email, status, invitation_expires_at")
+          .eq("invitation_token", token)
+          .maybeSingle();
+        if (error) throw error;
+        if (!data) {
+          return res.status(400).json({
+            valid: false,
+            error: "Casuumaad lama helin ama horey ayaa loo isticmaalay. Fadlan la xiriir maamulka iskuulka."
+          });
         }
+        if (data.invitation_expires_at && new Date(data.invitation_expires_at) < new Date()) {
+          return res.status(400).json({ valid: false, error: "Casuumaaddani way dhacday. Fadlan la xiriir maamulka iskuulka." });
+        }
+        if (String(data.status || "").toUpperCase() === "ACTIVE") {
+          return res.status(400).json({ valid: false, error: "Akoonkan horey ayaa loo dhaqaajiyey. Fadlan 'Login' ku gal." });
+        }
+        return res.json({
+          valid: true,
+          teacherName: data.name,
+          email: data.email,
+          schoolId: data.school_id,
+          status: data.status || "INVITED"
+        });
+      } catch (error: any) {
+        console.error("Cloud invitation verification failed:", String(error?.message || error).slice(0, 180));
+        return res.status(503).json({
+          valid: false,
+          error: "Casuumaadda lagama xaqiijin karin kaydka xogta daruurta ah. Fadlan mar kale isku day.",
+          code: "DATABASE_UNAVAILABLE"
+        });
       }
+    }
 
+    const db = loadLocalDB();
+    const teacher = (db.teachers || []).find((item: any) => item.invitationToken === token);
+    if (!teacher) {
       return res.status(400).json({
         valid: false,
         error: "Casuumaad lama helin ama horey ayaa loo isticmaalay. Fadlan la xiriir maamulka iskuulka."
       });
     }
-
-    // Check expiration
     if (teacher.invitationExpiresAt && new Date(teacher.invitationExpiresAt) < new Date()) {
       return res.status(400).json({
         valid: false,
         error: "Casuumaaddani way dhacday (Invitation expired). Fadlan weydiiso maamulka in laguu soo cusboonaysiiyo."
       });
     }
-
-    if (teacher.status === "ACTIVE") {
+    if (String(teacher.status || "").toUpperCase() === "ACTIVE") {
       return res.status(400).json({
         valid: false,
         error: "Akoonkan horey ayaa loo dhaqaajiyey. Fadlan gal adigoo isticmaalaya email-kaaga iyo password-kaaga."
       });
     }
-
     const schoolSettings = db.settings || {};
     return res.json({
       valid: true,
