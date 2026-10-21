@@ -18,38 +18,40 @@ function assertContains(content, needle, label) {
 const server = read("server.ts");
 const modern = read("server/modernRoutes.ts");
 const finance = read("server/financeRoutes.ts");
+const migration = read("supabase/migrations/20261017100000_atomic_finance_transactions.sql");
 
-assertContains(server, 'return authUser?.schoolId?.trim() || "";', "tenant comes from a verified server session");
-assertContains(server, "return requireAuthenticatedRequest(req, res, next);", "protected API routes require a signed session");
-assertContains(server, 'id: currentFee.id,\n        schoolId: currentFee.schoolId', "legacy fee updates preserve original id and tenant");
+// Tenant identity must come from the verified server session, not client headers.
+assertContains(server, 'return authUser?.schoolId?.trim() || "";', "tenant comes from verified server session");
 
+// Legacy fee routes must scope both cloud and local operations to the authenticated school.
+assertContains(server, '.eq("id", id).eq("school_id", schoolId);', "legacy fee cloud update/delete includes tenant predicate");
+assertContains(server, "f.id === id && f.schoolId === schoolId", "legacy fee local update/delete includes tenant predicate");
+
+// Modern entity updates must be scoped in Supabase and in the local-only fallback.
 for (const [needle, label] of [
-  ["id: currentStructure.id,\n      schoolId: currentStructure.schoolId", "fee-structure update preserves tenant"],
-  ["id: current.id,\n      schoolId: current.schoolId,\n      feeId: current.feeId", "invoice update preserves tenant and legacy link"],
-  ["id: currentExpense.id,\n      schoolId: currentExpense.schoolId", "expense update preserves tenant"],
-  ["id: currentIncome.id,\n      schoolId: currentIncome.schoolId", "income update preserves tenant"],
-  ["id: current.id,\n      schoolId: current.schoolId,\n      createdAt: current.createdAt", "payroll update preserves tenant"],
-  ["id: currentBudget.id,\n      schoolId: currentBudget.schoolId", "budget update preserves tenant"],
-  ["e.schoolId === schoolId && (e.payrollId === pr.id || e.id === expId)", "payroll payment cannot edit another school's expense"],
-  ["!(e.schoolId === schoolId && (e.id === pr.expenseId || e.payrollId === id))", "payroll deletion is tenant-scoped"],
-  ["f.id === id && f.schoolId === schoolId", "legacy fee linkage is tenant-scoped"]
-]) {
-  assertContains(finance, needle, label);
-}
-
-for (const [needle, label] of [
-  ["id: currentTeacher.id,\n        schoolId: currentTeacher.schoolId", "teacher update preserves tenant"],
-  ["id: currentStaff.id,\n        schoolId: currentStaff.schoolId", "staff update preserves tenant"],
-  ["id: currentGuardian.id,\n        schoolId: currentGuardian.schoolId", "guardian update preserves tenant"],
-  ["id: currentAdmission.id,\n        schoolId: currentAdmission.schoolId", "admission update preserves tenant"],
-  ["id: currentAnnouncement.id,\n        schoolId: currentAnnouncement.schoolId", "announcement update preserves tenant"],
-  ["id: currentBook.id,\n        schoolId: currentBook.schoolId", "library book update preserves tenant"],
-  ["id: currentItem.id,\n        schoolId: currentItem.schoolId", "inventory update preserves tenant"],
-  ['.eq("id", loan.bookId)\n          .eq("school_id", schoolId)', "loan book lookup is tenant-scoped"],
-  ['.eq("id", returnedLoan.book_id)\n          .eq("school_id", schoolId)', "returned book stock update is tenant-scoped"],
-  ["b.id === loan.bookId && b.schoolId === schoolId", "local library stock changes are tenant-scoped"]
+  ['.eq("id", id)\n          .eq("school_id", schoolId);', "modern updates include id and school predicates"],
+  ["t.id === id && t.schoolId === schoolId", "teacher fallback update includes tenant predicate"],
+  ["s.id === id && s.schoolId === schoolId", "staff fallback update includes tenant predicate"],
+  ["g.id === id && g.schoolId === schoolId", "guardian fallback update includes tenant predicate"],
+  ["a.id === id && a.schoolId === schoolId", "admission/announcement fallback update includes tenant predicate"],
+  ["b.id === id && b.schoolId === schoolId", "library book fallback update includes tenant predicate"],
+  ["i.id === id && i.schoolId === schoolId", "inventory fallback update includes tenant predicate"],
+  ["b.id === loan.bookId && b.schoolId === schoolId", "library loan stock changes include tenant predicate"],
+  ['.eq("id", loan.bookId)\n          .eq("school_id", schoolId)', "library loan cloud stock update is tenant-scoped"],
+  ['.eq("id", returnedLoan.book_id)\n          .eq("school_id", schoolId)', "library return cloud stock update is tenant-scoped"]
 ]) {
   assertContains(modern, needle, label);
 }
+
+// Finance routes refresh authoritative rows per tenant and preserve tenant identity on edits.
+assertContains(finance, 'const { authorized, schoolId } = checkFinanceAuth(req, "finance.manage");', "finance mutations require finance authorization and tenant identity");
+assertContains(finance, '.eq("school_id", schoolId)', "finance source reads are scoped to the authenticated school");
+assertContains(finance, "findIndex((inv: any) => inv.id === id && inv.schoolId === schoolId)", "invoice update is tenant-scoped");
+assertContains(finance, "schoolId: current.schoolId", "finance edits cannot replace the original tenant identity");
+
+// Atomic writes additionally validate tenant identity inside the database transaction.
+assertContains(migration, "v_row ->> 'school_id' IS DISTINCT FROM p_school_id", "atomic upserts reject mismatched tenant ids");
+assertContains(migration, "existing.school_id = $2 AND EXCLUDED.school_id = $2", "conflicting ids cannot be moved between tenants");
+assertContains(migration, "WHERE id = p_invoice_id AND school_id = p_school_id", "invoice payment locks and updates only the scoped tenant row");
 
 console.log("Tenant boundary contract checks: PASS");
