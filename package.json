@@ -23,7 +23,8 @@
     "test:mobile-contract": "node scripts/mobile-config-contract.mjs",
     "test:database-source-contract": "node scripts/database-source-contract.mjs",
     "test:finance-source-contract": "node scripts/finance-source-contract.mjs",
-    "test:auth-cloud-contract": "node scripts/auth-cloud-source-contract.mjs"
+    "test:auth-cloud-contract": "node scripts/auth-cloud-source-contract.mjs",
+    "test:tenant-boundary-contract": "node scripts/tenant-boundary-contract.mjs"
   },
   "engines": {
     "node": "22.x"
