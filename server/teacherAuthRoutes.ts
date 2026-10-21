@@ -267,66 +267,104 @@ export function registerTeacherAuthRoutes(
    */
   app.post("/api/teachers/:id/resend-invitation", async (req, res) => {
     const authUser = getAuthenticatedUser(req, loadLocalDB);
-    if (authUser && authUser.role === "teacher") {
+    if (!authUser || !authUser.schoolId) {
+      return res.status(401).json({ error: "Session-ka lama xaqiijin." });
+    }
+    if (String(authUser.role || "").toLowerCase() === "teacher") {
       return res.status(403).json({ error: "Macallinku awood uma laha dib u diridda casuumaadaha." });
     }
 
     const { id } = req.params;
-    const db = loadLocalDB();
-    const teacherIndex = (db.teachers || []).findIndex((t: any) => t.id === id);
-
-    if (teacherIndex === -1) {
-      return res.status(404).json({ error: "Macallinka lama helin." });
-    }
-
-    const teacher = db.teachers[teacherIndex];
-    if (!teacher.email || !teacher.email.includes("@")) {
-      return res.status(400).json({ error: "Macallinkani ma laha email sax ah oo casuumaad loogu diro." });
-    }
-
+    let teacher: any;
+    let schoolName = "Dugsiga Pro 2026";
     const newToken = generateSecureToken();
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
     const sentAt = new Date().toISOString();
 
-    // Update in Local DB
-    db.teachers[teacherIndex].invitationToken = newToken;
-    db.teachers[teacherIndex].invitationExpiresAt = expiresAt;
-    db.teachers[teacherIndex].invitationSentAt = sentAt;
-    db.teachers[teacherIndex].status = "INVITED";
-    saveLocalDB(db);
-
-    // Update in Supabase
     if (!getUseLocalFallback() && supabase) {
       try {
-        await supabase
+        const { data, error } = await supabase
+          .from("dugsiga_teachers")
+          .select("id, school_id, name, email, status")
+          .eq("id", id)
+          .eq("school_id", authUser.schoolId)
+          .maybeSingle();
+        if (error) throw error;
+        if (!data) return res.status(404).json({ error: "Macallinka lama helin." });
+        teacher = data;
+        if (!teacher.email || !String(teacher.email).includes("@")) {
+          return res.status(400).json({ error: "Macallinkani ma laha email sax ah oo casuumaad loogu diro." });
+        }
+
+        const { data: updatedTeacher, error: updateError } = await supabase
           .from("dugsiga_teachers")
           .update({
             invitation_token: newToken,
             invitation_expires_at: expiresAt,
+            invitation_sent_at: sentAt,
             status: "INVITED"
           })
-          .eq("id", id);
-      } catch (e) {}
+          .eq("id", id)
+          .eq("school_id", authUser.schoolId)
+          .select("id")
+          .maybeSingle();
+        if (updateError) throw updateError;
+        if (!updatedTeacher) return res.status(404).json({ error: "Macallinka lama helin ama waa la beddelay." });
+
+        const { data: settingsRow, error: settingsError } = await supabase
+          .from("dugsiga_settings")
+          .select("value")
+          .eq("school_id", authUser.schoolId)
+          .eq("key", "main_settings")
+          .maybeSingle();
+        if (settingsError) throw settingsError;
+        schoolName = settingsRow?.value?.schoolName || schoolName;
+      } catch (error: any) {
+        console.error("Cloud teacher invitation refresh failed:", String(error?.message || error).slice(0, 180));
+        return res.status(503).json({
+          error: "Casuumaadda laguma cusboonaysiin karin kaydka xogta daruurta ah. Fadlan mar kale isku day.",
+          code: "DATABASE_UNAVAILABLE"
+        });
+      }
+    } else {
+      const db = loadLocalDB();
+      const teacherIndex = (db.teachers || []).findIndex((item: any) =>
+        item.id === id && item.schoolId === authUser.schoolId
+      );
+      if (teacherIndex === -1) return res.status(404).json({ error: "Macallinka lama helin." });
+      teacher = db.teachers[teacherIndex];
+      if (!teacher.email || !String(teacher.email).includes("@")) {
+        return res.status(400).json({ error: "Macallinkani ma laha email sax ah oo casuumaad loogu diro." });
+      }
+      teacher.invitationToken = newToken;
+      teacher.invitationExpiresAt = expiresAt;
+      teacher.invitationSentAt = sentAt;
+      teacher.status = "INVITED";
+      saveLocalDB(db);
+      schoolName = db.settings?.schoolName || schoolName;
     }
 
     const baseUrl = getBaseAppUrl(req);
     const activationLink = `${baseUrl}/activate-teacher?token=${newToken}`;
-    const schoolSettings = db.settings || {};
-    const schoolName = schoolSettings.schoolName || "Dugsiga Pro 2026";
-
-    const emailResult = await sendTeacherInvitationEmail({
-      toEmail: teacher.email,
-      teacherName: teacher.name,
-      schoolName,
-      activationLink,
-      expiresInDays: 7
-    });
+    let emailResult: { success: boolean };
+    try {
+      emailResult = await sendTeacherInvitationEmail({
+        toEmail: teacher.email,
+        teacherName: teacher.name,
+        schoolName,
+        activationLink,
+        expiresInDays: 7
+      });
+    } catch (error: any) {
+      console.warn("Teacher invitation email failed:", String(error?.message || error).slice(0, 160));
+      emailResult = { success: false };
+    }
 
     return res.json({
       success: true,
       message: emailResult.success
         ? `Casuumaad cusub waxaa si guul leh loogu diray ${teacher.email}`
-        : `Casuumaad ayaa loo sameeyay laakiin dirista email-ku waxay ku timid cillad. Link-ga tooska ah hoos kaga koobi garee.`,
+        : "Casuumaad cusub waa la sameeyay laakiin email-ka lama diri karin. Link-ga tooska ah hoos kaga koobi garee.",
       emailSent: emailResult.success,
       activationLink,
       invitationExpiresAt: expiresAt
@@ -339,29 +377,46 @@ export function registerTeacherAuthRoutes(
    */
   app.post("/api/teachers/:id/toggle-status", async (req, res) => {
     const authUser = getAuthenticatedUser(req, loadLocalDB);
-    if (authUser && authUser.role === "teacher") {
+    if (!authUser || !authUser.schoolId) {
+      return res.status(401).json({ error: "Session-ka lama xaqiijin." });
+    }
+    if (String(authUser.role || "").toLowerCase() === "teacher") {
       return res.status(403).json({ error: "Macallinku awood uma laha wax ka beddelka xaaladda macallimiinta." });
     }
 
     const { id } = req.params;
-    const { status } = req.body; // 'ACTIVE' | 'DEACTIVATED' | 'INACTIVE'
+    const { status } = req.body;
     const newStatus = status === "DEACTIVATED" || status === "INACTIVE" ? "DEACTIVATED" : "ACTIVE";
-
-    const db = loadLocalDB();
-    const idx = (db.teachers || []).findIndex((t: any) => t.id === id);
-    if (idx === -1) {
-      return res.status(404).json({ error: "Macallinka lama helin." });
-    }
-
-    db.teachers[idx].status = newStatus;
-    saveLocalDB(db);
 
     if (!getUseLocalFallback() && supabase) {
       try {
-        await supabase.from("dugsiga_teachers").update({ status: newStatus }).eq("id", id);
-      } catch (e) {}
+        const { data, error } = await supabase
+          .from("dugsiga_teachers")
+          .update({ status: newStatus })
+          .eq("id", id)
+          .eq("school_id", authUser.schoolId)
+          .select("id")
+          .maybeSingle();
+        if (error) throw error;
+        if (!data) return res.status(404).json({ error: "Macallinka lama helin." });
+        return res.json({ success: true, status: newStatus });
+      } catch (error: any) {
+        console.error("Cloud teacher status update failed:", String(error?.message || error).slice(0, 180));
+        return res.status(503).json({
+          error: "Xaaladda macallinka laguma kaydin karin kaydka xogta daruurta ah. Fadlan mar kale isku day.",
+          code: "DATABASE_UNAVAILABLE"
+        });
+      }
     }
 
+    const db = loadLocalDB();
+    const idx = (db.teachers || []).findIndex((item: any) =>
+      item.id === id && item.schoolId === authUser.schoolId
+    );
+    if (idx === -1) return res.status(404).json({ error: "Macallinka lama helin." });
+    db.teachers[idx].status = newStatus;
+    saveLocalDB(db);
     return res.json({ success: true, status: newStatus });
   });
+
 }
