@@ -308,7 +308,7 @@ function deriveSupabaseKey(): string {
   return getSupabaseServerKeyCandidates()[0]?.value || "";
 }
 
-const supabaseUrl = parseSupabaseUrl(process.env.SUPABASE_URL || "https://mdvfcqujqjnvfpzowayo.supabase.co");
+const supabaseUrl = parseSupabaseUrl(process.env.SUPABASE_URL);
 const supabaseAnonKey = sanitizeEnvValue(process.env.SUPABASE_ANON_KEY || "");
 let supabaseActiveKey = deriveSupabaseKey();
 
@@ -571,51 +571,6 @@ function handleSupabaseError(res: any, error: any, context: string) {
   });
 }
 
-async function syncLocalToSupabase() {
-  if (!supabase || useLocalFallback) return;
-  try {
-    const db = loadLocalDB();
-    // 1. Sync any local users missing from Supabase
-    if (db.users && db.users.length > 0) {
-      const { data: sbUsers } = await supabase.from("dugsiga_users").select("email");
-      const existingEmails = new Set((sbUsers || []).map((u: any) => u.email.toLowerCase()));
-      for (const u of db.users) {
-        if (!existingEmails.has(u.email.toLowerCase())) {
-          console.log("Syncing local user to Supabase:", u.email);
-          await supabase.from("dugsiga_users").insert([{
-            email: u.email.toLowerCase(),
-            password: u.password_hash,
-            verified: true
-          }]);
-        }
-      }
-    }
-
-    // 2. Sync any local classes missing from Supabase
-    if (db.classes && db.classes.length > 0) {
-      const { data: sbClasses } = await supabase.from("dugsiga_classes").select("school_id, class_name");
-      const existingClasses = new Set((sbClasses || []).map((c: any) => `${c.school_id}::${c.class_name.toLowerCase()}`));
-      for (const c of db.classes) {
-        const key = `${c.schoolId || "default-school"}::${c.className.toLowerCase()}`;
-        if (!existingClasses.has(key)) {
-          console.log("Syncing local class to Supabase:", c.className);
-          await supabase.from("dugsiga_classes").insert([{
-            id: c.id || 'cls-' + Math.random().toString(36).substring(2, 11),
-            school_id: c.schoolId || "default-school",
-            class_name: c.className,
-            teacher_name: c.teacherName || "",
-            room_number: c.roomNumber || "",
-            description: c.description || "",
-            created_at: c.createdAt || new Date().toISOString().split("T")[0]
-          }]);
-        }
-      }
-    }
-  } catch (syncErr) {
-    console.warn("Notice during local DB to Supabase sync:", syncErr);
-  }
-}
-
 async function checkSupabaseStatus() {
   if (!supabaseUrl || !supabaseActiveKey || !supabase) {
     useLocalFallback = true;
@@ -729,8 +684,7 @@ async function checkSupabaseStatus() {
     customSupabaseActive = true;
     console.log("✅ Supabase si buuxda ayuu ugu xiran yahay (Direct Supabase Cloud Mode Active).");
 
-    // Perform background data sync so no local changes are lost
-    await syncLocalToSupabase();
+    // File-backed records are never merged into Supabase automatically.
   } catch (err: any) {
     useLocalFallback = true;
     customSupabaseActive = false;
@@ -2178,18 +2132,25 @@ app.use("/api", (req, res, next) => {
 });
 
 app.use("/api", (req, res, next) => {
-  // Keep API reads and health diagnostics available, but fail closed on
-  // production mutations so ephemeral local files never masquerade as cloud saves.
-  const isDatabaseStatusRoute = req.path === "/db/status";
-  const isMutation = ["POST", "PUT", "PATCH", "DELETE"].includes(req.method);
+  // Production must never serve stale file-backed data when Supabase is unavailable.
+  // Only endpoints that do not depend on school data are allowed through.
+  const safeWithoutDatabase =
+    (req.method === "GET" && [
+      "/db/status",
+      "/user/profile",
+      "/docs/download/pdf",
+      "/docs/download/word",
+      "/documentation-pdf"
+    ].includes(req.path)) ||
+    (req.method === "POST" && req.path === "/auth/logout");
+
   if (
-    isMutation &&
-    !isDatabaseStatusRoute &&
+    process.env.NODE_ENV === "production" &&
     useLocalFallback &&
-    process.env.NODE_ENV === "production"
+    !safeWithoutDatabase
   ) {
     return res.status(503).json({
-      error: "Cloud database-ku diyaar ma aha. Xogta lama kaydin. Fadlan la xiriir maamulka si Supabase connection-ka loo saxo.",
+      error: "Kaydka xogta daruurta ah hadda lama heli karo. Quantora ma isticmaali doono xog maxalli ah oo duug ah. Fadlan dib u tijaabi marka xiriirka Supabase la saxo.",
       code: "DATABASE_UNAVAILABLE"
     });
   }
