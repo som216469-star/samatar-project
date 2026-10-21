@@ -66,6 +66,9 @@ jobs:
       - name: Authentication cloud-source contract test
         run: npm run test:auth-cloud-contract
 
+      - name: Tenant boundary contract test
+        run: npm run test:tenant-boundary-contract
+
       - name: Finance Supabase source-of-truth contract test
         run: npm run test:finance-source-contract
 
