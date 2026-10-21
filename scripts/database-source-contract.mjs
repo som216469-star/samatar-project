@@ -43,6 +43,7 @@ assertContains(smoke, "should remain available to clear the session", "runtime a
 assertContains(smoke, "QUANTORA_SKIP_DOTENV: '1'", "runtime test does not load local credentials");
 
 assertContains(server, "if (customSupabaseActive) return;", "cloud-active cache is not persisted to the service filesystem");
+assertContains(server, 'if (customSupabaseActive) {\n    if (inMemoryDB) return ensureArrays(inMemoryDB);', "cloud mode does not read stale database.json or /tmp JSON cache");
 assertContains(server, 'const { error: readError }', "database health checks use a read-only probe");
 assertNotContains(server, 'school_id: "__health_check__"', "health checks do not write fake tenant rows");
 
