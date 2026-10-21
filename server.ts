@@ -2245,13 +2245,25 @@ app.post("/api/auth/signup", async (req, res) => {
       const { data: existingUser, error: selectErr } = await supabase
         .from("dugsiga_users")
         .select("email")
-        .ilike("email", cleanEmail)
+        .eq("email", cleanEmail)
         .maybeSingle();
 
       if (selectErr) {
-        if (selectErr.message?.includes("fetch failed") || selectErr.message?.includes("ENOTFOUND")) {
+        const networkFailure =
+          String(selectErr.message || "").includes("fetch failed") ||
+          String(selectErr.message || "").includes("ENOTFOUND");
+        if (networkFailure) {
           useLocalFallback = true;
           customSupabaseActive = false;
+        }
+        if (process.env.NODE_ENV === "production" || !networkFailure) {
+          console.error("Signup duplicate check failed in the authoritative database.", {
+            code: String(selectErr.code || "UNKNOWN")
+          });
+          return res.status(503).json({
+            error: "Diiwaangelinta lama xaqiijin karin sababtoo ah kaydka xogta daruurta ah lama heli karo.",
+            code: "DATABASE_UNAVAILABLE"
+          });
         }
       } else if (existingUser) {
         return res.status(400).json({ error: "Email-kan horey ayaa loo diiwaangeliyey. Fadlan 'Sign In' ku gal." });
@@ -2404,7 +2416,8 @@ app.post("/api/auth/login", async (req, res) => {
           const { error: rehashError } = await supabase
             .from("dugsiga_users")
             .update({ password: upgradedHash })
-            .eq("email", cleanEmail);
+            .eq("email", cleanEmail)
+            .eq("school_id", user.school_id || cleanEmail);
 
           if (rehashError) {
             return res.status(503).json({
