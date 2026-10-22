@@ -1,0 +1,91 @@
+name: Quantora quality gates
+
+on:
+  push:
+    branches:
+      - main
+      - "phase1/**"
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quantora-quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Lint, contracts, SQL integration, production build and smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install locked dependencies
+        run: bun install --frozen-lockfile --ignore-scripts
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Atomic finance SQL integration contract
+        env:
+          PGPASSWORD: postgres
+        run: psql "postgresql://postgres:postgres@localhost:5432/postgres" --set ON_ERROR_STOP=1 --file scripts/finance-transaction-db-contract.sql
+
+      - name: TypeScript lint
+        run: npm run lint
+
+      - name: Database source-of-truth contract test
+        run: npm run test:database-source-contract
+
+      - name: Supabase migration history contract test
+        run: npm run test:migration-history-contract
+
+      - name: Authentication cloud-source contract test
+        run: npm run test:auth-cloud-contract
+
+      - name: Tenant boundary contract test
+        run: npm run test:tenant-boundary-contract
+
+      - name: Finance Supabase source-of-truth contract test
+        run: npm run test:finance-source-contract
+
+      - name: Students contract test
+        run: npm run test:students-contract
+
+      - name: Attendance contract test
+        run: npm run test:attendance-contract
+
+      - name: Mobile configuration contract test
+        run: npm run test:mobile-contract
+
+      - name: Production build
+        run: npm run build
+
+      - name: Production server smoke test
+        run: node scripts/server-smoke.mjs

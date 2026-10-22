@@ -1,5 +1,3 @@
--- DUGSI PRO 2026 - Students DB guardrails
--- Enforces class/section integrity and makes student audit append-only.
 
 create or replace function public.dugsiga_validate_student_class_assignment()
 returns trigger
@@ -17,12 +15,15 @@ begin
   clean_section := lower(btrim(coalesce(new.section, '')));
 
   if clean_class = '' then
-    raise exception using errcode = '23514', message = 'Student class is required.';
+    raise exception using
+      errcode = '23514',
+      message = 'Student class is required.';
   end if;
 
-  select count(*)::integer,
-         count(*) filter (where btrim(coalesce(c.section, '')) <> '')::integer
-    into class_count, section_rows
+  select
+    count(*)::integer,
+    count(*) filter (where btrim(coalesce(c.section, '')) <> '')::integer
+  into class_count, section_rows
   from public.dugsiga_classes c
   where c.school_id = new.school_id
     and lower(btrim(coalesce(c.class_name, ''))) = clean_class;

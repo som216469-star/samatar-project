@@ -28,7 +28,7 @@ const addView = read("src/features/students/components/StudentAddView.tsx");
 const importView = read("src/features/students/components/StudentImportView.tsx");
 const profile = read("src/features/students/components/StudentProfileModal.tsx");
 const canonicalSql = read("DUGSI_PRO_2026_ALL_TABLES.sql");
-const migration = read("supabase/migrations/20261002_students_10_10_audit_and_integrity.sql");
+const migration = read("supabase/migrations/20261002193056_students_10_10_clean_rebuild.sql");
 
 // Server-side tenant and permission contracts.
 assertContains(server, 'function getSchoolId(req: express.Request): string {', "session-bound school resolver");
