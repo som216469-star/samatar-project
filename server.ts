@@ -328,11 +328,6 @@ try {
   console.error("Failed to initialize Supabase client:", err);
 }
 
-// Production must never silently serve stale file-backed data when Supabase is misconfigured.
-if (process.env.NODE_ENV === "production" && (!supabaseUrl || !supabaseActiveKey || !supabase)) {
-  throw new Error("Production startup blocked: Supabase configuration is required; local JSON fallback is disabled.");
-}
-
 // ✅ NO EMAIL VERIFICATION - Auto verified
 
 // Local database fallback with read-only filesystem resilience for Cloud Run
@@ -2187,7 +2182,7 @@ app.use("/api", (req, res, next) => {
 
   if (
     process.env.NODE_ENV === "production" &&
-    useLocalFallback &&
+    (useLocalFallback || !customSupabaseActive || !supabase || !supabaseUrl || !supabaseActiveKey) &&
     !safeWithoutDatabase
   ) {
     return res.status(503).json({
