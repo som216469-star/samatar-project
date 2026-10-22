@@ -18,7 +18,7 @@ const server = read("server.ts");
 const packageJson = JSON.parse(read("package.json"));
 assertContains(server, 'let useLocalFallback = process.env.NODE_ENV !== "production";', "production begins in fail-closed mode");
 assertNotContains(server, "useLocalFallback = true;", "runtime failures cannot enable production local-JSON fallback");
-assertContains(server, 'if (process.env.NODE_ENV === "production" && (!supabaseUrl || !supabaseActiveKey || !supabase))', "production refuses to start without server-side Supabase configuration");
+assertContains(server, 'process.env.NODE_ENV === "production" &&\n    (useLocalFallback || !customSupabaseActive || !supabase || !supabaseUrl || !supabaseActiveKey) &&\n    !safeWithoutDatabase', "production data API fails closed unless authoritative Supabase is active");
 assertContains(server, 'code: "DATABASE_UNAVAILABLE"', "Supabase outage has a controlled unavailable response");
 assertContains(server, 'pathName.startsWith("/fees")', "legacy fee endpoints inherit finance RBAC");
 assertContains(server, 'if (pathName === "/settings") return read ? "settings.view" : "settings.manage";', "settings reads and writes require separate permissions");
