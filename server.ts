@@ -328,6 +328,11 @@ try {
   console.error("Failed to initialize Supabase client:", err);
 }
 
+// Production must never silently serve stale file-backed data when Supabase is misconfigured.
+if (process.env.NODE_ENV === "production" && (!supabaseUrl || !supabaseActiveKey || !supabase)) {
+  throw new Error("Production startup blocked: Supabase configuration is required; local JSON fallback is disabled.");
+}
+
 // ✅ NO EMAIL VERIFICATION - Auto verified
 
 // Local database fallback with read-only filesystem resilience for Cloud Run
@@ -573,14 +578,26 @@ async function testSupabaseTable(tableName: string, checkColumn?: string): Promi
   }
 }
 
-let useLocalFallback = true;
+let useLocalFallback = process.env.NODE_ENV !== "production";
 let customSupabaseActive = false;
 
 function handleSupabaseError(res: any, error: any, context: string) {
-  if (error?.message?.includes("fetch failed") || error?.message?.includes("ENOTFOUND")) {
-    useLocalFallback = true;
+  const networkFailure =
+    String(error?.message || "").includes("fetch failed") ||
+    String(error?.message || "").includes("ENOTFOUND");
+
+  if (networkFailure) {
+    useLocalFallback = process.env.NODE_ENV !== "production";
     customSupabaseActive = false;
+
+    if (process.env.NODE_ENV === "production") {
+      return res.status(503).json({
+        error: "Kaydka xogta daruurta ah lama heli karo hadda; hawsha waa la joojiyey.",
+        code: "DATABASE_UNAVAILABLE"
+      });
+    }
   }
+
   console.warn(`Backend database notice during "${context}":`, error?.message || error);
   return res.status(500).json({
     error: error?.message || "Khalad ayaa dhacay inta hawsha lagu jiray. Fadlan dib iskugu day."
@@ -589,7 +606,7 @@ function handleSupabaseError(res: any, error: any, context: string) {
 
 async function checkSupabaseStatus() {
   if (!supabaseUrl || !supabaseActiveKey || !supabase) {
-    useLocalFallback = true;
+    useLocalFallback = process.env.NODE_ENV !== "production";
     customSupabaseActive = false;
     console.log("Supabase not fully configured. Using local database fallback.");
     return;
@@ -603,7 +620,7 @@ async function checkSupabaseStatus() {
       clearTimeout(timeout);
     } catch {
       clearTimeout(timeout);
-      useLocalFallback = true;
+      useLocalFallback = process.env.NODE_ENV !== "production";
       customSupabaseActive = false;
       console.log("Supabase endpoint unreachable. Using local database fallback.");
       return;
@@ -659,7 +676,7 @@ async function checkSupabaseStatus() {
     }
 
     if (failedTableChecks.length > 0) {
-      useLocalFallback = true;
+      useLocalFallback = process.env.NODE_ENV !== "production";
       customSupabaseActive = false;
       const failedTableErrors = Object.fromEntries(
         failedTableChecks.map((tableName) => [
@@ -688,7 +705,7 @@ async function checkSupabaseStatus() {
       .limit(1);
 
     if (readError) {
-      useLocalFallback = true;
+      useLocalFallback = process.env.NODE_ENV !== "production";
       customSupabaseActive = false;
       console.warn(`Supabase read probe failed (${readError.code}: ${readError.message}). Cloud persistence is unavailable.`);
       return;
@@ -700,7 +717,7 @@ async function checkSupabaseStatus() {
 
     // File-backed records are never merged into Supabase automatically.
   } catch (err: any) {
-    useLocalFallback = true;
+    useLocalFallback = process.env.NODE_ENV !== "production";
     customSupabaseActive = false;
     console.log("Error checking Supabase, operating in resilient local database mode:", err?.message || err);
   }
@@ -1294,27 +1311,33 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
   'Super Admin': ['*'],
   'School Admin': ['*'],
   'Principal': [
+    'settings.view',
     'students.*', 'teachers.*', 'staff.*', 'guardians.*',
     'attendance.*', 'exams.*', 'classes.*', 'subjects.*',
     'timetable.*', 'admissions.*', 'announcements.*', 'reports.*',
     'communication.*', 'library.*', 'inventory.*', 'finance.view'
   ],
   'Teacher': [
+    'settings.view',
     'students.view', 'attendance.view', 'attendance.manage',
     'exams.view', 'exams.manage', 'classes.view', 'subjects.view',
     'timetable.view', 'reports.view', 'announcements.view'
   ],
   'Accountant': [
+    'settings.view',
     'finance.*', 'students.view', 'reports.view', 'inventory.view', 'announcements.view'
   ],
   'Receptionist': [
+    'settings.view',
     'students.view', 'students.create', 'students.update',
     'admissions.*', 'attendance.view', 'announcements.view', 'communication.*'
   ],
   'Librarian': [
+    'settings.view',
     'library.*', 'students.view', 'staff.view', 'announcements.view'
   ],
   'Staff': [
+    'settings.view',
     'timetable.view', 'announcements.view', 'attendance.view'
   ]
 };
@@ -1353,11 +1376,13 @@ function requiredPermissionForRequest(req: express.Request): string | null {
   if (pathName === "/reset") return "system.reset";
   if (pathName === "/db/status" || pathName === "/supabase-server-test") return "system.admin";
   if (pathName === "/documentation-pdf" || pathName.startsWith("/docs/download/")) return "reports.view";
-  if (pathName === "/user/profile") return null;
+  if (pathName === "/auth/logout" || pathName === "/user/profile") return null;
 
   const read = req.method === "GET";
   const mutationPermission = (domain: string) => `${domain}.manage`;
   const readPermission = (domain: string) => `${domain}.view`;
+
+  if (pathName === "/settings") return read ? "settings.view" : "settings.manage";
 
   if (pathName === "/students/bulk" || pathName === "/students/import") return "students.manage";
   if (/^\/students\/[^/]+\/audit$/.test(pathName)) return "students.manage";
@@ -1379,6 +1404,7 @@ function requiredPermissionForRequest(req: express.Request): string | null {
   if (pathName.startsWith("/analytics/") || pathName.startsWith("/reports/")) return "reports.view";
 
   if (
+    pathName.startsWith("/fees") ||
     pathName.startsWith("/fee-structures") ||
     pathName.startsWith("/invoices") ||
     pathName.startsWith("/payments") ||
@@ -1394,7 +1420,8 @@ function requiredPermissionForRequest(req: express.Request): string | null {
     return "finance.view";
   }
 
-  return null;
+  // Unclassified protected API routes are denied to non-administrator roles by default.
+  return "system.admin";
 }
 
 // Password hashing is centralized in server/authSession.ts.
@@ -2262,7 +2289,7 @@ app.post("/api/auth/signup", async (req, res) => {
           String(selectErr.message || "").includes("fetch failed") ||
           String(selectErr.message || "").includes("ENOTFOUND");
         if (networkFailure) {
-          useLocalFallback = true;
+          useLocalFallback = process.env.NODE_ENV !== "production";
           customSupabaseActive = false;
         }
         if (process.env.NODE_ENV === "production" || !networkFailure) {
@@ -2292,7 +2319,7 @@ app.post("/api/auth/signup", async (req, res) => {
             String(insertError.message || "").includes("ENOTFOUND");
 
           if (networkFailure) {
-            useLocalFallback = true;
+            useLocalFallback = process.env.NODE_ENV !== "production";
             customSupabaseActive = false;
           }
 
@@ -2315,7 +2342,7 @@ app.post("/api/auth/signup", async (req, res) => {
         String(sbErr?.message || "").includes("ENOTFOUND");
 
       if (networkFailure) {
-        useLocalFallback = true;
+        useLocalFallback = process.env.NODE_ENV !== "production";
         customSupabaseActive = false;
       }
 
@@ -2394,7 +2421,7 @@ app.post("/api/auth/login", async (req, res) => {
           String(error.message || "").includes("ENOTFOUND");
 
         if (networkFailure) {
-          useLocalFallback = true;
+          useLocalFallback = process.env.NODE_ENV !== "production";
           customSupabaseActive = false;
         }
 
@@ -2505,7 +2532,7 @@ app.post("/api/auth/login", async (req, res) => {
         String(e?.message || "").includes("ENOTFOUND");
 
       if (networkFailure) {
-        useLocalFallback = true;
+        useLocalFallback = process.env.NODE_ENV !== "production";
         customSupabaseActive = false;
       }
 
