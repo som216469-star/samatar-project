@@ -89,7 +89,7 @@ try {
     throw new Error(`Authenticated GET /api/db/status should remain available for diagnostics, got ${dbStatus.status}`);
   }
   const dbStatusBody = await dbStatus.json();
-  if (dbStatusBody.connected !== false || dbStatusBody.fallbackMode !== true) {
+  if (dbStatusBody.connected !== false || dbStatusBody.customSupabaseActive !== false) {
     throw new Error('Smoke test requires Supabase to be unavailable so production fail-closed behavior is exercised');
   }
 
