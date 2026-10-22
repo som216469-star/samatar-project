@@ -33,7 +33,7 @@ assertContains(server, "const safeWithoutDatabase =", "explicit database-indepen
 assertContains(server, '"/db/status"', "database status endpoint remains accessible");
 assertContains(server, '"/user/profile"', "signed-in profile endpoint remains available");
 assertContains(server, 'req.path === "/auth/logout"', "logout remains available while database is unavailable");
-assertContains(server, 'process.env.NODE_ENV === "production" &&\n    useLocalFallback &&\n    !safeWithoutDatabase', "production requests fail closed if Supabase is unavailable");
+assertContains(server, 'process.env.NODE_ENV === "production" &&\n    (useLocalFallback || !customSupabaseActive || !supabase || !supabaseUrl || !supabaseActiveKey) &&\n    !safeWithoutDatabase', "production requests fail closed unless the authoritative database is active");
 assertContains(server, 'code: "DATABASE_UNAVAILABLE"', "stable database unavailable error code");
 assertContains(server, 'process.env.QUANTORA_SKIP_DOTENV !== "1"', "smoke test can isolate itself from developer .env files");
 
