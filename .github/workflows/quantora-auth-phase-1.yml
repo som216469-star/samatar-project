@@ -1,0 +1,64 @@
+name: Quantora Auth Phase 1 Baseline
+
+on:
+  push:
+    branches:
+      - audit/quantora-auth-phase-1-20261026
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quantora-auth-phase-1-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  baseline:
+    name: Static contracts, typecheck, build and smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout audit branch
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install locked dependencies
+        run: bun install --frozen-lockfile
+
+      - name: TypeScript lint
+        run: npm run lint
+
+      - name: Students contract
+        run: npm run test:students-contract
+
+      - name: Attendance contract
+        run: npm run test:attendance-contract
+
+      - name: Authentication cloud-source contract
+        run: npm run test:auth-cloud-contract
+
+      - name: Tenant-boundary contract
+        run: npm run test:tenant-boundary-contract
+
+      - name: Migration-history contract
+        run: npm run test:migration-history-contract
+
+      - name: Database source contract
+        run: npm run test:database-source-contract
+
+      - name: Finance source contract
+        run: npm run test:finance-source-contract
+
+      - name: Production build
+        run: npm run build
+
+      - name: Server smoke test
+        run: node scripts/server-smoke.mjs
