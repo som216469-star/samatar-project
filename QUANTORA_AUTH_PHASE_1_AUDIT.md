@@ -30,6 +30,7 @@
 | `scripts/auth-cloud-source-contract.mjs` | Static auth cloud-source checks |
 | `scripts/tenant-boundary-contract.mjs` | Static tenant-boundary checks |
 | `scripts/migration-history-contract.mjs` | Migration filename/history checks |
+| `.github/workflows/quantora-auth-phase-1.yml` | CI workflow branch-ga audit-ka ku ordiya lint, contracts, build iyo smoke test; production deploy ma sameeyo |
 | `.env.example`, `render.yaml` | Magacyada environment variables; secret values lama akhrin |
 
 ## 3. Xaaladda Supabase/database
@@ -121,32 +122,51 @@ Sidoo kale, code-ku wuxuu `SESSION_SECRET` u oggol yahay fallback ku yimaada `SU
 
 ## 9. Test plan iyo xaaladda fulinta
 
-### Scripts-ka jira ee u baahan in dhab ahaan la ordo
-```bash
-npm run lint
-npm run test:students-contract
-npm run test:attendance-contract
-npm run test:auth-cloud-contract
-npm run test:tenant-boundary-contract
-npm run test:migration-history-contract
-npm run test:database-source-contract
-npm run test:finance-source-contract
-node scripts/server-smoke.mjs
-npm run build
-```
+### Scripts-ka la orday
+
+Workflow-ga audit-ka: [Quantora Auth Phase 1 Baseline — GitHub Actions run #1](https://github.com/som216469-star/samatar-project/actions/runs/40363265891)
+
+- Run ID: `40363265891`
+- Commit la tijaabiyey: `62d960d9685fd17a156778353a662491d69d6eb0`
+- Bilow: `2026-10-26T16:52:24Z`
+- Dhammaad: `2026-10-26T16:53:06Z`
+- Natiijada job-ka: `completed / success`
+
+| Tijaabada | Natiijada |
+|---|---|
+| `bun install --frozen-lockfile` | PASS |
+| `npm run lint` | PASS |
+| `npm run test:students-contract` | PASS |
+| `npm run test:attendance-contract` | PASS |
+| `npm run test:auth-cloud-contract` | PASS |
+| `npm run test:tenant-boundary-contract` | PASS |
+| `npm run test:migration-history-contract` | PASS |
+| `npm run test:database-source-contract` | PASS |
+| `npm run test:finance-source-contract` | PASS |
+| `npm run build` | PASS |
+| `node scripts/server-smoke.mjs` | PASS |
+
+Kuwani waa natiijooyinka GitHub Actions ee workflow-ga kor ku xusan, ma aha qiyaas. Workflow-gu wuxuu ku kooban yahay `audit/quantora-auth-phase-1-20261026`; waxba lama merge-gareyn `main`, production deploy-na lama bilaabin.
+
+### Xaqiijinta Render ↔ Supabase (read-only)
+
+- Render service-ka la helay waa `samatar-project`, repo-gu waa `som216469-star/samatar-project`, deployment branch-kuna waa `main`.
+- Deployment-kii ugu dambeeyey ee la arkay waa commit `02ce8aafd1694de20e34d39cd531adaf5d071737`, xaaladdiisuna waa `live`; ma jiro deploy cusub oo audit branch-kan lagu sameeyey.
+- Render app logs-ka deployment-ka `2026-10-22` waxay muujiyeen fariinta `Supabase si buuxda ayuu ugu xiran yahay (Direct Supabase Cloud Mode Active)`. Fariintani waxay xaqiijinaysaa in app-ku waqtigaas ku guulaystay hubinta cloud-mode/table checks.
+- Supabase API-ga maareynta wuxuu muujiyey project `mdvfcqujqjnvfpzowayo` oo `ACTIVE_HEALTHY` ah, schemas/tables-kuna waxay la jaanqaadaan migration history-ga la hubiyey.
+- Render service metadata-ga read-only-ga ah ma soo bandhigo qiimaha `SUPABASE_URL`; si ula kac ah looma beddelin ama looma daabicin secrets. Sidaas darteed **si toos ah looma xaqiijin in URL-ka live-ku ku dhammaado project ref-kan**. Waa in Dashboard-ka Render laga hubiyaa magaca/ref-ga oo keliya, iyada oo aan qiimaha buuxa la wadaagin. Tani waa pre-cutover check ka hor Phase 2, mana aha sabab loo sameeyo production deploy.
 
 ### Tijaabooyinka integration ee Phase 2–4
-- Login sax ah/qaldan; logout; token signature la beddelay; expiry; session restart/revocation.
+
+Kuwa soo socda wali waa acceptance tests-ka integration-ka mustaqbalka, sababtoo ah Supabase Auth integration cusub wali lama hirgelin:
+
+- Login sax ah/qaldan; logout; invalid signature; expiry; session revocation/restart.
 - Role aan la oggolayn, role escalation, teacher activation token khaldan/dhacay/horay loo isticmaalay.
 - Email verification iyo password recovery.
 - School A oo isku dayaya inuu akhriyo, wax ka beddelo ama tirtiro School B; isku dayo inuu beddelo `school_id` ama role.
 - Teacher activation concurrency iyo rollback marka user upsert-ku fashilmo.
-- Direct Data API access oo ka yimaada `anon`/`authenticated`; hubi in uusan si toos ah u helin jadwallada server-only.
+- Direct Data API access oo ka yimaada `anon`/`authenticated`; xaqiiji in aan loo oggolaan jadwallada server-only.
 - Isticmaalayaasha hore iyo custom sessions inay sii shaqeeyaan inta transition-ka la tijaabinayo.
-
-### Natiijada tests-ka audit-kan
-
-**Lama sheegi karo in tests-ku gudbeen:** local checkout-ka repository-ga lama samayn karin sababtoo ah execution environment-ku ma xallin karin `github.com` (`git ls-remote` wuxuu fashilmay DNS). Scripts-ka iyo source files-ka waa la akhriyey, laakiin amarada kore laguma orodin deegaankaas. Sidaas darteed, test gate-ku wali waa pending; Phase 2 lama bilaabayo ilaa natiijooyinka la xaqiijiyo.
 
 ## 10. Shuruudaha dhammaadka Phase 1
 
@@ -155,7 +175,9 @@ npm run build
 - [x] Roles, tenant model, password/session/invitation risks la diiwaangeliyey
 - [x] Migration iyo rollback plans la diyaariyey
 - [x] Test plan iyo amarrada project-ka la diiwaangeliyey
-- [ ] Baseline tests dhab ahaan la ordo oo natiijooyinka la xaqiijiyo
-- [ ] Render environment-ka live-ka ah si read-only ah looga xaqiijiyo in URL-ku tilmaamayo Supabase project-ka saxda ah
+- [x] Baseline tests dhab ahaan la orday; dhammaan steps-ku PASS ayay noqdeen
+- [x] Environment variable *magacyada* ee `.env.example` iyo `render.yaml` waa la baaray
+- [x] Render logs waxay caddeeyeen Direct Supabase Cloud Mode inuu shaqaynayey deployment-kii la baaray
+- [ ] Exact live Render `SUPABASE_URL` project-ref match lama xaqiijin, sababtoo ah Render service metadata ma muujiyo env values; xaqiiji magaca/ref-ga adigoo Dashboard-ka isticmaalaya ka hor Phase 2 cutover
 
-**Xaalad kama dambays ah:** dukumentiga audit-ku waa diyaar; Phase 1 guud ahaan lama calaamadayn karo “passed” ilaa labada qodob ee pending-ka ah la dhammeeyo. Lama bilaabin Phase 2.
+**Xaalad kama dambays ah:** **Phase 1 — Audit iyo diyaarinta waa la dhammeeyey.** Koodhka Auth iyo database-ka waxba lagama beddelin; audit report iyo CI workflow waxay ku jiraan branch gaar ah. Qodobka exact live project-ref match waa la diiwaangeliyey inuu yahay pre-cutover check. **Phase 2 lama bilaabin, production deploy lama samayn, users/data lama tirtirin.**
